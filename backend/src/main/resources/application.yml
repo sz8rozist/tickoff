@@ -27,6 +27,9 @@ management:
         include: health,info
 
 tickoff:
+  registration:
+    # Nyilvános regisztráció. Élesben a saját fiók létrehozása után érdemes kikapcsolni (TICKOFF_REGISTRATION_ENABLED=false).
+    enabled: ${TICKOFF_REGISTRATION_ENABLED:true}
   rate-limit:
     # Kérésszám-korlát a widget és az auth végpontokon (lásd io.tickoff.ratelimit.RateLimits)
     enabled: ${TICKOFF_RATE_LIMIT_ENABLED:true}

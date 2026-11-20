@@ -1,0 +1,33 @@
+# Production profil (SPRING_PROFILES_ACTIVE=prod).
+# Itt szándékosan NINCS alapérték a titkokra és a címekre: ha egy környezeti változó hiányzik, az alkalmazás
+# nem indul el, így a fejlesztői alapértékek nem kerülhetnek véletlenül élesbe.
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    show-sql: false
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  shutdown: graceful
+  # A reverse proxy (Caddy) mögött a valódi kliens-IP az X-Forwarded-For fejlécben jön. A kérésszám-korlát
+  # ezt használja. Csak a megbízható (belső hálózati) proxyktól fogadjuk el, lásd README.
+  forward-headers-strategy: native
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+tickoff:
+  jwt:
+    secret: ${TICKOFF_JWT_SECRET}
+  dashboard-origin: ${DASHBOARD_ORIGIN}

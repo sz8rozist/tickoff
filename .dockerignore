@@ -1,0 +1,13 @@
+.git
+.github
+.idea
+.vscode
+node_modules
+**/node_modules
+**/dist
+backend/target
+data
+backups
+.env
+*.log
+backend

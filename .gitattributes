@@ -1,0 +1,14 @@
+# Egységes LF sorvég minden szövegfájlban (a Docker-konténerek Linuxon futnak, a shell-szkriptek CRLF-fel elbuknának).
+* text=auto eol=lf
+
+# Windowsos parancsfájlok CRLF-et várnak
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Bináris fájlok
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff2 binary
+*.jar binary

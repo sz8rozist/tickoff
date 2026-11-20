@@ -1,0 +1,67 @@
+# Production bejárat: automatikus HTTPS (Let's Encrypt), a dashboard és a widget statikus kiszolgálása,
+# az API reverse proxyja. A címet a TICKOFF_SITE_ADDRESS adja meg (pl. app.pelda.hu).
+# Helyi próbához: TICKOFF_SITE_ADDRESS=http://localhost (ilyenkor nincs HTTPS és nincs tanúsítvány).
+
+{
+	# Nem tesszük ki a Caddy admin API-ját
+	admin off
+	# A Let's Encrypt ide küld értesítést a tanúsítvány lejárata előtt
+	email {$TICKOFF_ACME_EMAIL}
+}
+
+{$TICKOFF_SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# --- API ---
+	handle /api/* {
+		# A legnagyobb kérés a 3 MB-os képernyőkép
+		request_body {
+			max_size 4MB
+		}
+		reverse_proxy backend:8080
+	}
+
+	# Csak az állapotjelző érhető el kívülről, a többi actuator végpont nem
+	handle /actuator/health {
+		reverse_proxy backend:8080
+	}
+	handle /actuator/* {
+		respond 404
+	}
+
+	# --- Widget: az ügyfelek oldalaira beágyazott script ---
+	handle /widget/* {
+		root * /srv
+		header Cache-Control "public, max-age=300"
+		# Más origin-ről betöltött <script> miatt
+		header Cross-Origin-Resource-Policy "cross-origin"
+		file_server
+	}
+
+	# --- Dashboard (SPA) ---
+	handle {
+		root * /srv/dashboard
+
+		header {
+			X-Frame-Options "DENY"
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		}
+
+		# A fájlnevekbe hash kerül, ezért örökre gyorsítótárazhatók. Minden más (index.html) mindig frissen töltődik,
+		# így egy új kiadás azonnal érvényesül. (Külön matcher kell: egy közös header-blokk felülírná az assetekét.)
+		@assets path /assets/*
+		@notassets not path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header @notassets Cache-Control "no-cache"
+
+		try_files {path} /index.html
+		file_server
+	}
+}

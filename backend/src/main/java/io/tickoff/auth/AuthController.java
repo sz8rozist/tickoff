@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -46,16 +47,24 @@ public class AuthController {
     // Nem létező felhasználónál is ezzel számolunk, így a válaszidő nem árulja el, hogy létezik-e az e-mail.
     private final String dummyHash;
 
-    public AuthController(UserRepository users, PasswordEncoder encoder, TokenService tokens) {
+    private final boolean registrationEnabled;
+
+    public AuthController(UserRepository users, PasswordEncoder encoder, TokenService tokens,
+                          @Value("${tickoff.registration.enabled:true}") boolean registrationEnabled) {
         this.users = users;
         this.encoder = encoder;
         this.tokens = tokens;
+        this.registrationEnabled = registrationEnabled;
         this.dummyHash = encoder.encode("tickoff-dummy-password");
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse register(@Valid @RequestBody RegisterRequest req) {
+        if (!registrationEnabled) {
+            // Éles üzemben a saját fiók(ok) létrehozása után lezárható a nyilvános regisztráció.
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "A regisztráció le van tiltva");
+        }
         String email = normalize(req.email());
         if (users.findByEmail(email).isPresent()) {
             throw emailTaken();
