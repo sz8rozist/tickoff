@@ -4,8 +4,12 @@ import io.tickoff.domain.Comment;
 import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.Project;
 import io.tickoff.domain.ProjectRepository;
+import io.tickoff.domain.Reply;
+import io.tickoff.domain.ReplyRepository;
 import io.tickoff.domain.Round;
 import io.tickoff.domain.RoundRepository;
+import io.tickoff.project.ReplyService;
+import io.tickoff.project.ReplyService.ReplyDto;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -29,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A beágyazott widget végpontjai. Nincs bejelentkezés: a projekt megosztó tokenje (az útvonalban) a kulcs,
@@ -59,25 +64,34 @@ public class WidgetController {
         @Min(1) @Max(20000) Integer viewportHeight) {
     }
 
+    public record ReplyRequest(
+        @NotBlank @Size(max = 120) String authorName,
+        @NotBlank @Size(max = 4000) String body) {
+    }
+
     public record CommentDto(Long id, String authorName, String body, String pageUrl, String cssSelector,
                              Double posX, Double posY, Comment.Status status, boolean hasScreenshot,
-                             Instant createdAt) {
-        static CommentDto of(Comment c) {
+                             Instant createdAt, List<ReplyDto> replies) {
+        static CommentDto of(Comment c, List<ReplyDto> replies) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
-                c.getPosX(), c.getPosY(), c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt());
+                c.getPosX(), c.getPosY(), c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), replies);
         }
     }
 
     private final ProjectRepository projects;
     private final RoundRepository rounds;
     private final CommentRepository comments;
+    private final ReplyRepository replyRepository;
+    private final ReplyService replyService;
     private final ScreenshotStorage storage;
 
     public WidgetController(ProjectRepository projects, RoundRepository rounds, CommentRepository comments,
-                            ScreenshotStorage storage) {
+                            ReplyRepository replyRepository, ReplyService replyService, ScreenshotStorage storage) {
         this.projects = projects;
         this.rounds = rounds;
         this.comments = comments;
+        this.replyRepository = replyRepository;
+        this.replyService = replyService;
         this.storage = storage;
     }
 
@@ -95,10 +109,13 @@ public class WidgetController {
                                  HttpServletRequest request) {
         Project project = authorize(token, request);
         return openRound(project)
-            .map(r -> comments.findByRoundIdOrderByCreatedAtAsc(r.getId()).stream()
-                .filter(c -> pageUrl == null || c.getPageUrl().equals(pageUrl))
-                .map(CommentDto::of)
-                .toList())
+            .map(r -> {
+                List<Comment> list = comments.findByRoundIdOrderByCreatedAtAsc(r.getId()).stream()
+                    .filter(c -> pageUrl == null || c.getPageUrl().equals(pageUrl))
+                    .toList();
+                Map<Long, List<ReplyDto>> replies = replyService.byComment(list.stream().map(Comment::getId).toList());
+                return list.stream().map(c -> CommentDto.of(c, replies.getOrDefault(c.getId(), List.of()))).toList();
+            })
             .orElse(List.of());
     }
 
@@ -117,7 +134,25 @@ public class WidgetController {
         comment.setLocation(blankToNull(req.cssSelector()), req.posX(), req.posY());
         // A user agentet a fejlécből vesszük, nem a kliens által küldött törzsből.
         comment.setEnvironment(req.viewportWidth(), req.viewportHeight(), truncate(request.getHeader("User-Agent"), 500));
-        return CommentDto.of(comments.save(comment));
+        return CommentDto.of(comments.save(comment), List.of());
+    }
+
+    /** Válasz egy kommentre az ügyfél nevében. Csak a nyitott kör kommentjeire lehet válaszolni. */
+    @PostMapping("/comments/{commentId}/replies")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public ReplyDto reply(@PathVariable String token, @PathVariable Long commentId,
+                          @Valid @RequestBody ReplyRequest req, HttpServletRequest request) {
+        Project project = authorize(token, request);
+        Comment comment = comments.findByIdAndRoundProjectId(commentId, project.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Round open = openRound(project)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Nincs nyitott kör"));
+        if (!comment.getRound().getId().equals(open.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ez a komment egy lezárt körhöz tartozik");
+        }
+        replyService.requireRoom(comment.getId());
+        return ReplyDto.of(replyRepository.save(Reply.byCustomer(comment, req.authorName().trim(), req.body().trim())));
     }
 
     /** A komment képernyőképe: nyers PNG vagy JPEG a kérés törzsében, legfeljebb 3 MB. */

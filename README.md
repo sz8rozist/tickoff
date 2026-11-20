@@ -13,7 +13,8 @@
 - **Javítási körök**: új kör nyitása és lezárása. Egyszerre egy nyitott kör van, új kört csak az előző lezárása után lehet nyitni. A köröknél látszik az összes és a nyitott kommentek száma.
 - **Kommentek**: körönként listázva, **oldalanként csoportosítva**. Mindegyiknél látszik a szerző, az idő, a szöveg, az elem CSS-selectora, a viewport mérete és a böngésző/rendszer. Státusz: nyitott, folyamatban, kész.
 - **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
-- **Komment törlése** (a képernyőképével együtt) megerősítéssel.
+- **Kommentszálak**: a designer válaszolhat a kommentekre (a válasz a widgetben is megjelenik, "csapat" jelvénnyel), és törölheti a válaszokat (két kattintással, véletlen törlés ellen). Az ügyfél válaszai is itt jelennek meg.
+- **Komment törlése** (a képernyőképével és a válaszaival együtt) megerősítéssel.
 - **Export CSV-be**: egy kör vagy a teljes projekt kommentjei, magyar Excelben helyesen megnyíló formátumban (ékezetek, pontosvessző).
 - Magyar felület, világos és sötét téma.
 
@@ -23,7 +24,8 @@
 - **Elemkiválasztás**: a gomb elindítja a kiválasztást, az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). A widget a kattintást elnyeli, az oldal saját kezelője nem fut le.
 - **Visszajelzés-űrlap**: név (megjegyzi a böngésző) és szöveg, opcionális képernyőkép.
 - **Képernyőkép** a látható nézetről, a kiválasztott elem piros-fehér kerettel kiemelve. Ha nem sikerül elkészíteni, a komment akkor is elmegy, és az ügyfél jelzést kap.
-- **Jelölések**: a már beküldött kommentek számozott jelölésként látszanak az oldalon (színük a státuszt mutatja), kattintásra megnyílik a szövegük. Követik az elemet, ha az elrendezés változik (pl. mobil nézetben).
+- **Jelölések**: a már beküldött kommentek számozott jelölésként látszanak az oldalon (színük a státuszt mutatja), kattintásra megnyílik a szövegük és a hozzájuk tartozó **szál**. Követik az elemet, ha az elrendezés változik (pl. mobil nézetben).
+- **Válasz a kommentre**: a kártyából az ügyfél is válaszolhat (név + szöveg), a csapat válaszai "csapat" jelvénnyel látszanak. Csak a nyitott kör kommentjeire lehet válaszolni.
 - Ha nincs nyitott kör, az ügyfél tájékoztató üzenetet kap. Rossz token vagy origin esetén a widget a vendégoldalon nem jelenik meg.
 - Mobilbarát űrlap, a widget minden hibaesetre magyar üzenetet ad (pl. túl sok kérés).
 
@@ -38,7 +40,7 @@
 ### Még nincs meg
 
 - E-mail értesítések (új komment, státuszváltás), jelszó-visszaállítás.
-- Kommentszálak (válasz a visszajelzésre). Komment szerkesztése nincs: az ügyfélnek nincs azonosítója, így nem dönthető el, kié a komment.
+- Komment szerkesztése: az ügyfélnek nincs azonosítója, így nem dönthető el, kié a komment.
 - Single-page alkalmazások útvonalváltásának kezelése a widgetben (a jelölések betöltéskor töltődnek).
 - Több felhasználó egy projekten.
 - A dashboardról a jelölés "megmutatása" az ügyfél oldalán.
@@ -84,7 +86,7 @@ A `data-api` elhagyható, ilyenkor a script saját origin-je az API címe. A wid
 
 1. A jobb alsó **Visszajelzés** gomb elindítja az elemkiválasztást: az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). A kattintást a widget elnyeli, az oldal saját kattintás-kezelője nem fut le.
 2. Egy űrlapon megadja a nevét (a böngésző megjegyzi) és a szöveget, opcionálisan képernyőképet csatol (Ctrl+Enter: küldés).
-3. A kommentek számozott **jelölésként** látszanak az oldalon (piros: nyitott, narancs: folyamatban, zöld: kész), kattintásra megnyílik a szövegük. A jelölések követik az elemet, ha az elrendezés megváltozik (pl. mobil nézetben).
+3. A kommentek számozott **jelölésként** látszanak az oldalon (piros: nyitott, narancs: folyamatban, zöld: kész), kattintásra megnyílik a szövegük és a szálban a válaszok, ahová az ügyfél is írhat. A jelölések követik az elemet, ha az elrendezés megváltozik (pl. mobil nézetben).
 
 **Mit rögzít a komment:** az elem egyedi CSS-selectorát (a lehető legrövidebbet, `#id`-t preferálva), a kattintás helyét az elem méretének százalékában (`posX`/`posY`, 0–100), az oldal URL-jét (`origin + útvonal + query`), a viewport méretét, a user agentet (szerveroldalon a fejlécből) és a képernyőképet. A képernyőkép a látható nézet piros-fehér kerettel kiemelt elemmel; a widget saját felülete nincs rajta.
 
@@ -142,11 +144,13 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 
 | Végpont | Leírás |
 |---|---|
-| `GET /api/projects/{id}/rounds/{roundId}/comments` | a kör kommentjei, minden mezővel (selector, viewport, user agent, státusz) |
+| `GET /api/projects/{id}/rounds/{roundId}/comments` | a kör kommentjei, minden mezővel (selector, viewport, user agent, státusz) és a `replies` szállal (időrendben) |
+| `POST /api/projects/{id}/comments/{commentId}/replies` | `{body (max. 4000)}` → `201`: válasz a designer nevében (lezárt kör kommentjére is). Egy kommenthez legfeljebb 200 válasz fűzhető, utána `409` |
+| `DELETE /api/projects/{id}/comments/{commentId}/replies/{replyId}` | `204` |
 | `PATCH /api/projects/{id}/comments/{commentId}` | `{status: OPEN \| IN_PROGRESS \| DONE}`; érvénytelen értékre `400` |
 | `GET /api/projects/{id}/comments/{commentId}/screenshot` | a képernyőkép (PNG/JPEG); `404`, ha nincs |
 | `DELETE /api/projects/{id}/comments/{commentId}` | `204`; a képernyőkép fájlja is törlődik |
-| `GET /api/projects/{id}/comments/export[?roundId=]` | CSV a projekt (vagy egy kör) kommentjeiről: pontosvessző, UTF-8 BOM (magyar Excelhez), a cellák védettek a CSV-injection ellen (az `=`, `+`, `-`, `@` kezdetű szöveg elé aposztróf kerül), az időpontok budapesti idő szerint (`TICKOFF_EXPORT_ZONE`-nal állítható) |
+| `GET /api/projects/{id}/comments/export[?roundId=]` | CSV a projekt (vagy egy kör) kommentjeiről: pontosvessző, UTF-8 BOM (magyar Excelhez), a cellák védettek a CSV-injection ellen (az `=`, `+`, `-`, `@` kezdetű szöveg elé aposztróf kerül), az időpontok budapesti idő szerint (`TICKOFF_EXPORT_ZONE`-nal állítható); a "Válaszok" oszlopban a szál egy cellában, soronként "Név (csapat): szöveg" |
 
 A körlistában minden körnél ott van a `commentCount` és az `openCommentCount`. A képernyőképet JWT védi, ezért a dashboard fejléccel kéri le, és `blob:` URL-ként jeleníti meg (nem `<img src>`-vel). A dashboardon a kommentek oldalanként (`pageUrl`) csoportosítva látszanak.
 
@@ -164,6 +168,7 @@ A widgetet tehát azon az origin-en kell beágyazni, amit a projektnél megadtá
 | `GET /api/widget/{token}/project` | projekt neve, oldala és a nyitott kör (`null`, ha nincs) |
 | `GET /api/widget/{token}/comments?pageUrl=` | a nyitott kör kommentjei, opcionálisan egy oldalra szűrve |
 | `POST /api/widget/{token}/comments` | komment mentése a nyitott körbe → `201`; `409`, ha nincs nyitott kör; `400`, ha a `pageUrl` nem a projekt oldaláról való |
+| `POST /api/widget/{token}/comments/{id}/replies` | `{authorName, body}` → `201`: az ügyfél válasza. `409`, ha nincs nyitott kör, ha a komment lezárt körhöz tartozik, vagy ha a szál betelt (200 válasz). A `GET .../comments` válasza a `replies` szálat is tartalmazza |
 | `POST /api/widget/{token}/comments/{id}/screenshot` | képernyőkép: nyers `image/png` vagy `image/jpeg` a törzsben, max. 3 MB → `204`; `413` túl nagy, `415` rossz típus, `400` ha a tartalom nem kép (a fájl első bájtjait ellenőrizzük), `409` ha már van képe |
 
 Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, viewportWidth?, viewportHeight?}`. A user agentet a szerver a fejlécből veszi.
@@ -176,7 +181,7 @@ A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás
 
 | Mire | Kulcs | Kapacitás / feltöltés |
 |---|---|---|
-| Widget írás (komment + képernyőkép, közös keret) | IP | 20 / 20 percenként |
+| Widget írás (komment + képernyőkép + válasz, közös keret) | IP | 20 / 20 percenként |
 | | token | 120 / 120 percenként |
 | Widget olvasás (`GET /api/widget/{token}/**`) | IP | 60 / 120 percenként |
 | | token | 120 / 600 percenként |

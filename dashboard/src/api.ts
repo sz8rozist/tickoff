@@ -73,6 +73,15 @@ export interface Round {
 
 export type CommentStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
 
+export interface Reply {
+  id: number;
+  authorName: string;
+  /** DESIGNER: bejelentkezett felhasználó, CUSTOMER: a widgeten át válaszoló ügyfél */
+  authorType: 'DESIGNER' | 'CUSTOMER';
+  body: string;
+  createdAt: string;
+}
+
 export interface Comment {
   id: number;
   authorName: string;
@@ -87,6 +96,7 @@ export interface Comment {
   status: CommentStatus;
   hasScreenshot: boolean;
   createdAt: string;
+  replies: Reply[];
 }
 
 export interface ProjectInput {
@@ -139,6 +149,13 @@ export const api = {
       }),
     remove: (projectId: number, commentId: number) =>
       request<void>(`/api/projects/${projectId}/comments/${commentId}`, { method: 'DELETE' }),
+    reply: (projectId: number, commentId: number, body: string) =>
+      request<Reply>(`/api/projects/${projectId}/comments/${commentId}/replies`, {
+        method: 'POST',
+        body: JSON.stringify({ body }),
+      }),
+    removeReply: (projectId: number, commentId: number, replyId: number) =>
+      request<void>(`/api/projects/${projectId}/comments/${commentId}/replies/${replyId}`, { method: 'DELETE' }),
     /** CSV-export: az egész projekt, vagy a megadott kör kommentjei. A fájlnevet a szerver adja. */
     async exportCsv(projectId: number, roundId?: number): Promise<{ blob: Blob; filename: string }> {
       const query = roundId !== undefined ? `?roundId=${roundId}` : '';

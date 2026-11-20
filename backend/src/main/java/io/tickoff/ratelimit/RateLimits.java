@@ -55,6 +55,7 @@ public final class RateLimits {
         return new RateLimitFilter("rateLimitAfterCors", new RateLimiter(MAX_KEYS), List.of(
             // Specifikusabb szabályok elöl: az első egyező érvényes.
             Rule.of(HttpMethod.POST, "/api/widget/{token}/comments/{id}/screenshot", writeIp, writeToken),
+            Rule.of(HttpMethod.POST, "/api/widget/{token}/comments/{id}/replies", writeIp, writeToken),
             Rule.of(HttpMethod.POST, "/api/widget/{token}/comments", writeIp, writeToken),
             Rule.of(HttpMethod.GET, "/api/widget/{token}/**",
                 new Scoped(Scope.IP, WIDGET_READ_IP), new Scoped(Scope.TOKEN, WIDGET_READ_TOKEN)),

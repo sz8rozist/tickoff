@@ -8,6 +8,15 @@ export interface ProjectInfo {
   openRound: { id: number; number: number } | null;
 }
 
+export interface Reply {
+  id: number;
+  authorName: string;
+  /** DESIGNER: a csapat tagja, CUSTOMER: ügyfél */
+  authorType: 'DESIGNER' | 'CUSTOMER';
+  body: string;
+  createdAt: string;
+}
+
 export interface WidgetComment {
   id: number;
   authorName: string;
@@ -19,6 +28,7 @@ export interface WidgetComment {
   status: CommentStatus;
   hasScreenshot: boolean;
   createdAt: string;
+  replies: Reply[];
 }
 
 export interface NewComment {
@@ -58,6 +68,13 @@ export function createApi({ token, apiBase }: Config) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(c),
+      }),
+
+    createReply: (commentId: number, reply: { authorName: string; body: string }) =>
+      json<Reply>(`/comments/${commentId}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reply),
       }),
 
     async uploadScreenshot(commentId: number, image: Blob): Promise<void> {

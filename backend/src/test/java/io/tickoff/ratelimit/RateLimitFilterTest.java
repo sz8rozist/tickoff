@@ -70,6 +70,9 @@ class RateLimitFilterTest {
         assertThat(call(filter, "POST", "/api/widget/" + TOKEN + "/comments", "3.3.3.3").getStatus()).isEqualTo(429);
         assertThat(call(filter, "POST", "/api/widget/" + TOKEN + "/comments/1/screenshot", "3.3.3.3").getStatus())
             .isEqualTo(429);
+        // a válaszok is ugyanebbe a keretbe tartoznak
+        assertThat(call(filter, "POST", "/api/widget/" + TOKEN + "/comments/1/replies", "3.3.3.3").getStatus())
+            .isEqualTo(429);
 
         // az olvasás külön keret, azt nem érinti
         assertThat(call(filter, "GET", "/api/widget/" + TOKEN + "/project", "3.3.3.3").getStatus()).isEqualTo(200);

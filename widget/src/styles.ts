@@ -77,11 +77,31 @@ export const styles = `
   .pin.inert { pointer-events: none; }
 
   .pop {
-    position: fixed; width: 260px; padding: 12px; border-radius: 10px;
+    position: fixed; width: min(300px, calc(100vw - 16px)); padding: 12px; border-radius: 10px;
+    max-height: min(480px, calc(100vh - 16px)); overflow-y: auto;
     background: #fff; color: #111; font-size: 13px;
     box-shadow: 0 8px 30px rgba(0,0,0,.28);
   }
-  .pop .meta { margin-bottom: 6px; color: #666; font-size: 12px; }
+  .pop .meta { margin-bottom: 4px; color: #666; font-size: 12px; }
   .pop .body { white-space: pre-wrap; word-break: break-word; }
   .pop .status { margin-top: 8px; font-size: 12px; font-weight: 600; }
+
+  .pop .thread { margin: 10px 0 8px; padding-left: 10px; border-left: 2px solid #e1e1e1; }
+  .pop .reply + .reply { margin-top: 8px; }
+  .pop .badge {
+    margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+    background: #e7f1fb; color: #1c7ed6; font-size: 11px; font-weight: 600;
+  }
+
+  .pop .btn.small { padding: 4px 10px; font-size: 12px; margin-top: 8px; }
+  .reply-form { margin-top: 8px; }
+  .reply-form input, .reply-form textarea {
+    width: 100%; margin-bottom: 6px; padding: 6px 8px;
+    border: 1px solid #c9c9c9; border-radius: 6px; font-size: 13px; color: #111; background: #fff;
+  }
+  .reply-form textarea { min-height: 64px; resize: vertical; }
+  .reply-form input:focus, .reply-form textarea:focus { outline: 2px solid #1c7ed6; border-color: #1c7ed6; }
+  .reply-form .actions { margin-top: 2px; display: flex; gap: 6px; justify-content: flex-end; }
+  .reply-form .actions .btn.small { margin-top: 0; }
+  .reply-form .err { margin: 0 0 6px; padding: 6px 8px; border-radius: 6px; background: #fdecea; color: #b00020; font-size: 12px; }
 `;

@@ -203,6 +203,19 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
     }
   }
 
+  /** Válasz egy kommentre. Hibaüzenettel tér vissza, vagy null-lal, ha sikerült. */
+  async function reply(commentId: number, authorName: string, body: string): Promise<string | null> {
+    try {
+      saveAuthor(authorName);
+      await api.createReply(commentId, { authorName, body });
+      setComments(await api.comments(pageUrl()).catch(() => comments));
+      return null;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) return 'Ehhez már nem lehet válaszolni (lezárt kör vagy betelt szál).';
+      return sendError(e);
+    }
+  }
+
   if (fatal) return null;
 
   const hoverRect = mode === 'pick' && hover ? hover.getBoundingClientRect() : null;
@@ -213,7 +226,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
     <>
       <style>{styles}</style>
 
-      {project && <Pins comments={comments} inert={mode === 'pick'} />}
+      {project && <Pins comments={comments} inert={mode === 'pick'} defaultName={savedAuthor()} onReply={reply} />}
 
       {hoverRect && <div class="hl" style={box(hoverRect)} />}
       {targetRect && <div class="hl" style={box(targetRect)} />}

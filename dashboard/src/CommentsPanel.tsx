@@ -15,6 +15,7 @@ import {
   Title,
 } from '@mantine/core';
 import { api, type Comment, type CommentStatus } from './api';
+import { Thread } from './Thread';
 
 const STATUS_OPTIONS = [
   { value: 'OPEN', label: 'Nyitott' },
@@ -92,6 +93,18 @@ export function CommentsPanel({
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function addReply(c: Comment, body: string) {
+    const reply = await api.comments.reply(projectId, c.id, body);
+    setComments((prev) => prev?.map((x) => (x.id === c.id ? { ...x, replies: [...x.replies, reply] } : x)) ?? null);
+  }
+
+  async function removeReply(c: Comment, replyId: number) {
+    await api.comments.removeReply(projectId, c.id, replyId);
+    setComments(
+      (prev) => prev?.map((x) => (x.id === c.id ? { ...x, replies: x.replies.filter((r) => r.id !== replyId) } : x)) ?? null,
+    );
   }
 
   async function confirmDelete() {
@@ -207,6 +220,11 @@ export function CommentsPanel({
                     Törlés
                   </Button>
                 </Group>
+                <Thread
+                  replies={c.replies}
+                  onAdd={(body) => addReply(c, body)}
+                  onRemove={(replyId) => removeReply(c, replyId)}
+                />
               </Stack>
             </Card>
           ))}
