@@ -8,5 +8,7 @@ import java.util.Optional;
 public interface ProjectRepository extends JpaRepository<Project, Long> {
     Optional<Project> findByShareToken(String shareToken);
 
-    List<Project> findByOwnerId(Long ownerId);
+    List<Project> findByOwnerIdOrderByCreatedAtDesc(Long ownerId);
+
+    Optional<Project> findByIdAndOwnerId(Long id, Long ownerId);
 }

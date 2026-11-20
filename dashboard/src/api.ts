@@ -45,7 +45,21 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     },
   });
   if (!res.ok) throw new ApiError(res.status);
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+export interface Project {
+  id: number;
+  name: string;
+  siteUrl: string;
+  shareToken: string;
+  createdAt: string;
+}
+
+export interface ProjectInput {
+  name: string;
+  siteUrl: string;
 }
 
 export const api = {
@@ -66,5 +80,13 @@ export const api = {
     return r.user;
   },
   me: () => request<User>('/api/me'),
+  projects: {
+    list: () => request<Project[]>('/api/projects'),
+    create: (input: ProjectInput) =>
+      request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
+    update: (id: number, input: ProjectInput) =>
+      request<Project>(`/api/projects/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+    remove: (id: number) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+  },
   logout: () => setToken(null),
 };

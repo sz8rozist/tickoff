@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, getToken, type User } from './api';
 import { AuthForm } from './AuthForm';
+import { ProjectsPage } from './ProjectsPage';
 
 export function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -33,6 +34,7 @@ export function App() {
         <>
           <p>Bejelentkezve: {user.name} ({user.email})</p>
           <button onClick={logout}>Kilépés</button>
+          <ProjectsPage />
         </>
       ) : (
         <AuthForm onAuth={setUser} />

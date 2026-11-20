@@ -41,6 +41,11 @@ public class Project {
         this.shareToken = generateToken();
     }
 
+    public void update(String name, String siteUrl) {
+        this.name = name;
+        this.siteUrl = siteUrl;
+    }
+
     private static String generateToken() {
         byte[] bytes = new byte[24];
         RANDOM.nextBytes(bytes);

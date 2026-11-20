@@ -49,9 +49,21 @@ JWT (HS256, Spring Security OAuth2 resource server), állapotmentes. A designere
 
 A jelszavak bcrypt hash-ként tárolódnak. Konfiguráció: `TICKOFF_JWT_SECRET` (legalább 32 bájt, **élesben kötelező felülírni**), `TICKOFF_JWT_TTL` (alapérték: `12h`).
 
+## Projektek
+
+Minden `/api/projects` végpont tokent kér, és csak a bejelentkezett felhasználó saját projektjeit éri el (más projektjére `404`-et adnak).
+
+| Végpont | Leírás |
+|---|---|
+| `GET /api/projects` | saját projektek, újabb elöl |
+| `POST /api/projects` | `{name, siteUrl (http/https)}` → `201`; automatikusan létrejön az 1. kör |
+| `GET /api/projects/{id}` | egy projekt |
+| `PUT /api/projects/{id}` | név és URL módosítása |
+| `DELETE /api/projects/{id}` | `204`; a körök és kommentek az adatbázisban kaszkádolva törlődnek |
+
 ## Következő lépések
 
-- Projektek és körök CRUD (a `/api/**` végpontok már tokent kérnek)
+- Körök kezelése (új kör nyitása, lezárás)
 - Widget API (`/api/widget/**`): komment mentése token alapján, projektenkénti origin-ellenőrzés
 - Widget: elemkiválasztás, CSS selector és képernyőkép készítése (`html-to-image`)
 - Dashboard: projektek, körök, kommentlista és státuszkezelés
