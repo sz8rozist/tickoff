@@ -34,9 +34,9 @@ export function setToken(token: string | null) {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+function authFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
-  const res = await fetch(path, {
+  return fetch(path, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -44,6 +44,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers,
     },
   });
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await authFetch(path, init);
   if (!res.ok) throw new ApiError(res.status);
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -63,6 +67,26 @@ export interface Round {
   status: 'OPEN' | 'CLOSED';
   createdAt: string;
   closedAt: string | null;
+  commentCount: number;
+  openCommentCount: number;
+}
+
+export type CommentStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
+
+export interface Comment {
+  id: number;
+  authorName: string;
+  body: string;
+  pageUrl: string;
+  cssSelector: string | null;
+  posX: number | null;
+  posY: number | null;
+  viewportWidth: number | null;
+  viewportHeight: number | null;
+  userAgent: string | null;
+  status: CommentStatus;
+  hasScreenshot: boolean;
+  createdAt: string;
 }
 
 export interface ProjectInput {
@@ -102,6 +126,21 @@ export const api = {
       request<Round>(`/api/projects/${projectId}/rounds`, { method: 'POST' }),
     close: (projectId: number, roundId: number) =>
       request<Round>(`/api/projects/${projectId}/rounds/${roundId}/close`, { method: 'POST' }),
+  },
+  comments: {
+    list: (projectId: number, roundId: number) =>
+      request<Comment[]>(`/api/projects/${projectId}/rounds/${roundId}/comments`),
+    setStatus: (projectId: number, commentId: number, status: CommentStatus) =>
+      request<Comment>(`/api/projects/${projectId}/comments/${commentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+    // A képet JWT védi, ezért fejléccel kérjük le, nem <img src>-vel.
+    async screenshot(projectId: number, commentId: number): Promise<Blob> {
+      const res = await authFetch(`/api/projects/${projectId}/comments/${commentId}/screenshot`);
+      if (!res.ok) throw new ApiError(res.status);
+      return res.blob();
+    },
   },
   logout: () => setToken(null),
 };

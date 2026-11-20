@@ -71,6 +71,18 @@ Egy projektnek egyszerre legfeljebb egy nyitott köre van. Új kört csak az el�
 | `POST /api/projects/{id}/rounds` | új kör nyitása → `201`; `409`, ha van nyitott kör |
 | `POST /api/projects/{id}/rounds/{roundId}/close` | kör lezárása → `200`; `409`, ha már le van zárva |
 
+## Kommentek (designer oldal)
+
+A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projekt- és kör-szinten. Más projektjére itt is `404`.
+
+| Végpont | Leírás |
+|---|---|
+| `GET /api/projects/{id}/rounds/{roundId}/comments` | a kör kommentjei, minden mezővel (selector, viewport, user agent, státusz) |
+| `PATCH /api/projects/{id}/comments/{commentId}` | `{status: OPEN \| IN_PROGRESS \| DONE}`; érvénytelen értékre `400` |
+| `GET /api/projects/{id}/comments/{commentId}/screenshot` | a képernyőkép (PNG/JPEG); `404`, ha nincs |
+
+A körlistában minden körnél ott van a `commentCount` és az `openCommentCount`. A képernyőképet JWT védi, ezért a dashboard fejléccel kéri le, és `blob:` URL-ként jeleníti meg (nem `<img src>`-vel). A dashboardon a kommentek oldalanként (`pageUrl`) csoportosítva látszanak.
+
 ## Widget API
 
 A beágyazott widget végpontjai. Nincs bejelentkezés: a projekt **megosztó tokenje** az útvonalban van (a CORS-preflight nem hordozhat egyedi fejléc-értéket, ezért nem fejlécben megy). Két védelem van:
@@ -93,7 +105,6 @@ A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `sc
 
 ## Következő lépések
 
-- Dashboard: kommentlista körönként, képernyőkép megjelenítése (JWT-vel védett végpont), státuszkezelés
 - Widget: elemkiválasztás, CSS selector és képernyőkép készítése (`html-to-image`), jelölések kirajzolása
 - Visszaélés-védelem a widget végpontokon (kérésszám-korlát)
 - E-mail értesítések

@@ -1,5 +1,7 @@
 package io.tickoff.project;
 
+import io.tickoff.domain.CommentRepository;
+import io.tickoff.domain.CommentRepository.RoundCommentCount;
 import io.tickoff.domain.Project;
 import io.tickoff.domain.ProjectRepository;
 import io.tickoff.domain.Round;
@@ -19,29 +21,40 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/projects/{projectId}/rounds")
 public class RoundController {
 
-    public record RoundDto(Long id, int number, Round.Status status, Instant createdAt, Instant closedAt) {
-        static RoundDto of(Round r) {
-            return new RoundDto(r.getId(), r.getNumber(), r.getStatus(), r.getCreatedAt(), r.getClosedAt());
+    public record RoundDto(Long id, int number, Round.Status status, Instant createdAt, Instant closedAt,
+                           long commentCount, long openCommentCount) {
+        static RoundDto of(Round r, RoundCommentCount counts) {
+            return new RoundDto(r.getId(), r.getNumber(), r.getStatus(), r.getCreatedAt(), r.getClosedAt(),
+                counts == null ? 0 : counts.getTotal().longValue(),
+                counts == null || counts.getOpenCount() == null ? 0 : counts.getOpenCount().longValue());
         }
     }
 
     private final ProjectRepository projects;
     private final RoundRepository rounds;
+    private final CommentRepository comments;
 
-    public RoundController(ProjectRepository projects, RoundRepository rounds) {
+    public RoundController(ProjectRepository projects, RoundRepository rounds, CommentRepository comments) {
         this.projects = projects;
         this.rounds = rounds;
+        this.comments = comments;
     }
 
     @GetMapping
     public List<RoundDto> list(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId) {
         Project project = owned(jwt, projectId);
-        return rounds.findByProjectIdOrderByNumberAsc(project.getId()).stream().map(RoundDto::of).toList();
+        Map<Long, RoundCommentCount> counts = counts(project);
+        return rounds.findByProjectIdOrderByNumberAsc(project.getId()).stream()
+            .map(r -> RoundDto.of(r, counts.get(r.getId())))
+            .toList();
     }
 
     /** Új kört csak akkor lehet nyitni, ha az előző le van zárva: egyszerre egy nyitott kör van. */
@@ -56,7 +69,7 @@ public class RoundController {
         }
         int number = latest == null ? 1 : latest.getNumber() + 1;
         try {
-            return RoundDto.of(rounds.saveAndFlush(new Round(project, number)));
+            return RoundDto.of(rounds.saveAndFlush(new Round(project, number)), null);
         } catch (DataIntegrityViolationException e) {
             // Párhuzamos kérés ugyanazzal a sorszámmal: az egyedi index (project_id, number) elkapja.
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A kör időközben létrejött");
@@ -73,7 +86,12 @@ public class RoundController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A kör már le van zárva");
         }
         round.close();
-        return RoundDto.of(round);
+        return RoundDto.of(round, counts(project).get(round.getId()));
+    }
+
+    private Map<Long, RoundCommentCount> counts(Project project) {
+        return comments.countByRound(project.getId()).stream()
+            .collect(Collectors.toMap(RoundCommentCount::getRoundId, Function.identity()));
     }
 
     private Project owned(Jwt jwt, Long projectId) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Group, Loader, Stack, Text } from '@mantine/core';
 import { api, ApiError, type Round } from './api';
+import { CommentsPanel } from './CommentsPanel';
 
 function describe(e: unknown): string {
   if (e instanceof ApiError && e.status === 409) {
@@ -13,15 +14,31 @@ const fmt = (iso: string) => new Date(iso).toLocaleDateString('hu-HU');
 
 export function RoundsPanel({ projectId }: { projectId: number }) {
   const [rounds, setRounds] = useState<Round[] | null>(null);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const reload = () => api.rounds.list(projectId).then(setRounds);
 
   useEffect(() => {
-    reload().catch(() => setError('A körök betöltése nem sikerült.'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    api.rounds
+      .list(projectId)
+      .then((list) => {
+        setRounds(list);
+        // Alapból a nyitott kör kommentjei látszanak.
+        const open = list.find((r) => r.status === 'OPEN');
+        if (open) setExpanded(new Set([open.id]));
+      })
+      .catch(() => setError('A körök betöltése nem sikerült.'));
   }, [projectId]);
+
+  function toggle(id: number) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
 
   async function run(action: () => Promise<unknown>) {
     setError(null);
@@ -56,25 +73,35 @@ export function RoundsPanel({ projectId }: { projectId: number }) {
         Körök
       </Text>
       {rounds.map((r) => (
-        <Group key={r.id} gap="sm">
-          <Text size="sm" w={60}>
-            {r.number}. kör
-          </Text>
-          {r.status === 'OPEN' ? (
-            <Badge color="green" variant="light">
-              nyitott
-            </Badge>
-          ) : (
-            <Badge color="gray" variant="light">
-              lezárva · {fmt(r.closedAt!)}
-            </Badge>
-          )}
-          {r.status === 'OPEN' && (
-            <Button size="compact-xs" variant="default" disabled={busy} onClick={() => run(() => api.rounds.close(projectId, r.id))}>
-              Kör lezárása
+        <Stack key={r.id} gap={4}>
+          <Group gap="sm">
+            <Text size="sm" w={60}>
+              {r.number}. kör
+            </Text>
+            {r.status === 'OPEN' ? (
+              <Badge color="green" variant="light">
+                nyitott
+              </Badge>
+            ) : (
+              <Badge color="gray" variant="light">
+                lezárva · {fmt(r.closedAt!)}
+              </Badge>
+            )}
+            <Text size="xs" c="dimmed">
+              {r.commentCount} komment
+              {r.commentCount > 0 && ` · ${r.openCommentCount} nyitott`}
+            </Text>
+            <Button size="compact-xs" variant="subtle" onClick={() => toggle(r.id)}>
+              {expanded.has(r.id) ? 'Kommentek elrejtése' : 'Kommentek'}
             </Button>
-          )}
-        </Group>
+            {r.status === 'OPEN' && (
+              <Button size="compact-xs" variant="default" disabled={busy} onClick={() => run(() => api.rounds.close(projectId, r.id))}>
+                Kör lezárása
+              </Button>
+            )}
+          </Group>
+          {expanded.has(r.id) && <CommentsPanel projectId={projectId} roundId={r.id} onChanged={() => void reload()} />}
+        </Stack>
       ))}
       {!open && (
         <div>
