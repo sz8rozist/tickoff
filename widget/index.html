@@ -4,11 +4,44 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tickoff widget – demo oldal</title>
+    <style>
+      body { margin: 0; font-family: Georgia, serif; color: #2b211b; background: #f5f0e6; }
+      header { background: #3c281e; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+      header .logo { width: 70px; height: 24px; background: #f0c878; border-radius: 4px; }
+      header nav a { color: #f0c878; margin-right: 14px; text-decoration: none; }
+      main { max-width: 720px; margin: 0 auto; padding: 32px 24px 120px; }
+      .card { background: #fff; border-radius: 10px; padding: 18px; margin: 18px 0; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+      .cta { background: #d93c3c; color: #fff; border: 0; border-radius: 6px; padding: 10px 22px; font-size: 16px; }
+    </style>
   </head>
   <body>
-    <h1>Demo oldal</h1>
-    <p>Ezen az oldalon próbáljuk ki a widgetet.</p>
-    <button id="cta">Kattints ide</button>
+    <header>
+      <div class="logo" id="logo"></div>
+      <nav><a href="#menu">Étlap</a><a href="#kapcsolat">Kapcsolat</a></nav>
+    </header>
+    <main>
+      <h1>Demo kávézó</h1>
+      <p>Ezen az oldalon próbáljuk ki a Tickoff widgetet. Kattints a jobb alsó „Visszajelzés" gombra.</p>
+      <div class="card">
+        <h2>Reggeli menü</h2>
+        <p>Friss kávé és croissant minden reggel 7 és 10 óra között.</p>
+        <button class="cta">Asztalfoglalás</button>
+      </div>
+      <div class="card">
+        <h2>Esti menü</h2>
+        <p>Könnyű vacsorák és helyi borok.</p>
+        <button class="cta">Asztalfoglalás</button>
+      </div>
+      <div class="card" id="kapcsolat">
+        <h2>Kapcsolat</h2>
+        <ul>
+          <li>Cím: Minta utca 1.</li>
+          <li>Telefon: +36 1 234 5678</li>
+          <li>E-mail: hello@kavezo.example</li>
+        </ul>
+      </div>
+    </main>
+    <!-- Fejlesztéskor a token az URL-ből jön: http://localhost:5174/?token=PROJEKT_TOKEN -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

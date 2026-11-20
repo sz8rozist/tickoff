@@ -23,15 +23,35 @@ docker compose up -d --build
 npm install
 npm run dev:dashboard
 
-# 4) Widget demo oldal
+# 4) Widget demo oldal (http://localhost:5174/?token=PROJEKT_TOKEN)
 npm run dev:widget
 ```
 
-A widget beágyazása egy oldalba:
+A widget kipróbálásához a projekt oldalának címe a dashboardon `http://localhost:5174` legyen, mert a CORS és az origin-ellenőrzés ehhez köti a kéréseket.
+
+## Widget beágyazása
 
 ```html
-<script src="https://…/tickoff-widget.js" data-token="PROJEKT_TOKEN"></script>
+<script src="https://…/tickoff-widget.js" data-token="PROJEKT_TOKEN" data-api="https://api.pelda.hu"></script>
 ```
+
+A `data-api` elhagyható, ilyenkor a script saját origin-je az API címe. A widget a projekt megosztó tokenjével dolgozik, és csak azon az oldalon működik, amelynek origin-je (séma + host + port) egyezik a projektnél megadottal. Rossz token vagy origin esetén a widget nem jelenik meg, a vendégoldalon nincs hibaüzenet, csak egy figyelmeztetés a böngésző konzoljában.
+
+**Az ügyfél oldaláról nézve:**
+
+1. A jobb alsó **Visszajelzés** gomb elindítja az elemkiválasztást: az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). A kattintást a widget elnyeli, az oldal saját kattintás-kezelője nem fut le.
+2. Egy űrlapon megadja a nevét (a böngésző megjegyzi) és a szöveget, opcionálisan képernyőképet csatol (Ctrl+Enter: küldés).
+3. A kommentek számozott **jelölésként** látszanak az oldalon (piros: nyitott, narancs: folyamatban, zöld: kész), kattintásra megnyílik a szövegük. A jelölések követik az elemet, ha az elrendezés megváltozik (pl. mobil nézetben).
+
+**Mit rögzít a komment:** az elem egyedi CSS-selectorát (a lehető legrövidebbet, `#id`-t preferálva), a kattintás helyét az elem méretének százalékában (`posX`/`posY`, 0–100), az oldal URL-jét (`origin + útvonal + query`), a viewport méretét, a user agentet (szerveroldalon a fejlécből) és a képernyőképet. A képernyőkép a látható nézet piros-fehér kerettel kiemelt elemmel; a widget saját felülete nincs rajta.
+
+**Korlátok:**
+
+- A jelölések csak a **nyitott kör** kommentjeit mutatják, lezárt körnél nincs jelölés és nem lehet újat küldeni (az ügyfél tájékoztató üzenetet kap).
+- Az oldal URL-jébe a query is bekerül, ezért ne legyen titok az URL-ben (pl. token, jelszó-visszaállító kód).
+- Single-page alkalmazásnál a jelölések az oldal betöltésekor töltődnek be, útvonalváltáskor nem frissülnek.
+- A képernyőkép a görgetést eltolással kezeli, ezért görgetett oldalon a `position: fixed` elemek (pl. rögzített fejléc) elcsúszhatnak a képen. A kép best effort: ha nem sikerül (idegen domainről érkező képek, 10 mp időtúllépés, a böngészőlap a háttérben van), a komment akkor is mentődik, és az ügyfél jelzést kap.
+- A widget mérete kb. 17,6 KB gzip.
 
 ## Adatmodell (V1 migráció)
 
@@ -105,7 +125,7 @@ A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `sc
 
 ## Következő lépések
 
-- Widget: elemkiválasztás, CSS selector és képernyőkép készítése (`html-to-image`), jelölések kirajzolása
+- Widget: SPA-útvonalváltás kezelése, kommentek válaszolása/szálak, a dashboardról a jelölés "megmutatása" az oldalon
 - Visszaélés-védelem a widget végpontokon (kérésszám-korlát)
 - E-mail értesítések
 

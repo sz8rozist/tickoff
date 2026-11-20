@@ -4,6 +4,8 @@ import preact from '@preact/preset-vite';
 // A kód React-szintaxissal íródik, a build Preactre aliasolja (preset-vite: react -> preact/compat).
 export default defineConfig({
   plugins: [preact()],
+  // A demo oldal origin-jének (http://localhost:5174) egyeznie kell a projekt oldalával (CORS + origin-ellenőrzés).
+  server: { port: 5174, strictPort: true },
   build: {
     lib: {
       entry: 'src/main.tsx',

@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
+    "html-to-image": "^1.11.13",
     "preact": "^10.24.0"
   },
   "devDependencies": {
