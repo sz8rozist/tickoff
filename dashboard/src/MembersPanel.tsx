@@ -21,12 +21,15 @@ export function MembersPanel({
   role,
   currentUserId,
   onLeft,
+  onTransferred,
 }: {
   projectId: number;
   role: ProjectRole;
   currentUserId: number;
   /** A kilépés után a projekt már nem látható a felhasználónak. */
   onLeft: () => void;
+  /** Az átadás után a felhasználó már csak tag: a projekt szerepköre és tulajdonosa frissül. */
+  onTransferred: (newOwnerName: string) => void;
 }) {
   const [members, setMembers] = useState<Member[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +38,9 @@ export function MembersPanel({
   // Eltávolításnál második kattintás kell: elkerüli a véletlen eltávolítást
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [leaveOpen, setLeaveOpen] = useState(false);
+  // Az átadási célpont a bezáródó animáció alatt is megmarad, hogy a szöveg ne ürüljön ki
+  const [transferTarget, setTransferTarget] = useState<Member | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
   const isOwner = role === 'OWNER';
 
   useEffect(() => {
@@ -70,6 +76,22 @@ export function MembersPanel({
       setMembers((prev) => prev?.filter((m) => m.userId !== member.userId) ?? null);
     } catch {
       setError('Az eltávolítás nem sikerült.');
+    }
+  }
+
+  async function transfer() {
+    if (!transferTarget) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await api.members.transferOwnership(projectId, transferTarget.userId);
+      setMembers(updated);
+      onTransferred(transferTarget.name);
+    } catch {
+      setError('Az átadás nem sikerült, próbáld újra később.');
+    } finally {
+      setBusy(false);
+      setTransferOpen(false);
     }
   }
 
@@ -111,9 +133,21 @@ export function MembersPanel({
             {m.role === 'OWNER' ? 'tulajdonos' : 'tag'}
           </Badge>
           {isOwner && m.role === 'MEMBER' && (
-            <Button size="compact-xs" variant="subtle" color="red" onClick={() => remove(m)}>
-              {confirmId === m.userId ? 'Biztosan?' : 'Eltávolítás'}
-            </Button>
+            <>
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                onClick={() => {
+                  setTransferTarget(m);
+                  setTransferOpen(true);
+                }}
+              >
+                Átadás
+              </Button>
+              <Button size="compact-xs" variant="subtle" color="red" onClick={() => remove(m)}>
+                {confirmId === m.userId ? 'Biztosan?' : 'Eltávolítás'}
+              </Button>
+            </>
           )}
         </Group>
       ))}
@@ -152,6 +186,24 @@ export function MembersPanel({
           {error}
         </Alert>
       )}
+
+      <Modal opened={transferOpen} onClose={() => setTransferOpen(false)} title="Projekt átadása" centered>
+        <Stack>
+          <Text size="sm">
+            Átadod a projektet neki: <b>{transferTarget?.name}</b> ({transferTarget?.email}). Ő lesz a tulajdonos: ő
+            szerkesztheti és törölheti a projektet, újragenerálhatja a tokent, és kezelheti a tagokat. Te tag maradsz,
+            a visszajelzéseket továbbra is kezelheted, de ezeket már nem. A visszaadást csak ő kezdeményezheti.
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setTransferOpen(false)}>
+              Mégse
+            </Button>
+            <Button color="orange" loading={busy} onClick={transfer}>
+              Projekt átadása
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal opened={leaveOpen} onClose={() => setLeaveOpen(false)} title="Kilépés a projektből" centered>
         <Stack>

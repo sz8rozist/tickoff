@@ -45,6 +45,12 @@ public class Project {
         this.shareToken = generateToken();
     }
 
+    /** A projekt átadása másik felhasználónak. A tükörmezőt is frissítjük, hogy a tranzakción belül se maradjon régi érték. */
+    public void transferTo(User newOwner) {
+        this.owner = newOwner;
+        this.ownerId = newOwner.getId();
+    }
+
     public Long getOwnerId() {
         // Frissen létrehozott (még nem újratöltött) projektnél a tükör üres, ilyenkor a kapcsolat azonosítóját adjuk
         return ownerId != null ? ownerId : owner.getId();

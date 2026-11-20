@@ -157,6 +157,9 @@ export const api = {
     /** Meghívás e-mail-cím alapján (csak a tulajdonos); a címhez már létező fióknak kell tartoznia. */
     add: (projectId: number, email: string) =>
       request<Member>(`/api/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ email }) }),
+    /** A projekt átadása egy tagnak (csak a tulajdonos): az új tulajdonos mindent megkap, a régi tag marad. */
+    transferOwnership: (projectId: number, userId: number) =>
+      request<Member[]>(`/api/projects/${projectId}/members/${userId}/transfer-ownership`, { method: 'POST' }),
     /** A tulajdonos bárkit eltávolíthat, a tag csak saját magát (kilépés). */
     remove: (projectId: number, userId: number) =>
       request<void>(`/api/projects/${projectId}/members/${userId}`, { method: 'DELETE' }),

@@ -16,7 +16,7 @@
 - **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
 - **Kommentszálak**: a designer válaszolhat a kommentekre (a válasz a widgetben is megjelenik, "csapat" jelvénnyel), és törölheti a válaszokat (két kattintással, véletlen törlés ellen). Az ügyfél válaszai is itt jelennek meg.
 - **Komment törlése** (a képernyőképével és a válaszaival együtt) megerősítéssel.
-- **Csapatmunka**: a tulajdonos meghívhatja a kollégáit (e-mail-cím alapján, meglévő fiókot). A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), de a projekt beállításait, a tokent és a tagokat nem; kiléphetnek a projektből. A projektlistán megjelölve látszik, melyik projektben vagy tag, és ki a tulajdonosa.
+- **Csapatmunka**: a tulajdonos meghívhatja a kollégáit (e-mail-cím alapján, meglévő fiókot). A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), de a projekt beállításait, a tokent és a tagokat nem; kiléphetnek a projektből. A tulajdonos a projektet **átadhatja** egy tagnak (a régi tulajdonos tag marad). A projektlistán megjelölve látszik, melyik projektben vagy tag, és ki a tulajdonosa.
 - **Export CSV-be**: egy kör vagy a teljes projekt kommentjei, magyar Excelben helyesen megnyíló formátumban (ékezetek, pontosvessző).
 - Magyar felület, világos és sötét téma.
 
@@ -44,7 +44,7 @@
 ### Még nincs meg
 
 - Komment szerkesztése: az ügyfélnek nincs azonosítója, így nem dönthető el, kié a komment.
-- Meghívás még nem létező fiókra (jelenleg a kollégának előbb regisztrálnia kell). Ehhez e-mail-megerősítés kellene a regisztrációkor: enélkül az első, a meghívott címmel regisztráló személy hozzáférést kapna a projekthez. Tulajdonjog átadása.
+- Meghívás még nem létező fiókra (jelenleg a kollégának előbb regisztrálnia kell). Ehhez e-mail-megerősítés kellene a regisztrációkor: enélkül az első, a meghívott címmel regisztráló személy hozzáférést kapna a projekthez.
 - Értesítés a designer saját műveleteiről (pl. státuszváltás) és a megerősítetlen e-mail-cím kezelése.
 
 ## Felépítés (monorepo)
@@ -153,6 +153,7 @@ Aki nem tulajdonos és nem tag, annak a projekt nem létezik: minden végpont `4
 |---|---|
 | `GET /api/projects/{id}/members` | a tulajdonos (elöl) és a tagok: `{userId, name, email, role}`; a projekt minden tagja látja |
 | `POST /api/projects/{id}/members` | `{email}` → `201`: meghívás **meglévő fiókra** (e-mail alapján, kis- és nagybetűre érzéketlenül). `404`, ha nincs ilyen fiók (a kollégának előbb regisztrálnia kell), `409`, ha már tag vagy ő a tulajdonos. Csak tulajdonos; IP-nként 20/perc, mert a válaszból a fiókok létezése kideríthető |
+| `POST /api/projects/{id}/members/{userId}/transfer-ownership` | `200` + a tagok frissített listája: a projekt átadása egy **meglévő tagnak** (csak tulajdonos). Az új tulajdonos mindent megkap, a régi tag marad (a visszajelzéseket tovább kezelheti, de a beállításokat már nem). `409`, ha a célpont nem tag. A visszaadást csak az új tulajdonos kezdeményezheti |
 | `DELETE /api/projects/{id}/members/{userId}` | `204`: a tulajdonos bárkit eltávolíthat, a tag csak saját magát (kilépés). A tulajdonos nem távolítható el (`409`), ha nincs rá szükség, a projektet kell törölni |
 
 A tagság az adatbázisban a projekthez és a felhasználóhoz is kaszkádol: a tag fiókjának törlésekor a tagságai megszűnnek (a más projektekben írt válaszai megmaradnak a nevével), a tulajdonos fiókjának törlésekor a projekt a tagok számára is megszűnik.
@@ -331,7 +332,8 @@ Titkot nem használ. Egy ágon egyszerre csak a legfrissebb futás számít (a r
 
 A "Még nincs meg" lista (a Funkciók szakasz végén) a hátralévő ötletek gyűjtője. Nagyobb, még nem megoldott tervek:
 
-- E-mail-megerősítés regisztrációkor, ami után a még nem regisztrált kollégák meghívása és a tulajdonjog átadása biztonságosan megoldható.
+- E-mail-megerősítés regisztrációkor, ami után a még nem regisztrált kollégák meghívása biztonságosan megoldható.
+- Éles levélküldés: a Brevo API-s küldő beépítése (az API-kulcs IP-engedélyezése még hiányzik a Brevo fiókban), lásd az E-mail szakaszt.
 - Több példányos üzemeltetés: közös kérésszám-korlát tároló (Redis) és objektumtároló a képernyőképeknek.
 
 ## Ismert probléma

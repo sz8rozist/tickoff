@@ -111,6 +111,36 @@ public class MemberController {
         members.delete(member);
     }
 
+    /**
+     * A projekt átadása egy meglévő tagnak (csak a tulajdonos). Az új tulajdonos mindent megkap, a régi tulajdonos
+     * tag marad, így nem veszíti el a hozzáférést. Az átadás után a régi tulajdonos már nem végezhet owner-only
+     * műveletet. Nem visszavonható a régi tulajdonos oldaláról: vissza csak az új tulajdonos adhatja.
+     *
+     * @return a tagok frissített listája
+     */
+    @PostMapping("/{userId}/transfer-ownership")
+    @Transactional
+    public List<MemberDto> transferOwnership(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
+                                             @PathVariable Long userId) {
+        Project project = access.owner(projectId, userId(jwt));
+        ProjectMember target = members.findByProjectIdAndUserId(projectId, userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                "A projektet csak a projekt egyik tagjának adhatod át"));
+        User oldOwner = users.findById(project.getOwnerId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        User newOwner = target.getUser();
+
+        project.transferTo(newOwner);
+        members.delete(target);
+        members.flush();
+        members.save(new ProjectMember(project, oldOwner));
+
+        List<MemberDto> result = new ArrayList<>();
+        result.add(MemberDto.of(newOwner, Role.OWNER));
+        members.findByProjectIdWithUser(project.getId()).forEach(m -> result.add(MemberDto.of(m.getUser(), Role.MEMBER)));
+        return result;
+    }
+
     private static Long userId(Jwt jwt) {
         return Long.valueOf(jwt.getSubject());
     }

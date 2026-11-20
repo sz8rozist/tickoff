@@ -289,6 +289,12 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                   role={p.role}
                   currentUserId={currentUserId}
                   onLeft={() => setProjects((prev) => prev?.filter((x) => x.id !== p.id) ?? null)}
+                  onTransferred={(newOwnerName) =>
+                    setProjects(
+                      (prev) =>
+                        prev?.map((x) => (x.id === p.id ? { ...x, role: 'MEMBER', ownerName: newOwnerName } : x)) ?? null,
+                    )
+                  }
                 />
               )}
 
