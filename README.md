@@ -123,10 +123,34 @@ Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, viewpo
 
 A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `screenshots` kötet), az adatbázisban csak a relatív útvonal.
 
+## Kérésszám-korlát
+
+A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás) a backend memóriabeli **token bucket** korlátozót használ (`io.tickoff.ratelimit`). Túllépéskor `429 Too Many Requests` jön `Retry-After` fejléccel (másodpercben, mikor lesz újra token).
+
+| Mire | Kulcs | Kapacitás / feltöltés |
+|---|---|---|
+| Widget írás (komment + képernyőkép, közös keret) | IP | 20 / 20 percenként |
+| | token | 120 / 120 percenként |
+| Widget olvasás (`GET /api/widget/{token}/**`) | IP | 60 / 120 percenként |
+| | token | 120 / 600 percenként |
+| Widget összes kérése, **a preflightot is** beleértve | IP | 200 / 300 percenként |
+| `POST /api/auth/login` | IP | 10 / 10 percenként |
+| `POST /api/auth/register` | IP | 5 / 5 percenként |
+
+Két szűrő fut: a durva IP-korlát a CORS előtt (minden widget-kérés, a preflight is, adatbázis-lekérdezéssel jár a CORS-beállításhoz, ezt védi), a pontos korlátok a CORS után (így a 429-es válaszban már ott van az `Access-Control-Allow-Origin`, és a widget el tudja olvasni, majd barátságos üzenetet mutat). A durva korlát 429-es válasza CORS-fejléc nélkül megy, ez csak támadásszerű forgalomnál fordul elő.
+
+A kulcsok száma korlátos (LRU, 50 000), így véletlen tokenekkel sem lehet elfogyasztani a memóriát. Az IP-korlátokat vizsgáljuk előbb, mint a token-korlátokat. Kikapcsolás: `TICKOFF_RATE_LIMIT_ENABLED=false`.
+
+**Üzemeltetési tudnivalók:**
+
+- **Proxy mögött** a korlát az alkalmazás által látott távoli címre épül. Ha a szerver egy reverse proxy (nginx, load balancer) mögött fut, minden kliens ugyanazzal az IP-vel látszik, és közös vödörbe kerül. Állítsd be, hogy a szerver a valódi kliens-IP-t olvassa ki: `server.forward-headers-strategy=native` és a megbízható proxyk címe (`server.tomcat.remoteip.internal-proxies`). Ne bízz meg bármely `X-Forwarded-For` fejlécben, az hamisítható.
+- **Egy példányra** működik. Több példányos telepítésnél minden példánynak saját vödrei vannak, ezért a hatékony korlát a példányszám-szorosa; pontos korláthoz közös tároló (pl. Redis) kell.
+- Az egységtesztek (`RateLimiterTest`, `RateLimitFilterTest`) adatbázis nélkül futnak: `./mvnw test -Dtest='RateLimiterTest,RateLimitFilterTest'` (ezen a gépen Dockerben, lásd az Ismert problémát).
+
 ## Következő lépések
 
 - Widget: SPA-útvonalváltás kezelése, kommentek válaszolása/szálak, a dashboardról a jelölés "megmutatása" az oldalon
-- Visszaélés-védelem a widget végpontokon (kérésszám-korlát)
+- Automata integrációs tesztek (Testcontainers), a Docker-build jelenleg kihagyja a teszteket
 - E-mail értesítések
 
 ## Ismert probléma

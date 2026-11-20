@@ -27,6 +27,9 @@ management:
         include: health,info
 
 tickoff:
+  rate-limit:
+    # Kérésszám-korlát a widget és az auth végpontokon (lásd io.tickoff.ratelimit.RateLimits)
+    enabled: ${TICKOFF_RATE_LIMIT_ENABLED:true}
   # Itt tároljuk a widgetből feltöltött képernyőképeket
   storage-dir: ${TICKOFF_STORAGE_DIR:./data/screenshots}
   jwt:

@@ -9,6 +9,7 @@ function errorMessage(e: unknown, mode: Mode): string {
   if (e instanceof ApiError) {
     if (e.status === 401) return 'Hibás e-mail vagy jelszó.';
     if (e.status === 409) return 'Ezzel az e-mail címmel már van fiók.';
+    if (e.status === 429) return 'Túl sok próbálkozás. Várj egy percet, és próbáld újra.';
     if (e.status === 400)
       return mode === 'register'
         ? 'Ellenőrizd az adatokat: érvényes e-mail és legalább 8 karakteres jelszó kell.'

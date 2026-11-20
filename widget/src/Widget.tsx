@@ -43,6 +43,7 @@ const clampPct = (v: number) => (Number.isFinite(v) ? Math.min(100, Math.max(0, 
 function sendError(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.status === 409) return 'Jelenleg nincs nyitott visszajelzési kör.';
+    if (e.status === 429) return 'Túl sok kérés érkezett tőled, várj egy kicsit, és próbáld újra.';
     if (e.status === 400) return 'Ellenőrizd az adatokat: a név és a szöveg kötelező.';
   }
   return 'Nem sikerült elküldeni, próbáld újra.';

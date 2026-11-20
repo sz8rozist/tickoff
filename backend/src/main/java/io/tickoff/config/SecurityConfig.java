@@ -1,6 +1,7 @@
 package io.tickoff.config;
 
 import io.tickoff.domain.ProjectRepository;
+import io.tickoff.ratelimit.RateLimits;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,13 +13,21 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 
 @Configuration
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http,
+                                    @Value("${tickoff.rate-limit.enabled:true}") boolean rateLimitEnabled) throws Exception {
+        if (rateLimitEnabled) {
+            // A durva korlát a CORS előtt fut (a preflightot is védi), a pontos korlátok utána (a 429-es válasz
+            // így már tartalmazza a CORS-fejléceket, és a widget el tudja olvasni).
+            http.addFilterBefore(RateLimits.beforeCors(), CorsFilter.class)
+                .addFilterAfter(RateLimits.afterCors(), CorsFilter.class);
+        }
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(Customizer.withDefaults())
