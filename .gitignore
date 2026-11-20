@@ -15,3 +15,6 @@ target/
 *.log
 .env
 .env.local
+
+# Helyi képernyőkép-tároló (fejlesztés)
+data/

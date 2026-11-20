@@ -71,11 +71,31 @@ Egy projektnek egyszerre legfeljebb egy nyitott köre van. Új kört csak az el�
 | `POST /api/projects/{id}/rounds` | új kör nyitása → `201`; `409`, ha van nyitott kör |
 | `POST /api/projects/{id}/rounds/{roundId}/close` | kör lezárása → `200`; `409`, ha már le van zárva |
 
+## Widget API
+
+A beágyazott widget végpontjai. Nincs bejelentkezés: a projekt **megosztó tokenje** az útvonalban van (a CORS-preflight nem hordozhat egyedi fejléc-értéket, ezért nem fejlécben megy). Két védelem van:
+
+1. **Origin-ellenőrzés**: a kérés `Origin` fejlécének egyeznie kell a projekt `siteUrl`-jének origin-jével (séma + host + port, az alapértelmezett port elhagyható). Eltérésnél `403`. A CORS-fejléceket is csak erre az origin-re adjuk, ismeretlen tokennél semmit.
+2. **Token**: ismeretlen tokenre `404`.
+
+A widgetet tehát azon az origin-en kell beágyazni, amit a projektnél megadtál. Az `Origin` fejléc nélküli kérések (pl. curl) átmennek, a tokent viszont ők is ismerniük kell: a védelem a böngészőt védi a más oldalról érkező visszaélésektől, nem titkosítás.
+
+| Végpont | Leírás |
+|---|---|
+| `GET /api/widget/{token}/project` | projekt neve, oldala és a nyitott kör (`null`, ha nincs) |
+| `GET /api/widget/{token}/comments?pageUrl=` | a nyitott kör kommentjei, opcionálisan egy oldalra szűrve |
+| `POST /api/widget/{token}/comments` | komment mentése a nyitott körbe → `201`; `409`, ha nincs nyitott kör; `400`, ha a `pageUrl` nem a projekt oldaláról való |
+| `POST /api/widget/{token}/comments/{id}/screenshot` | képernyőkép: nyers `image/png` vagy `image/jpeg` a törzsben, max. 3 MB → `204`; `413` túl nagy, `415` rossz típus, `400` ha a tartalom nem kép (a fájl első bájtjait ellenőrizzük), `409` ha már van képe |
+
+Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, viewportWidth?, viewportHeight?}`. A user agentet a szerver a fejlécből veszi.
+
+A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `screenshots` kötet), az adatbázisban csak a relatív útvonal.
+
 ## Következő lépések
 
-- Widget API (`/api/widget/**`): komment mentése token alapján, projektenkénti origin-ellenőrzés
-- Widget: elemkiválasztás, CSS selector és képernyőkép készítése (`html-to-image`)
-- Dashboard: projektek, körök, kommentlista és státuszkezelés
+- Dashboard: kommentlista körönként, képernyőkép megjelenítése (JWT-vel védett végpont), státuszkezelés
+- Widget: elemkiválasztás, CSS selector és képernyőkép készítése (`html-to-image`), jelölések kirajzolása
+- Visszaélés-védelem a widget végpontokon (kérésszám-korlát)
 - E-mail értesítések
 
 ## Ismert probléma

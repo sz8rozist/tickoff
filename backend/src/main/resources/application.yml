@@ -13,6 +13,13 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+server:
+  tomcat:
+    # Ha a képfeltöltést a Content-Length alapján elutasítjuk (413), a Tomcatnek le kell nyelnie a ki nem olvasott
+    # törzset, különben nem küld választ. A korlátot a képméret (3 MB) fölé állítjuk; ennél nagyobb kérésnél
+    # a kapcsolat egyszerűen megszakad.
+    max-swallow-size: 10MB
+
 management:
   endpoints:
     web:
@@ -20,6 +27,8 @@ management:
         include: health,info
 
 tickoff:
+  # Itt tároljuk a widgetből feltöltött képernyőképeket
+  storage-dir: ${TICKOFF_STORAGE_DIR:./data/screenshots}
   jwt:
     # HS256 titok, legalább 32 bájt. Élesben kötelező környezeti változóból megadni!
     secret: ${TICKOFF_JWT_SECRET:dev-only-secret-change-me-in-production-32b}

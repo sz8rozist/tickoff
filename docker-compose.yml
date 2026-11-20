@@ -31,8 +31,12 @@ services:
       DB_USER: tickoff
       DB_PASSWORD: tickoff
       DASHBOARD_ORIGIN: http://localhost:5173
+      TICKOFF_STORAGE_DIR: /data/screenshots
     ports:
       - "8080:8080"
+    volumes:
+      - screenshots:/data/screenshots
 
 volumes:
   mysql-data:
+  screenshots:

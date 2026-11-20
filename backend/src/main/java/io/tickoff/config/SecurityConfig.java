@@ -1,5 +1,6 @@
 package io.tickoff.config;
 
+import io.tickoff.domain.ProjectRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,11 +11,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -42,20 +40,10 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * A dashboard eredetét engedjük. A widget idegen domainekről hív, ezért annak
-     * projektenkénti origin-ellenőrzését a widget controllerben kell megoldani.
-     */
+    /** A dashboardot és a widgetet külön CORS-szabály kezeli, lásd {@link TickoffCorsConfigurationSource}. */
     @Bean
-    CorsConfigurationSource corsConfigurationSource(@Value("${tickoff.dashboard-origin}") String dashboardOrigin) {
-        CorsConfiguration dashboard = new CorsConfiguration();
-        dashboard.setAllowedOrigins(List.of(dashboardOrigin));
-        dashboard.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        dashboard.setAllowedHeaders(List.of("*"));
-        dashboard.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", dashboard);
-        return source;
+    CorsConfigurationSource corsConfigurationSource(ProjectRepository projects,
+                                                    @Value("${tickoff.dashboard-origin}") String dashboardOrigin) {
+        return new TickoffCorsConfigurationSource(projects, dashboardOrigin);
     }
 }

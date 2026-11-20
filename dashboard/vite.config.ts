@@ -6,8 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:8080',
-      '/actuator': 'http://localhost:8080',
+      // 127.0.0.1, nem localhost: a localhost IPv6-ra (::1) is feloldódhat, ahol Windowson a WSL-relay
+      // egy másik folyamatot tarthat a 8080-as porton.
+      '/api': 'http://127.0.0.1:8080',
+      '/actuator': 'http://127.0.0.1:8080',
     },
   },
 });
