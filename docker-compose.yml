@@ -1,0 +1,38 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: tickoff-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: tickoff
+      MYSQL_USER: tickoff
+      MYSQL_PASSWORD: tickoff
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: tickoff-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/tickoff?useUnicode=true&characterEncoding=utf8
+      DB_USER: tickoff
+      DB_PASSWORD: tickoff
+      DASHBOARD_ORIGIN: http://localhost:5173
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql-data:
