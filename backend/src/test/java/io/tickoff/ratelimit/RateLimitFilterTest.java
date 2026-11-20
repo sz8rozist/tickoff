@@ -45,6 +45,19 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void accountDeletionIsLimitedPerIp() throws Exception {
+        RateLimitFilter filter = RateLimits.afterCors();
+
+        for (int i = 0; i < 5; i++) {
+            assertThat(call(filter, "DELETE", "/api/me", "7.7.7.7").getStatus()).isEqualTo(200);
+        }
+        assertThat(call(filter, "DELETE", "/api/me", "7.7.7.7").getStatus()).isEqualTo(429);
+
+        // a GET /api/me (bejelentkezés-ellenőrzés) nincs korlátozva
+        assertThat(call(filter, "GET", "/api/me", "7.7.7.7").getStatus()).isEqualTo(200);
+    }
+
+    @Test
     void commentAndScreenshotShareTheWriteBudget() throws Exception {
         RateLimitFilter filter = RateLimits.afterCors();
 

@@ -119,6 +119,8 @@ export const api = {
     update: (id: number, input: ProjectInput) =>
       request<Project>(`/api/projects/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
     remove: (id: number) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+    /** Új megosztó token: a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak. */
+    regenerateToken: (id: number) => request<Project>(`/api/projects/${id}/share-token`, { method: 'POST' }),
   },
   rounds: {
     list: (projectId: number) => request<Round[]>(`/api/projects/${projectId}/rounds`),
@@ -135,12 +137,28 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       }),
+    remove: (projectId: number, commentId: number) =>
+      request<void>(`/api/projects/${projectId}/comments/${commentId}`, { method: 'DELETE' }),
+    /** CSV-export: az egész projekt, vagy a megadott kör kommentjei. A fájlnevet a szerver adja. */
+    async exportCsv(projectId: number, roundId?: number): Promise<{ blob: Blob; filename: string }> {
+      const query = roundId !== undefined ? `?roundId=${roundId}` : '';
+      const res = await authFetch(`/api/projects/${projectId}/comments/export${query}`);
+      if (!res.ok) throw new ApiError(res.status);
+      const disposition = res.headers.get('Content-Disposition') ?? '';
+      const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'tickoff-export.csv';
+      return { blob: await res.blob(), filename };
+    },
     // A képet JWT védi, ezért fejléccel kérjük le, nem <img src>-vel.
     async screenshot(projectId: number, commentId: number): Promise<Blob> {
       const res = await authFetch(`/api/projects/${projectId}/comments/${commentId}/screenshot`);
       if (!res.ok) throw new ApiError(res.status);
       return res.blob();
     },
+  },
+  account: {
+    /** Fiók törlése a jelszóval megerősítve: a saját projektek is törlődnek. Nem visszavonható. */
+    remove: (password: string) =>
+      request<void>('/api/me', { method: 'DELETE', body: JSON.stringify({ password }) }),
   },
   logout: () => setToken(null),
 };

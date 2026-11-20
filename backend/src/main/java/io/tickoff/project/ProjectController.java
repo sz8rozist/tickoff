@@ -5,6 +5,7 @@ import io.tickoff.domain.ProjectRepository;
 import io.tickoff.domain.Round;
 import io.tickoff.domain.RoundRepository;
 import io.tickoff.domain.UserRepository;
+import io.tickoff.widget.ScreenshotStorage;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -45,11 +46,14 @@ public class ProjectController {
     private final ProjectRepository projects;
     private final RoundRepository rounds;
     private final UserRepository users;
+    private final ScreenshotStorage storage;
 
-    public ProjectController(ProjectRepository projects, RoundRepository rounds, UserRepository users) {
+    public ProjectController(ProjectRepository projects, RoundRepository rounds, UserRepository users,
+                             ScreenshotStorage storage) {
         this.projects = projects;
         this.rounds = rounds;
         this.users = users;
+        this.storage = storage;
     }
 
     @GetMapping
@@ -82,11 +86,26 @@ public class ProjectController {
         return ProjectDto.of(project);
     }
 
+    /**
+     * Új megosztó token generálása. A régi azonnal érvénytelen, ezért a vele beágyazott widgetek leállnak,
+     * amíg az új tokent be nem írják az oldalba. Akkor hasznos, ha a token illetéktelenhez került.
+     */
+    @PostMapping("/{id}/share-token")
+    @Transactional
+    public ProjectDto regenerateShareToken(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        Project project = owned(jwt, id);
+        project.regenerateShareToken();
+        return ProjectDto.of(project);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        Project project = owned(jwt, id);
         // A körök és kommentek törlését az adatbázis ON DELETE CASCADE-je végzi.
-        projects.delete(owned(jwt, id));
+        projects.delete(project);
+        // A képernyőképek a fájlrendszerben vannak: azokat külön kell törölni
+        storage.deleteProject(project.getId());
     }
 
     private Project owned(Jwt jwt, Long id) {

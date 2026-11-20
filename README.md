@@ -8,11 +8,13 @@
 
 ### Designer (dashboard)
 
-- **Fiók**: regisztráció és belépés e-mail + jelszóval (JWT, bcrypt), a munkamenet oldalfrissítés után is megmarad. A nyilvános regisztráció éles üzemben kikapcsolható.
-- **Projektek**: létrehozás, szerkesztés, törlés (a körök és kommentek is törlődnek). Minden projekthez tartozik egy megosztó token a widgethez, egy kattintással másolható.
+- **Fiók**: regisztráció és belépés e-mail + jelszóval (JWT, bcrypt), a munkamenet oldalfrissítés után is megmarad. A nyilvános regisztráció éles üzemben kikapcsolható. A fiók a jelszó megadásával véglegesen törölhető (a saját projektekkel együtt).
+- **Projektek**: létrehozás, szerkesztés, törlés (a körök, kommentek és képernyőképek is törlődnek). Minden projekthez tartozik egy megosztó token a widgethez, egy kattintással másolható, és szükség esetén **újragenerálható** (ha illetéktelenhez került; a régi token azonnal érvénytelen).
 - **Javítási körök**: új kör nyitása és lezárása. Egyszerre egy nyitott kör van, új kört csak az előző lezárása után lehet nyitni. A köröknél látszik az összes és a nyitott kommentek száma.
 - **Kommentek**: körönként listázva, **oldalanként csoportosítva**. Mindegyiknél látszik a szerző, az idő, a szöveg, az elem CSS-selectora, a viewport mérete és a böngésző/rendszer. Státusz: nyitott, folyamatban, kész.
 - **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
+- **Komment törlése** (a képernyőképével együtt) megerősítéssel.
+- **Export CSV-be**: egy kör vagy a teljes projekt kommentjei, magyar Excelben helyesen megnyíló formátumban (ékezetek, pontosvessző).
 - Magyar felület, világos és sötét téma.
 
 ### Ügyfél (widget)
@@ -36,10 +38,10 @@
 ### Még nincs meg
 
 - E-mail értesítések (új komment, státuszváltás), jelszó-visszaállítás.
-- Kommentszálak (válasz a visszajelzésre), komment törlése/szerkesztése.
+- Kommentszálak (válasz a visszajelzésre). Komment szerkesztése nincs: az ügyfélnek nincs azonosítója, így nem dönthető el, kié a komment.
 - Single-page alkalmazások útvonalváltásának kezelése a widgetben (a jelölések betöltéskor töltődnek).
-- A megosztó token újragenerálása, több felhasználó egy projekten, fiók törlése.
-- A dashboardról a jelölés "megmutatása" az ügyfél oldalán, export.
+- Több felhasználó egy projekten.
+- A dashboardról a jelölés "megmutatása" az ügyfél oldalán.
 
 ## Felépítés (monorepo)
 
@@ -107,6 +109,7 @@ JWT (HS256, Spring Security OAuth2 resource server), állapotmentes. A designere
 | `POST /api/auth/register` | `{email, password (8–72), name}` → `201 {token, user}`; `409` ha már van ilyen e-mail |
 | `POST /api/auth/login` | `{email, password}` → `200 {token, user}`; `401` hibás adatokra |
 | `GET /api/me` | `Authorization: Bearer <token>` → az aktuális felhasználó |
+| `DELETE /api/me` | `{password}` → `204`: a fiók **és a saját projektjei** (körökkel, kommentekkel, képernyőképekkel) véglegesen törlődnek. Hibás jelszóra `403` (nem 401, hogy a kliens ne tekintse lejárt munkamenetnek) |
 
 A jelszavak bcrypt hash-ként tárolódnak. Konfiguráció: `TICKOFF_JWT_SECRET` (legalább 32 bájt, **élesben kötelező felülírni**), `TICKOFF_JWT_TTL` (alapérték: `12h`).
 
@@ -120,7 +123,8 @@ Minden `/api/projects` végpont tokent kér, és csak a bejelentkezett felhaszn�
 | `POST /api/projects` | `{name, siteUrl (http/https)}` → `201`; automatikusan létrejön az 1. kör |
 | `GET /api/projects/{id}` | egy projekt |
 | `PUT /api/projects/{id}` | név és URL módosítása |
-| `DELETE /api/projects/{id}` | `204`; a körök és kommentek az adatbázisban kaszkádolva törlődnek |
+| `POST /api/projects/{id}/share-token` | új megosztó token; a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak (a kommentek megmaradnak) |
+| `DELETE /api/projects/{id}` | `204`; a körök és kommentek az adatbázisban kaszkádolva törlődnek, a képernyőképek fájljai is |
 
 ## Körök
 
@@ -141,6 +145,8 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 | `GET /api/projects/{id}/rounds/{roundId}/comments` | a kör kommentjei, minden mezővel (selector, viewport, user agent, státusz) |
 | `PATCH /api/projects/{id}/comments/{commentId}` | `{status: OPEN \| IN_PROGRESS \| DONE}`; érvénytelen értékre `400` |
 | `GET /api/projects/{id}/comments/{commentId}/screenshot` | a képernyőkép (PNG/JPEG); `404`, ha nincs |
+| `DELETE /api/projects/{id}/comments/{commentId}` | `204`; a képernyőkép fájlja is törlődik |
+| `GET /api/projects/{id}/comments/export[?roundId=]` | CSV a projekt (vagy egy kör) kommentjeiről: pontosvessző, UTF-8 BOM (magyar Excelhez), a cellák védettek a CSV-injection ellen (az `=`, `+`, `-`, `@` kezdetű szöveg elé aposztróf kerül), az időpontok budapesti idő szerint (`TICKOFF_EXPORT_ZONE`-nal állítható) |
 
 A körlistában minden körnél ott van a `commentCount` és az `openCommentCount`. A képernyőképet JWT védi, ezért a dashboard fejléccel kéri le, és `blob:` URL-ként jeleníti meg (nem `<img src>`-vel). A dashboardon a kommentek oldalanként (`pageUrl`) csoportosítva látszanak.
 
@@ -177,6 +183,7 @@ A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás
 | Widget összes kérése, **a preflightot is** beleértve | IP | 200 / 300 percenként |
 | `POST /api/auth/login` | IP | 10 / 10 percenként |
 | `POST /api/auth/register` | IP | 5 / 5 percenként |
+| `DELETE /api/me` (fiók törlése, jelszót kér) | IP | 5 / 5 percenként |
 
 Két szűrő fut: a durva IP-korlát a CORS előtt (minden widget-kérés, a preflight is, adatbázis-lekérdezéssel jár a CORS-beállításhoz, ezt védi), a pontos korlátok a CORS után (így a 429-es válaszban már ott van az `Access-Control-Allow-Origin`, és a widget el tudja olvasni, majd barátságos üzenetet mutat). A durva korlát 429-es válasza CORS-fejléc nélkül megy, ez csak támadásszerű forgalomnál fordul elő.
 

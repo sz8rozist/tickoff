@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { api, ApiError, type Project } from './api';
+import { saveBlob } from './download';
 import { RoundsPanel } from './RoundsPanel';
 
 function describe(e: unknown): string {
@@ -106,6 +107,9 @@ export function ProjectsPage() {
   const [deleting, setDeleting] = useState<Project | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [regenerating, setRegenerating] = useState<Project | null>(null);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [regenerateBusy, setRegenerateBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -121,6 +125,31 @@ export function ProjectsPage() {
     const updated = await api.projects.update(id, { name, siteUrl });
     setProjects((prev) => prev?.map((p) => (p.id === id ? updated : p)) ?? null);
     setEditingId(null);
+  }
+
+  async function confirmRegenerate() {
+    if (!regenerating) return;
+    setActionError(null);
+    setRegenerateBusy(true);
+    try {
+      const updated = await api.projects.regenerateToken(regenerating.id);
+      setProjects((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null);
+    } catch (e) {
+      setActionError(describe(e));
+    } finally {
+      setRegenerateBusy(false);
+      setRegenerateOpen(false);
+    }
+  }
+
+  async function exportAll(p: Project) {
+    setActionError(null);
+    try {
+      const { blob, filename } = await api.comments.exportCsv(p.id);
+      saveBlob(blob, filename);
+    } catch {
+      setActionError('Az export nem sikerült, próbáld újra később.');
+    }
   }
 
   async function confirmDelete() {
@@ -210,6 +239,20 @@ export function ProjectsPage() {
                     </Button>
                   )}
                 </CopyButton>
+                <Button
+                  variant="subtle"
+                  color="orange"
+                  size="compact-xs"
+                  onClick={() => {
+                    setRegenerating(p);
+                    setRegenerateOpen(true);
+                  }}
+                >
+                  Új token
+                </Button>
+                <Button variant="subtle" size="compact-xs" onClick={() => exportAll(p)}>
+                  Összes komment (CSV)
+                </Button>
               </Group>
 
               <RoundsPanel projectId={p.id} />
@@ -217,6 +260,24 @@ export function ProjectsPage() {
           )}
         </Card>
       ))}
+
+      <Modal opened={regenerateOpen} onClose={() => setRegenerateOpen(false)} title="Új megosztó token" centered>
+        <Stack>
+          <Text size="sm">
+            Új tokent generálsz a(z) „{regenerating?.name}” projekthez. A <b>régi token azonnal érvénytelen</b>, ezért a
+            vele beágyazott widgetek leállnak, amíg az ügyfél oldalába be nem írod az újat. A már beküldött kommentek
+            megmaradnak.
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setRegenerateOpen(false)}>
+              Mégse
+            </Button>
+            <Button color="orange" loading={regenerateBusy} onClick={confirmRegenerate}>
+              Új token generálása
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title="Projekt törlése" centered>
         <Stack>

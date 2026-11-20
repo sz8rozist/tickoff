@@ -41,6 +41,11 @@ public class Project {
         this.shareToken = generateToken();
     }
 
+    /** Új megosztó token: a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak. */
+    public void regenerateShareToken() {
+        this.shareToken = generateToken();
+    }
+
     public void update(String name, String siteUrl) {
         this.name = name;
         this.siteUrl = siteUrl;

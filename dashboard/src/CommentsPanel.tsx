@@ -64,6 +64,9 @@ export function CommentsPanel({
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [shot, setShot] = useState<{ comment: Comment; url: string | null; failed: boolean } | null>(null);
+  // A `deleting` a bezáródó animáció alatt is megmarad, hogy a szöveg ne ürüljön ki.
+  const [deleting, setDeleting] = useState<Comment | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     api.comments.list(projectId, roundId).then(setComments).catch(() => setError('A kommentek betöltése nem sikerült.'));
@@ -88,6 +91,22 @@ export function CommentsPanel({
       setError('A státusz módosítása nem sikerült.');
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    setError(null);
+    setBusyId(deleting.id);
+    try {
+      await api.comments.remove(projectId, deleting.id);
+      setComments((prev) => prev?.filter((x) => x.id !== deleting.id) ?? null);
+      onChanged();
+    } catch {
+      setError('A komment törlése nem sikerült.');
+    } finally {
+      setBusyId(null);
+      setDeleteOpen(false);
     }
   }
 
@@ -176,12 +195,39 @@ export function CommentsPanel({
                       Képernyőkép
                     </Button>
                   )}
+                  <Button
+                    size="compact-xs"
+                    variant="subtle"
+                    color="red"
+                    onClick={() => {
+                      setDeleting(c);
+                      setDeleteOpen(true);
+                    }}
+                  >
+                    Törlés
+                  </Button>
                 </Group>
               </Stack>
             </Card>
           ))}
         </Stack>
       ))}
+
+      <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title="Komment törlése" centered>
+        <Stack>
+          <Text size="sm">
+            Biztosan törlöd {deleting?.authorName} kommentjét? A képernyőképe is törlődik, ez nem vonható vissza.
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setDeleteOpen(false)}>
+              Mégse
+            </Button>
+            <Button color="red" loading={busyId !== null && busyId === deleting?.id} onClick={confirmDelete}>
+              Törlés
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal opened={shot !== null} onClose={() => setShot(null)} title="Képernyőkép" size="xl" centered>
         {shot?.failed && <Alert color="red">A képernyőkép betöltése nem sikerült.</Alert>}

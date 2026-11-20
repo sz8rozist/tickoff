@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Button, Center, Container, Group, Loader, Text, Title } from '@mantine/core';
 import { api, ApiError, getToken, type User } from './api';
 import { AuthForm } from './AuthForm';
+import { DeleteAccountModal } from './DeleteAccountModal';
 import { ProjectsPage } from './ProjectsPage';
 
 export function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   // Ha van mentett token, először megnézzük, érvényes-e.
   const [loading, setLoading] = useState<boolean>(() => getToken() !== null);
 
@@ -56,9 +58,20 @@ export function App() {
           <Button variant="default" size="xs" onClick={logout}>
             Kilépés
           </Button>
+          <Button variant="subtle" color="red" size="xs" onClick={() => setDeleteAccountOpen(true)}>
+            Fiók törlése
+          </Button>
         </Group>
       </Group>
       <ProjectsPage />
+      <DeleteAccountModal
+        opened={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+        onDeleted={() => {
+          setDeleteAccountOpen(false);
+          logout();
+        }}
+      />
     </Container>
   );
 }

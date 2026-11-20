@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Group, Loader, Stack, Text } from '@mantine/core';
 import { api, ApiError, type Round } from './api';
 import { CommentsPanel } from './CommentsPanel';
+import { saveBlob } from './download';
 
 function describe(e: unknown): string {
   if (e instanceof ApiError && e.status === 409) {
@@ -55,6 +56,16 @@ export function RoundsPanel({ projectId }: { projectId: number }) {
     }
   }
 
+  async function exportCsv(roundId: number) {
+    setError(null);
+    try {
+      const { blob, filename } = await api.comments.exportCsv(projectId, roundId);
+      saveBlob(blob, filename);
+    } catch {
+      setError('Az export nem sikerült, próbáld újra később.');
+    }
+  }
+
   if (!rounds) {
     return error ? (
       <Alert color="red" role="alert">
@@ -94,6 +105,11 @@ export function RoundsPanel({ projectId }: { projectId: number }) {
             <Button size="compact-xs" variant="subtle" onClick={() => toggle(r.id)}>
               {expanded.has(r.id) ? 'Kommentek elrejtése' : 'Kommentek'}
             </Button>
+            {r.commentCount > 0 && (
+              <Button size="compact-xs" variant="subtle" disabled={busy} onClick={() => exportCsv(r.id)}>
+                Export (CSV)
+              </Button>
+            )}
             {r.status === 'OPEN' && (
               <Button size="compact-xs" variant="default" disabled={busy} onClick={() => run(() => api.rounds.close(projectId, r.id))}>
                 Kör lezárása

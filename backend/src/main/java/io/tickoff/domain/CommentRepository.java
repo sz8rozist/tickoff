@@ -22,6 +22,14 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     Optional<Comment> findByIdAndRoundProjectId(Long id, Long projectId);
 
+    /** A projekt összes kommentje a körrel együtt (exporthoz), kör és időrend szerint. */
+    @Query("""
+        select c from Comment c join fetch c.round r
+        where r.project.id = :projectId
+        order by r.number, c.createdAt
+        """)
+    List<Comment> findAllForExport(@Param("projectId") Long projectId);
+
     @Query("""
         select c.round.id as roundId, count(c) as total,
                sum(case when c.status = io.tickoff.domain.Comment.Status.OPEN then 1 else 0 end) as openCount
