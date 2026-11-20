@@ -2,6 +2,8 @@ export interface User {
   id: number;
   email: string;
   name: string;
+  /** E-mail értesítés új visszajelzésről */
+  notifyEmail: boolean;
 }
 
 interface AuthResponse {
@@ -134,6 +136,12 @@ export const api = {
     return r.user;
   },
   me: () => request<User>('/api/me'),
+  /** A válasz mindig 204, akár van ilyen fiók, akár nincs: a végpont nem árulja el, kinek van fiókja. */
+  forgotPassword: (email: string) =>
+    request<void>('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  /** Új jelszó az e-mailben kapott tokennel; érvénytelen vagy lejárt tokenre 400. */
+  resetPassword: (token: string, password: string) =>
+    request<void>('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
   projects: {
     list: () => request<Project[]>('/api/projects'),
     create: (input: ProjectInput) =>
@@ -194,6 +202,9 @@ export const api = {
     },
   },
   account: {
+    /** Az e-mail értesítések be- és kikapcsolása. */
+    setNotifyEmail: (notifyEmail: boolean) =>
+      request<User>('/api/me', { method: 'PATCH', body: JSON.stringify({ notifyEmail }) }),
     /** Fiók törlése a jelszóval megerősítve: a saját projektek is törlődnek. Nem visszavonható. */
     remove: (password: string) =>
       request<void>('/api/me', { method: 'DELETE', body: JSON.stringify({ password }) }),

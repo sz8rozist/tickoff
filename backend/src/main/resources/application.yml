@@ -1,6 +1,19 @@
 spring:
   application:
     name: tickoff-backend
+  # E-mail (jelszó-visszaállítás, értesítések). SMTP_HOST nélkül az e-mailek nem mennek el.
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
+      # Egy lassú vagy elérhetetlen SMTP-szerver ne akassza meg a küldő szálat
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3307/tickoff?useUnicode=true&characterEncoding=utf8}
     username: ${DB_USER:tickoff}
@@ -27,6 +40,8 @@ management:
         include: health,info
 
 tickoff:
+  mail:
+    from: ${TICKOFF_MAIL_FROM:Tickoff <no-reply@localhost>}
   registration:
     # Nyilvános regisztráció. Élesben a saját fiók létrehozása után érdemes kikapcsolni (TICKOFF_REGISTRATION_ENABLED=false).
     enabled: ${TICKOFF_REGISTRATION_ENABLED:true}

@@ -3,7 +3,7 @@ import { Alert, Anchor, Button, Paper, PasswordInput, Stack, Text, TextInput, Ti
 import { useForm } from '@mantine/form';
 import { api, ApiError, type User } from './api';
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | 'forgot';
 
 function errorMessage(e: unknown, mode: Mode): string {
   if (e instanceof ApiError) {
@@ -14,15 +14,25 @@ function errorMessage(e: unknown, mode: Mode): string {
     if (e.status === 400)
       return mode === 'register'
         ? 'Ellenőrizd az adatokat: érvényes e-mail és legalább 8 karakteres jelszó kell.'
-        : 'Add meg az e-mail címet és a jelszót.';
+        : mode === 'forgot'
+          ? 'Adj meg egy érvényes e-mail címet.'
+          : 'Add meg az e-mail címet és a jelszót.';
   }
   return 'A szerver nem elérhető, próbáld újra később.';
 }
+
+const TITLES: Record<Mode, string> = {
+  login: 'Belépés',
+  register: 'Regisztráció',
+  forgot: 'Elfelejtett jelszó',
+};
 
 export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
   const [mode, setMode] = useState<Mode>('login');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A "jelszó-emlékeztető elküldve" állapot: a szöveg szándékosan nem árulja el, hogy van-e ilyen fiók
+  const [reminderSent, setReminderSent] = useState(false);
 
   const form = useForm({
     initialValues: { name: '', email: '', password: '' },
@@ -30,7 +40,13 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
       name: (v) => (mode === 'register' && v.trim() === '' ? 'A név kötelező' : null),
       email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : 'Érvényes e-mail címet adj meg'),
       password: (v) =>
-        mode === 'register' && v.length < 8 ? 'Legalább 8 karakter kell' : v === '' ? 'A jelszó kötelező' : null,
+        mode === 'forgot'
+          ? null
+          : mode === 'register' && v.length < 8
+            ? 'Legalább 8 karakter kell'
+            : v === ''
+              ? 'A jelszó kötelező'
+              : null,
     },
   });
 
@@ -38,6 +54,11 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
     setError(null);
     setBusy(true);
     try {
+      if (mode === 'forgot') {
+        await api.forgotPassword(values.email);
+        setReminderSent(true);
+        return;
+      }
       const user =
         mode === 'login'
           ? await api.login(values.email, values.password)
@@ -50,9 +71,10 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
     }
   }
 
-  function toggle() {
-    setMode(mode === 'login' ? 'register' : 'login');
+  function switchTo(next: Mode) {
+    setMode(next);
     setError(null);
+    setReminderSent(false);
     form.clearErrors();
   }
 
@@ -61,37 +83,66 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
       <form onSubmit={form.onSubmit(submit)}>
         <Stack>
           <Title order={2} size="h3">
-            {mode === 'login' ? 'Belépés' : 'Regisztráció'}
+            {TITLES[mode]}
           </Title>
-          {mode === 'register' && (
-            <TextInput
-              label="Név"
-              maxLength={120}
-              autoComplete="name"
-              {...form.getInputProps('name')}
-            />
+
+          {mode === 'forgot' && reminderSent ? (
+            <>
+              <Alert color="green" role="status">
+                Ha van ilyen fiók, elküldtük a jelszó-visszaállító linket. A levél pár percen belül megérkezik, a link
+                egy óráig érvényes.
+              </Alert>
+              <Text size="sm" ta="center">
+                <Anchor component="button" type="button" onClick={() => switchTo('login')}>
+                  Vissza a belépéshez
+                </Anchor>
+              </Text>
+            </>
+          ) : (
+            <>
+              {mode === 'register' && (
+                <TextInput label="Név" maxLength={120} autoComplete="name" {...form.getInputProps('name')} />
+              )}
+              <TextInput label="E-mail" autoComplete="email" {...form.getInputProps('email')} />
+              {mode === 'forgot' ? (
+                <Text size="sm" c="dimmed">
+                  Add meg a fiókod e-mail címét, és küldünk egy linket, amivel új jelszót adhatsz meg.
+                </Text>
+              ) : (
+                <PasswordInput
+                  label="Jelszó"
+                  description={mode === 'register' ? 'Legalább 8 karakter' : undefined}
+                  maxLength={72}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  {...form.getInputProps('password')}
+                />
+              )}
+              {error && (
+                <Alert color="red" role="alert">
+                  {error}
+                </Alert>
+              )}
+              <Button type="submit" loading={busy}>
+                {mode === 'login' ? 'Belépés' : mode === 'register' ? 'Fiók létrehozása' : 'Link küldése'}
+              </Button>
+              {mode === 'login' && (
+                <Text size="sm" ta="center">
+                  <Anchor component="button" type="button" onClick={() => switchTo('forgot')}>
+                    Elfelejtett jelszó
+                  </Anchor>
+                </Text>
+              )}
+              <Text size="sm" ta="center">
+                <Anchor
+                  component="button"
+                  type="button"
+                  onClick={() => switchTo(mode === 'register' ? 'login' : mode === 'forgot' ? 'login' : 'register')}
+                >
+                  {mode === 'login' ? 'Még nincs fiókom' : mode === 'register' ? 'Már van fiókom' : 'Vissza a belépéshez'}
+                </Anchor>
+              </Text>
+            </>
           )}
-          <TextInput label="E-mail" autoComplete="email" {...form.getInputProps('email')} />
-          <PasswordInput
-            label="Jelszó"
-            description={mode === 'register' ? 'Legalább 8 karakter' : undefined}
-            maxLength={72}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            {...form.getInputProps('password')}
-          />
-          {error && (
-            <Alert color="red" role="alert">
-              {error}
-            </Alert>
-          )}
-          <Button type="submit" loading={busy}>
-            {mode === 'login' ? 'Belépés' : 'Fiók létrehozása'}
-          </Button>
-          <Text size="sm" ta="center">
-            <Anchor component="button" type="button" onClick={toggle}>
-              {mode === 'login' ? 'Még nincs fiókom' : 'Már van fiókom'}
-            </Anchor>
-          </Text>
         </Stack>
       </form>
     </Paper>

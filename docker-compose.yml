@@ -19,6 +19,15 @@ services:
       timeout: 5s
       retries: 20
 
+  # Fejlesztői levelezés-csapda: minden elküldött levelet elkap, és megmutatja a http://127.0.0.1:8025 címen.
+  # Valódi címzettnek semmi nem megy el.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: tickoff-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+
   backend:
     build: ./backend
     container_name: tickoff-backend
@@ -26,12 +35,16 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       DB_URL: jdbc:mysql://mysql:3306/tickoff?useUnicode=true&characterEncoding=utf8
       DB_USER: tickoff
       DB_PASSWORD: tickoff
       DASHBOARD_ORIGIN: http://localhost:5173
       TICKOFF_STORAGE_DIR: /data/screenshots
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
     ports:
       - "8080:8080"
     volumes:

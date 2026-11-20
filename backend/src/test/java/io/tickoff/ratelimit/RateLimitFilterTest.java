@@ -58,6 +58,21 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void passwordResetEndpointsAreLimitedPerIp() throws Exception {
+        RateLimitFilter filter = RateLimits.afterCors();
+
+        for (int i = 0; i < 5; i++) {
+            assertThat(call(filter, "POST", "/api/auth/forgot-password", "9.9.9.9").getStatus()).isEqualTo(200);
+        }
+        assertThat(call(filter, "POST", "/api/auth/forgot-password", "9.9.9.9").getStatus()).isEqualTo(429);
+
+        for (int i = 0; i < 10; i++) {
+            assertThat(call(filter, "POST", "/api/auth/reset-password", "9.9.9.9").getStatus()).isEqualTo(200);
+        }
+        assertThat(call(filter, "POST", "/api/auth/reset-password", "9.9.9.9").getStatus()).isEqualTo(429);
+    }
+
+    @Test
     void invitingMembersIsLimitedPerIp() throws Exception {
         RateLimitFilter filter = RateLimits.afterCors();
 

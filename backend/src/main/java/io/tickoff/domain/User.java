@@ -23,6 +23,13 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Az ennél korábban kiadott bejelentkezési tokenek érvénytelenek (jelszó-visszaállítás után). */
+    @Column(name = "password_changed_at")
+    private Instant passwordChangedAt;
+
+    @Column(name = "notify_email", nullable = false)
+    private boolean notifyEmail = true;
+
     protected User() {
     }
 
@@ -31,6 +38,17 @@ public class User {
         this.passwordHash = passwordHash;
         this.name = name;
     }
+
+    /** Új jelszó beállítása. A korábban kiadott bejelentkezési tokenek ezzel érvénytelenné válnak. */
+    public void changePassword(String newPasswordHash, Instant now) {
+        this.passwordHash = newPasswordHash;
+        this.passwordChangedAt = now;
+    }
+
+    public void setNotifyEmail(boolean notifyEmail) { this.notifyEmail = notifyEmail; }
+
+    public Instant getPasswordChangedAt() { return passwordChangedAt; }
+    public boolean isNotifyEmail() { return notifyEmail; }
 
     public Long getId() { return id; }
     public String getEmail() { return email; }

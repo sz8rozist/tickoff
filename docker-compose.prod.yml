@@ -36,6 +36,14 @@ services:
       DASHBOARD_ORIGIN: ${TICKOFF_PUBLIC_URL:?Állítsd be a TICKOFF_PUBLIC_URL-t a .env fájlban}
       TICKOFF_STORAGE_DIR: /data/screenshots
       TICKOFF_REGISTRATION_ENABLED: ${TICKOFF_REGISTRATION_ENABLED:-true}
+      # E-mail (jelszó-visszaállítás, értesítések). SMTP_HOST nélkül az e-mailek nem mennek el.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      TICKOFF_MAIL_FROM: ${TICKOFF_MAIL_FROM:-Tickoff <no-reply@localhost>}
     volumes:
       - screenshots:/data/screenshots
     # Nincs kiadott port: kívülről csak a web (Caddy) éri el.

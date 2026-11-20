@@ -6,7 +6,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import io.tickoff.domain.UserRepository;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -44,7 +47,12 @@ public class JwtConfig {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(SecretKey jwtSecretKey) {
-        return NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(MacAlgorithm.HS256).build();
+    JwtDecoder jwtDecoder(SecretKey jwtSecretKey, UserRepository users) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(MacAlgorithm.HS256).build();
+        // Az alap ellenőrzések (lejárat) mellett: a token érvénytelen, ha a felhasználó törlődött, vagy a jelszava
+        // a token kiadása után változott (jelszó-visszaállítás).
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+            JwtValidators.createDefault(), new PasswordChangedValidator(users)));
+        return decoder;
     }
 }

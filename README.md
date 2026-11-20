@@ -8,7 +8,8 @@
 
 ### Designer (dashboard)
 
-- **Fiók**: regisztráció és belépés e-mail + jelszóval (JWT, bcrypt), a munkamenet oldalfrissítés után is megmarad. A nyilvános regisztráció éles üzemben kikapcsolható. A fiók a jelszó megadásával véglegesen törölhető (a saját projektekkel együtt).
+- **Fiók**: regisztráció és belépés e-mail + jelszóval (JWT, bcrypt), a munkamenet oldalfrissítés után is megmarad. A nyilvános regisztráció éles üzemben kikapcsolható. A fiók a jelszó megadásával véglegesen törölhető (a saját projektekkel együtt). **Elfelejtett jelszó**: e-mailben kapott, egy óráig érvényes, egyszer használható linkkel új jelszó adható meg, és ilyenkor a fiók minden korábbi bejelentkezése megszűnik.
+- **E-mail értesítés**: a csapat (tulajdonos és tagok) levelet kap az ügyfelektől érkező új kommentről és válaszról. Felhasználónként ki- és bekapcsolható a fejlécben lévő kapcsolóval.
 - **Projektek**: létrehozás, szerkesztés, törlés (a körök, kommentek és képernyőképek is törlődnek). Minden projekthez tartozik egy megosztó token a widgethez, egy kattintással másolható, és szükség esetén **újragenerálható** (ha illetéktelenhez került; a régi token azonnal érvénytelen).
 - **Javítási körök**: új kör nyitása és lezárása. Egyszerre egy nyitott kör van, új kört csak az előző lezárása után lehet nyitni. A köröknél látszik az összes és a nyitott kommentek száma.
 - **Kommentek**: körönként listázva, **oldalanként csoportosítva**. Mindegyiknél látszik a szerző, az idő, a szöveg, az elem CSS-selectora, a viewport mérete és a böngésző/rendszer. Státusz: nyitott, folyamatban, kész.
@@ -40,10 +41,10 @@
 
 ### Még nincs meg
 
-- E-mail értesítések (új komment, státuszváltás), jelszó-visszaállítás.
 - Komment szerkesztése: az ügyfélnek nincs azonosítója, így nem dönthető el, kié a komment.
 - Single-page alkalmazások útvonalváltásának kezelése a widgetben (a jelölések betöltéskor töltődnek).
-- Meghívás még nem létező fiókra (jelenleg a kollégának előbb regisztrálnia kell), tulajdonjog átadása.
+- Meghívás még nem létező fiókra (jelenleg a kollégának előbb regisztrálnia kell). Ehhez e-mail-megerősítés kellene a regisztrációkor: enélkül az első, a meghívott címmel regisztráló személy hozzáférést kapna a projekthez. Tulajdonjog átadása.
+- Értesítés a designer saját műveleteiről (pl. státuszváltás) és a megerősítetlen e-mail-cím kezelése.
 - A dashboardról a jelölés "megmutatása" az ügyfél oldalán.
 
 ## Felépítés (monorepo)
@@ -60,7 +61,9 @@
 ## Indítás
 
 ```bash
-# 1) Adatbázis + backend (http://localhost:8080) – a Flyway induláskor lefuttatja a migrációkat
+# 1) Adatbázis + backend (http://localhost:8080) + Mailpit levelezés-csapda (http://127.0.0.1:8025)
+#    A Flyway induláskor lefuttatja a migrációkat. A Mailpit elkapja a backend összes levelét
+#    (jelszó-visszaállítás, értesítések), valódi címzettnek semmi nem megy el.
 docker compose up -d --build
 
 # (csak az adatbázis: docker compose up -d mysql, majd cd backend && ./mvnw spring-boot:run)
@@ -111,7 +114,10 @@ JWT (HS256, Spring Security OAuth2 resource server), állapotmentes. A designere
 |---|---|
 | `POST /api/auth/register` | `{email, password (8–72), name}` → `201 {token, user}`; `409` ha már van ilyen e-mail |
 | `POST /api/auth/login` | `{email, password}` → `200 {token, user}`; `401` hibás adatokra |
-| `GET /api/me` | `Authorization: Bearer <token>` → az aktuális felhasználó |
+| `GET /api/me` | `Authorization: Bearer <token>` → az aktuális felhasználó (`notifyEmail` is) |
+| `PATCH /api/me` | `{notifyEmail: true \| false}`: az e-mail értesítések be- és kikapcsolása |
+| `POST /api/auth/forgot-password` | `{email}` → mindig `204`, akár van ilyen fiók, akár nincs (nem derül ki, kinek van fiókja). Ha van, és be van állítva SMTP, visszaállító levelet küld |
+| `POST /api/auth/reset-password` | `{token, password (8–72)}` → `204`; `400`, ha a token ismeretlen, lejárt vagy már használt |
 | `DELETE /api/me` | `{password}` → `204`: a fiók **és a saját projektjei** (körökkel, kommentekkel, képernyőképekkel) véglegesen törlődnek. Hibás jelszóra `403` (nem 401, hogy a kliens ne tekintse lejárt munkamenetnek) |
 
 A jelszavak bcrypt hash-ként tárolódnak. Konfiguráció: `TICKOFF_JWT_SECRET` (legalább 32 bájt, **élesben kötelező felülírni**), `TICKOFF_JWT_TTL` (alapérték: `12h`).
@@ -195,6 +201,21 @@ Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, viewpo
 
 A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `screenshots` kötet), az adatbázisban csak a relatív útvonal.
 
+## E-mail
+
+A backend két célra küld levelet: **jelszó-visszaállítás** és **értesítés** az ügyfelektől érkező új kommentről és válaszról (a csapat minden olyan tagjának, aki nem kapcsolta ki). A levelek egyszerű szöveges üzenetek.
+
+**Beállítás** (környezeti változók, éles üzemben a `.env`-ben): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_AUTH`, `SMTP_STARTTLS`, `TICKOFF_MAIL_FROM`. **`SMTP_HOST` nélkül a levelek nem mennek el** (induláskor figyelmeztetés van a naplóban): az elfelejtett jelszó nem állítható vissza, és nincs értesítés. Fejlesztéskor a `docker compose` Mailpit-et indít, amely minden levelet elkap, és a http://127.0.0.1:8025 címen mutatja.
+
+**Jelszó-visszaállítás:**
+
+- A link tokenje véletlen (256 bit), az adatbázisban **csak az SHA-256 hash-e** van, egy óráig érvényes, és egyszer használható. Újabb kérés érvényteleníti a korábbi linkeket.
+- A kérés válasza mindig ugyanaz (`204`): nem derül ki, hogy létezik-e a fiók. Fiókonként óránként legfeljebb 3 levél megy (levélbombázás ellen), IP-nként 5 kérés/perc.
+- A dashboard a tokent azonnal eltávolítja a címsorból (előzmények, Referer, megosztott képernyő ellen).
+- Sikeres visszaállítás után a fiók **minden korábbi bejelentkezése érvénytelen** (a `PasswordChangedValidator` minden kérésnél ellenőrzi, hogy a token a jelszócsere előtt készült-e). Ez a törölt felhasználók tokenjeire is igaz.
+
+**Értesítések:** a levél a komment mentésének sikeres lezárása után megy el, külön szálon (a widget kérése nem vár az SMTP-szerverre, és annak hibája nem bukatja el), a sor korlátos. Címzettenként legfeljebb 10 levél egyszerre, utána percenként 1, így egy támadó sem tudja a csapat postafiókját és az SMTP-hírnevet elárasztani. A tárgy sortörés-mentesített (a projektnév nem injektálhat levélfejlécet).
+
 ## Kérésszám-korlát
 
 A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás) a backend memóriabeli **token bucket** korlátozót használ (`io.tickoff.ratelimit`). Túllépéskor `429 Too Many Requests` jön `Retry-After` fejléccel (másodpercben, mikor lesz újra token).
@@ -208,6 +229,8 @@ A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás
 | Widget összes kérése, **a preflightot is** beleértve | IP | 200 / 300 percenként |
 | `POST /api/auth/login` | IP | 10 / 10 percenként |
 | `POST /api/auth/register` | IP | 5 / 5 percenként |
+| `POST /api/auth/forgot-password` | IP | 5 / 5 percenként (fiókonként ezen felül óránként legfeljebb 3 levél) |
+| `POST /api/auth/reset-password` | IP | 10 / 10 percenként |
 | `DELETE /api/me` (fiók törlése, jelszót kér) | IP | 5 / 5 percenként |
 | `POST /api/projects/{id}/members` (tag meghívása) | IP | 20 / 20 percenként |
 
@@ -231,11 +254,13 @@ Előfeltétel: egy szerver Dockerrel, és egy domain, aminek a DNS-e a szerverre
 
 ```bash
 cp .env.example .env
-# töltsd ki: domain, e-mail, jelszavak, JWT-titok. Erős titkok:  openssl rand -base64 36
+# töltsd ki: domain, e-mail, jelszavak, JWT-titok, SMTP-szerver. Erős titkok:  openssl rand -base64 36
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 A kötelező változók hiányában a compose érthető hibával megáll (és a backend a `prod` profillal sem indul el titok nélkül, a fejlesztői JWT-titkot pedig kifejezetten elutasítja). Az első indításkor a tanúsítvány kérése pár másodpercet vesz igénybe; az állapot: `https://<domain>/actuator/health`.
+
+**SMTP-szerver nélkül a jelszó-visszaállítás és az értesítések nem működnek** (lásd az E-mail szakaszt): add meg az `SMTP_*` változókat a `.env`-ben, és a feladó domainjére állítsd be az SPF/DKIM rekordokat, különben a levelek spamként érkeznek.
 
 1. Nyisd meg a `https://<domain>` címet, és **regisztráld a saját fiókodat**.
 2. Állítsd a `.env`-ben `TICKOFF_REGISTRATION_ENABLED=false` értékre, és `docker compose -f docker-compose.prod.yml up -d` (újraindul a backend). Így idegenek nem tudnak fiókot létrehozni. Ha egy kolléga is kell, kapcsold vissza ideiglenesen.
@@ -301,8 +326,7 @@ Titkot nem használ. Egy ágon egyszerre csak a legfrissebb futás számít (a r
 
 ## Következő lépések
 
-- Widget: SPA-útvonalváltás kezelése, kommentek válaszolása/szálak, a dashboardról a jelölés "megmutatása" az oldalon
-- E-mail értesítések
+- Widget: SPA-útvonalváltás kezelése, a dashboardról a jelölés "megmutatása" az oldalon
 
 ## Ismert probléma
 

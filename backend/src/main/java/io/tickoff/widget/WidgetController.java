@@ -8,6 +8,7 @@ import io.tickoff.domain.Reply;
 import io.tickoff.domain.ReplyRepository;
 import io.tickoff.domain.Round;
 import io.tickoff.domain.RoundRepository;
+import io.tickoff.mail.NotificationService;
 import io.tickoff.project.ReplyService;
 import io.tickoff.project.ReplyService.ReplyDto;
 import jakarta.servlet.http.HttpServletRequest;
@@ -83,15 +84,18 @@ public class WidgetController {
     private final CommentRepository comments;
     private final ReplyRepository replyRepository;
     private final ReplyService replyService;
+    private final NotificationService notifications;
     private final ScreenshotStorage storage;
 
     public WidgetController(ProjectRepository projects, RoundRepository rounds, CommentRepository comments,
-                            ReplyRepository replyRepository, ReplyService replyService, ScreenshotStorage storage) {
+                            ReplyRepository replyRepository, ReplyService replyService,
+                            NotificationService notifications, ScreenshotStorage storage) {
         this.projects = projects;
         this.rounds = rounds;
         this.comments = comments;
         this.replyRepository = replyRepository;
         this.replyService = replyService;
+        this.notifications = notifications;
         this.storage = storage;
     }
 
@@ -134,7 +138,9 @@ public class WidgetController {
         comment.setLocation(blankToNull(req.cssSelector()), req.posX(), req.posY());
         // A user agentet a fejlécből vesszük, nem a kliens által küldött törzsből.
         comment.setEnvironment(req.viewportWidth(), req.viewportHeight(), truncate(request.getHeader("User-Agent"), 500));
-        return CommentDto.of(comments.save(comment), List.of());
+        Comment saved = comments.save(comment);
+        notifications.newComment(project, saved);
+        return CommentDto.of(saved, List.of());
     }
 
     /** Válasz egy kommentre az ügyfél nevében. Csak a nyitott kör kommentjeire lehet válaszolni. */
@@ -152,7 +158,9 @@ public class WidgetController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ez a komment egy lezárt körhöz tartozik");
         }
         replyService.requireRoom(comment.getId());
-        return ReplyDto.of(replyRepository.save(Reply.byCustomer(comment, req.authorName().trim(), req.body().trim())));
+        Reply saved = replyRepository.save(Reply.byCustomer(comment, req.authorName().trim(), req.body().trim()));
+        notifications.customerReply(project, comment, saved);
+        return ReplyDto.of(saved);
     }
 
     /** A komment képernyőképe: nyers PNG vagy JPEG a kérés törzsében, legfeljebb 3 MB. */

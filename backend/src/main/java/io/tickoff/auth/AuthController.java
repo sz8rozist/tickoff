@@ -32,9 +32,17 @@ public class AuthController {
     public record LoginRequest(@NotBlank String email, @NotBlank String password) {
     }
 
-    public record UserDto(Long id, String email, String name) {
+    public record ForgotPasswordRequest(@NotBlank @Email @Size(max = 255) String email) {
+    }
+
+    public record ResetPasswordRequest(
+        @NotBlank @Size(max = 200) String token,
+        @NotBlank @Size(min = 8, max = 72) String password) {
+    }
+
+    public record UserDto(Long id, String email, String name, boolean notifyEmail) {
         static UserDto of(User u) {
-            return new UserDto(u.getId(), u.getEmail(), u.getName());
+            return new UserDto(u.getId(), u.getEmail(), u.getName(), u.isNotifyEmail());
         }
     }
 
@@ -47,13 +55,16 @@ public class AuthController {
     // Nem létező felhasználónál is ezzel számolunk, így a válaszidő nem árulja el, hogy létezik-e az e-mail.
     private final String dummyHash;
 
+    private final PasswordResetService passwordReset;
     private final boolean registrationEnabled;
 
     public AuthController(UserRepository users, PasswordEncoder encoder, TokenService tokens,
+                          PasswordResetService passwordReset,
                           @Value("${tickoff.registration.enabled:true}") boolean registrationEnabled) {
         this.users = users;
         this.encoder = encoder;
         this.tokens = tokens;
+        this.passwordReset = passwordReset;
         this.registrationEnabled = registrationEnabled;
         this.dummyHash = encoder.encode("tickoff-dummy-password");
     }
@@ -87,6 +98,25 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Hibás e-mail vagy jelszó");
         }
         return new AuthResponse(tokens.issue(user), UserDto.of(user));
+    }
+
+    /**
+     * Visszaállító link kérése. A válasz mindig ugyanaz (204), akár van ilyen fiók, akár nincs, és akár működik az
+     * e-mail-küldés, akár nem: a végpontból így nem derül ki, kinek van fiókja.
+     */
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        passwordReset.requestReset(req.email());
+    }
+
+    /** Új jelszó beállítása az e-mailben kapott tokennel. Érvénytelen, lejárt vagy már használt tokenre 400. */
+    @PostMapping("/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        if (!passwordReset.reset(req.token().trim(), req.password())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Érvénytelen vagy lejárt link");
+        }
     }
 
     private static String normalize(String email) {
