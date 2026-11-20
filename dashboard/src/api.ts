@@ -57,6 +57,14 @@ export interface Project {
   createdAt: string;
 }
 
+export interface Round {
+  id: number;
+  number: number;
+  status: 'OPEN' | 'CLOSED';
+  createdAt: string;
+  closedAt: string | null;
+}
+
 export interface ProjectInput {
   name: string;
   siteUrl: string;
@@ -87,6 +95,13 @@ export const api = {
     update: (id: number, input: ProjectInput) =>
       request<Project>(`/api/projects/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
     remove: (id: number) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+  },
+  rounds: {
+    list: (projectId: number) => request<Round[]>(`/api/projects/${projectId}/rounds`),
+    open: (projectId: number) =>
+      request<Round>(`/api/projects/${projectId}/rounds`, { method: 'POST' }),
+    close: (projectId: number, roundId: number) =>
+      request<Round>(`/api/projects/${projectId}/rounds/${roundId}/close`, { method: 'POST' }),
   },
   logout: () => setToken(null),
 };

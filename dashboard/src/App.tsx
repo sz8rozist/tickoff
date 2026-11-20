@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button, Center, Container, Group, Loader, Text, Title } from '@mantine/core';
 import { api, ApiError, getToken, type User } from './api';
 import { AuthForm } from './AuthForm';
 import { ProjectsPage } from './ProjectsPage';
@@ -25,20 +26,39 @@ export function App() {
     setUser(null);
   }
 
-  if (loading) return <main style={{ padding: 32 }}>Betöltés…</main>;
+  if (loading) {
+    return (
+      <Center h="100vh">
+        <Loader />
+      </Center>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Container size={420} py={80}>
+        <Title order={1} ta="center" mb="xl">
+          Tickoff
+        </Title>
+        <AuthForm onAuth={setUser} />
+      </Container>
+    );
+  }
 
   return (
-    <main style={{ fontFamily: 'system-ui', padding: 32 }}>
-      <h1>Tickoff</h1>
-      {user ? (
-        <>
-          <p>Bejelentkezve: {user.name} ({user.email})</p>
-          <button onClick={logout}>Kilépés</button>
-          <ProjectsPage />
-        </>
-      ) : (
-        <AuthForm onAuth={setUser} />
-      )}
-    </main>
+    <Container size="md" py="xl">
+      <Group justify="space-between" mb="xl">
+        <Title order={1}>Tickoff</Title>
+        <Group gap="sm">
+          <Text size="sm" c="dimmed">
+            {user.name} ({user.email})
+          </Text>
+          <Button variant="default" size="xs" onClick={logout}>
+            Kilépés
+          </Button>
+        </Group>
+      </Group>
+      <ProjectsPage />
+    </Container>
   );
 }

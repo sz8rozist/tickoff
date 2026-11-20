@@ -7,7 +7,7 @@
 | Mappa | Tartalom |
 |---|---|
 | `backend/` | Spring Boot 4 (Java 21), Spring Data JPA, Spring Security, Flyway, MySQL |
-| `dashboard/` | Vite + React 19 + TypeScript (a designer felülete) |
+| `dashboard/` | Vite + React 19 + TypeScript + [Mantine](https://mantine.dev) 9 (a designer felülete) |
 | `widget/` | Beágyazható widget: React-szintaxis, buildkor Preactre aliasolva, Shadow DOM, egyetlen IIFE fájl |
 | `docker-compose.yml` | MySQL 8.4 fejlesztéshez (port: `3307`) |
 
@@ -61,9 +61,18 @@ Minden `/api/projects` végpont tokent kér, és csak a bejelentkezett felhaszn�
 | `PUT /api/projects/{id}` | név és URL módosítása |
 | `DELETE /api/projects/{id}` | `204`; a körök és kommentek az adatbázisban kaszkádolva törlődnek |
 
+## Körök
+
+Egy projektnek egyszerre legfeljebb egy nyitott köre van. Új kört csak az előző lezárása után lehet nyitni (különben `409`). A sorszámot a szerver adja, a párhuzamos kéréseket az egyedi index (`project_id`, `number`) védi.
+
+| Végpont | Leírás |
+|---|---|
+| `GET /api/projects/{id}/rounds` | a projekt körei sorszám szerint |
+| `POST /api/projects/{id}/rounds` | új kör nyitása → `201`; `409`, ha van nyitott kör |
+| `POST /api/projects/{id}/rounds/{roundId}/close` | kör lezárása → `200`; `409`, ha már le van zárva |
+
 ## Következő lépések
 
-- Körök kezelése (új kör nyitása, lezárás)
 - Widget API (`/api/widget/**`): komment mentése token alapján, projektenkénti origin-ellenőrzés
 - Widget: elemkiválasztás, CSS selector és képernyőkép készítése (`html-to-image`)
 - Dashboard: projektek, körök, kommentlista és státuszkezelés

@@ -1,7 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import { Alert, Anchor, Button, Paper, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { useForm } from '@mantine/form';
 import { api, ApiError, type User } from './api';
 
-function errorMessage(e: unknown, mode: 'login' | 'register'): string {
+type Mode = 'login' | 'register';
+
+function errorMessage(e: unknown, mode: Mode): string {
   if (e instanceof ApiError) {
     if (e.status === 401) return 'Hibás e-mail vagy jelszó.';
     if (e.status === 409) return 'Ezzel az e-mail címmel már van fiók.';
@@ -14,22 +18,28 @@ function errorMessage(e: unknown, mode: 'login' | 'register'): string {
 }
 
 export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<Mode>('login');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  const form = useForm({
+    initialValues: { name: '', email: '', password: '' },
+    validate: {
+      name: (v) => (mode === 'register' && v.trim() === '' ? 'A név kötelező' : null),
+      email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : 'Érvényes e-mail címet adj meg'),
+      password: (v) =>
+        mode === 'register' && v.length < 8 ? 'Legalább 8 karakter kell' : v === '' ? 'A jelszó kötelező' : null,
+    },
+  });
+
+  async function submit(values: typeof form.values) {
     setError(null);
     setBusy(true);
     try {
       const user =
         mode === 'login'
-          ? await api.login(email, password)
-          : await api.register(email, password, name);
+          ? await api.login(values.email, values.password)
+          : await api.register(values.email, values.password, values.name);
       onAuth(user);
     } catch (err) {
       setError(errorMessage(err, mode));
@@ -38,50 +48,50 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
     }
   }
 
+  function toggle() {
+    setMode(mode === 'login' ? 'register' : 'login');
+    setError(null);
+    form.clearErrors();
+  }
+
   return (
-    <form onSubmit={submit} style={{ display: 'grid', gap: 12, maxWidth: 320 }}>
-      <h2>{mode === 'login' ? 'Belépés' : 'Regisztráció'}</h2>
-      {mode === 'register' && (
-        <input
-          placeholder="Név"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          maxLength={120}
-          autoComplete="name"
-        />
-      )}
-      <input
-        type="email"
-        placeholder="E-mail"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        autoComplete="email"
-      />
-      <input
-        type="password"
-        placeholder="Jelszó (min. 8 karakter)"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        minLength={mode === 'register' ? 8 : undefined}
-        maxLength={72}
-        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-      />
-      {error && <p role="alert" style={{ color: '#b00020', margin: 0 }}>{error}</p>}
-      <button type="submit" disabled={busy}>
-        {mode === 'login' ? 'Belépés' : 'Fiók létrehozása'}
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setMode(mode === 'login' ? 'register' : 'login');
-          setError(null);
-        }}
-      >
-        {mode === 'login' ? 'Még nincs fiókom' : 'Már van fiókom'}
-      </button>
-    </form>
+    <Paper withBorder shadow="sm" p="xl" radius="md">
+      <form onSubmit={form.onSubmit(submit)}>
+        <Stack>
+          <Title order={2} size="h3">
+            {mode === 'login' ? 'Belépés' : 'Regisztráció'}
+          </Title>
+          {mode === 'register' && (
+            <TextInput
+              label="Név"
+              maxLength={120}
+              autoComplete="name"
+              {...form.getInputProps('name')}
+            />
+          )}
+          <TextInput label="E-mail" autoComplete="email" {...form.getInputProps('email')} />
+          <PasswordInput
+            label="Jelszó"
+            description={mode === 'register' ? 'Legalább 8 karakter' : undefined}
+            maxLength={72}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            {...form.getInputProps('password')}
+          />
+          {error && (
+            <Alert color="red" role="alert">
+              {error}
+            </Alert>
+          )}
+          <Button type="submit" loading={busy}>
+            {mode === 'login' ? 'Belépés' : 'Fiók létrehozása'}
+          </Button>
+          <Text size="sm" ta="center">
+            <Anchor component="button" type="button" onClick={toggle}>
+              {mode === 'login' ? 'Még nincs fiókom' : 'Már van fiókom'}
+            </Anchor>
+          </Text>
+        </Stack>
+      </form>
+    </Paper>
   );
 }
