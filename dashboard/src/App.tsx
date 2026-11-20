@@ -1,19 +1,42 @@
 import { useEffect, useState } from 'react';
+import { api, ApiError, getToken, type User } from './api';
+import { AuthForm } from './AuthForm';
 
 export function App() {
-  const [status, setStatus] = useState<string>('…');
+  const [user, setUser] = useState<User | null>(null);
+  // Ha van mentett token, először megnézzük, érvényes-e.
+  const [loading, setLoading] = useState<boolean>(() => getToken() !== null);
 
   useEffect(() => {
-    fetch('/actuator/health')
-      .then((r) => r.json())
-      .then((d) => setStatus(d.status))
-      .catch(() => setStatus('nem elérhető'));
+    if (!getToken()) return;
+    api
+      .me()
+      .then(setUser)
+      .catch((e) => {
+        // Csak akkor dobjuk el a tokent, ha a szerver tényleg elutasította (lejárt/érvénytelen).
+        if (e instanceof ApiError && e.status === 401) api.logout();
+      })
+      .finally(() => setLoading(false));
   }, []);
+
+  function logout() {
+    api.logout();
+    setUser(null);
+  }
+
+  if (loading) return <main style={{ padding: 32 }}>Betöltés…</main>;
 
   return (
     <main style={{ fontFamily: 'system-ui', padding: 32 }}>
       <h1>Tickoff</h1>
-      <p>Backend állapota: {status}</p>
+      {user ? (
+        <>
+          <p>Bejelentkezve: {user.name} ({user.email})</p>
+          <button onClick={logout}>Kilépés</button>
+        </>
+      ) : (
+        <AuthForm onAuth={setUser} />
+      )}
     </main>
   );
 }

@@ -37,9 +37,21 @@ A widget beágyazása egy oldalba:
 
 `users` → `projects` (share token) → `rounds` → `comments` (selector, pozíció, viewport, user agent, státusz, képernyőkép útvonal).
 
+## Auth
+
+JWT (HS256, Spring Security OAuth2 resource server), állapotmentes. A designerek e-mail + jelszóval regisztrálnak és lépnek be, az ügyfelek nem (nekik a projekt share tokenje elég).
+
+| Végpont | Leírás |
+|---|---|
+| `POST /api/auth/register` | `{email, password (8–72), name}` → `201 {token, user}`; `409` ha már van ilyen e-mail |
+| `POST /api/auth/login` | `{email, password}` → `200 {token, user}`; `401` hibás adatokra |
+| `GET /api/me` | `Authorization: Bearer <token>` → az aktuális felhasználó |
+
+A jelszavak bcrypt hash-ként tárolódnak. Konfiguráció: `TICKOFF_JWT_SECRET` (legalább 32 bájt, **élesben kötelező felülírni**), `TICKOFF_JWT_TTL` (alapérték: `12h`).
+
 ## Következő lépések
 
-- Auth a designereknek (JWT vagy session cookie)
+- Projektek és körök CRUD (a `/api/**` végpontok már tokent kérnek)
 - Widget API (`/api/widget/**`): komment mentése token alapján, projektenkénti origin-ellenőrzés
 - Widget: elemkiválasztás, CSS selector és képernyőkép készítése (`html-to-image`)
 - Dashboard: projektek, körök, kommentlista és státuszkezelés

@@ -20,5 +20,9 @@ management:
         include: health,info
 
 tickoff:
+  jwt:
+    # HS256 titok, legalább 32 bájt. Élesben kötelező környezeti változóból megadni!
+    secret: ${TICKOFF_JWT_SECRET:dev-only-secret-change-me-in-production-32b}
+    ttl: ${TICKOFF_JWT_TTL:12h}
   # A dashboard (React) eredete – a widget CORS-át projektenként külön kezeljük
   dashboard-origin: ${DASHBOARD_ORIGIN:http://localhost:5173}
