@@ -1,5 +1,5 @@
 import { Fragment } from 'preact';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { WidgetComment } from './api';
 import { resolve } from './selector';
 
@@ -104,14 +104,26 @@ export function Pins({
   inert,
   defaultName,
   onReply,
+  openRequest,
 }: {
   comments: WidgetComment[];
   inert: boolean;
   defaultName: string;
   /** Hibaüzenettel tér vissza, vagy null-lal, ha sikerült. */
   onReply: (commentId: number, authorName: string, body: string) => Promise<string | null>;
+  /** Kívülről kért megnyitás (a mélylinkből). Az `n` változása újra megnyitja ugyanazt a kommentet is. */
+  openRequest: { id: number; n: number } | null;
 }) {
   const [openId, setOpenId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (openRequest) setOpenId(openRequest.id);
+  }, [openRequest]);
+
+  // Oldalváltáskor a megnyitott komment eltűnhet a listából: ne nyíljon meg magától, ha később visszatérünk
+  useEffect(() => {
+    if (openId !== null && !comments.some((c) => c.id === openId)) setOpenId(null);
+  }, [comments, openId]);
 
   return (
     <>

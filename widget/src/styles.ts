@@ -26,6 +26,13 @@ export const styles = `
     border: 2px solid #e53935; background: rgba(229,57,53,.12); border-radius: 2px;
   }
 
+  /* A mélylinkkel megnyitott komment elemének kiemelése: pulzáló keret */
+  .hl.spot { border-width: 3px; animation: tk-pulse 1.1s ease-in-out 3; }
+  @keyframes tk-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, .55); }
+    50% { box-shadow: 0 0 0 12px rgba(229, 57, 53, 0); }
+  }
+
   .panel {
     position: fixed; right: 20px; bottom: 72px;
     width: min(340px, calc(100vw - 24px));

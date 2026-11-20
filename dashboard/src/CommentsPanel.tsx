@@ -43,6 +43,21 @@ function describeAgent(ua: string | null): string | null {
   return [browser, os].filter(Boolean).join(' · ') || null;
 }
 
+/**
+ * Mélylink az ügyfél oldalára: a widget a komment helyére görget, kiemeli az elemet, és megnyitja a szálat.
+ * A paraméter a query-hez kerül (a hash-t, ha van, nem bántjuk: hash-alapú útvonalaknál az az oldalt azonosítja).
+ */
+function deepLink(pageUrl: string, commentId: number): string | null {
+  try {
+    const url = new URL(pageUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    url.searchParams.set('tickoff-comment', String(commentId));
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function environment(c: Comment): string {
   const parts: string[] = [];
   if (c.viewportWidth && c.viewportHeight) parts.push(`${c.viewportWidth}×${c.viewportHeight}`);
@@ -54,10 +69,13 @@ function environment(c: Comment): string {
 export function CommentsPanel({
   projectId,
   roundId,
+  roundOpen,
   onChanged,
 }: {
   projectId: number;
   roundId: number;
+  /** A widget csak a nyitott kör kommentjeit mutatja, ezért a "megnyitás az oldalon" csak ott értelmes. */
+  roundOpen: boolean;
   /** A státuszváltás után a körök számlálóit frissíteni kell. */
   onChanged: () => void;
 }) {
@@ -206,6 +224,18 @@ export function CommentsPanel({
                   {c.hasScreenshot && (
                     <Button size="compact-xs" variant="light" onClick={() => showScreenshot(c)}>
                       Képernyőkép
+                    </Button>
+                  )}
+                  {roundOpen && deepLink(c.pageUrl, c.id) && (
+                    <Button
+                      component="a"
+                      href={deepLink(c.pageUrl, c.id)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="compact-xs"
+                      variant="light"
+                    >
+                      Megnyitás az oldalon
                     </Button>
                   )}
                   <Button

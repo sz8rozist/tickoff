@@ -116,7 +116,14 @@ export function RoundsPanel({ projectId }: { projectId: number }) {
               </Button>
             )}
           </Group>
-          {expanded.has(r.id) && <CommentsPanel projectId={projectId} roundId={r.id} onChanged={() => void reload()} />}
+          {expanded.has(r.id) && (
+            <CommentsPanel
+              projectId={projectId}
+              roundId={r.id}
+              roundOpen={r.status === 'OPEN'}
+              onChanged={() => void reload()}
+            />
+          )}
         </Stack>
       ))}
       {!open && (

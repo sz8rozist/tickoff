@@ -22,11 +22,13 @@
 
 ### Ügyfél (widget)
 
-- **Beágyazás** egyetlen `<script>` címkével, regisztráció és telepítés nélkül; a widget Shadow DOM-ban fut, nem zavarja az oldal stílusait (17,6 KB gzip).
+- **Beágyazás** egyetlen `<script>` címkével, regisztráció és telepítés nélkül; a widget Shadow DOM-ban fut, nem zavarja az oldal stílusait (19,3 KB gzip).
 - **Elemkiválasztás**: a gomb elindítja a kiválasztást, az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). A widget a kattintást elnyeli, az oldal saját kezelője nem fut le.
 - **Visszajelzés-űrlap**: név (megjegyzi a böngésző) és szöveg, opcionális képernyőkép.
 - **Képernyőkép** a látható nézetről, a kiválasztott elem piros-fehér kerettel kiemelve. Ha nem sikerül elkészíteni, a komment akkor is elmegy, és az ügyfél jelzést kap.
 - **Jelölések**: a már beküldött kommentek számozott jelölésként látszanak az oldalon (színük a státuszt mutatja), kattintásra megnyílik a szövegük és a hozzájuk tartozó **szál**. Követik az elemet, ha az elrendezés változik (pl. mobil nézetben).
+- **Single-page alkalmazások**: a widget észleli az útvonalváltást (`pushState`/`replaceState`, böngésző vissza/előre, hash-útvonal), és az új "oldal" kommentjeit tölti be. A félbehagyott kommentelést megszakítja, a komment mindig azzal az oldallal kerül mentésre, amelyiken az ügyfél éppen van.
+- **Megnyitás az oldalon** (a dashboardról): a komment mellett a gomb az ügyfél oldalát nyitja meg, ahol a widget a komment elemére görget, pulzáló kerettel kiemeli, és megnyitja a szálát.
 - **Válasz a kommentre**: a kártyából az ügyfél is válaszolhat (név + szöveg), a csapat válaszai "csapat" jelvénnyel látszanak. Csak a nyitott kör kommentjeire lehet válaszolni.
 - Ha nincs nyitott kör, az ügyfél tájékoztató üzenetet kap. Rossz token vagy origin esetén a widget a vendégoldalon nem jelenik meg.
 - Mobilbarát űrlap, a widget minden hibaesetre magyar üzenetet ad (pl. túl sok kérés).
@@ -42,10 +44,8 @@
 ### Még nincs meg
 
 - Komment szerkesztése: az ügyfélnek nincs azonosítója, így nem dönthető el, kié a komment.
-- Single-page alkalmazások útvonalváltásának kezelése a widgetben (a jelölések betöltéskor töltődnek).
 - Meghívás még nem létező fiókra (jelenleg a kollégának előbb regisztrálnia kell). Ehhez e-mail-megerősítés kellene a regisztrációkor: enélkül az első, a meghívott címmel regisztráló személy hozzáférést kapna a projekthez. Tulajdonjog átadása.
 - Értesítés a designer saját műveleteiről (pl. státuszváltás) és a megerősítetlen e-mail-cím kezelése.
-- A dashboardról a jelölés "megmutatása" az ügyfél oldalán.
 
 ## Felépítés (monorepo)
 
@@ -73,6 +73,7 @@ npm install
 npm run dev:dashboard
 
 # 4) Widget demo oldal (http://localhost:5174/?token=PROJEKT_TOKEN)
+#    Single-page demo három "oldallal" (Főoldal, Étlap, Kapcsolat): az útvonalváltás kipróbálására.
 npm run dev:widget
 ```
 
@@ -98,9 +99,11 @@ A `data-api` elhagyható, ilyenkor a script saját origin-je az API címe. A wid
 
 - A jelölések csak a **nyitott kör** kommentjeit mutatják, lezárt körnél nincs jelölés és nem lehet újat küldeni (az ügyfél tájékoztató üzenetet kap).
 - Az oldal URL-jébe a query is bekerül, ezért ne legyen titok az URL-ben (pl. token, jelszó-visszaállító kód).
-- Single-page alkalmazásnál a jelölések az oldal betöltésekor töltődnek be, útvonalváltáskor nem frissülnek.
+- **Mi számít "oldalnak"** (az URL, amihez a kommentet kötjük): `origin + útvonal + query`. A hash csak akkor számít bele, ha útvonalnak látszik (`#/…` vagy `#!/…`): a hash-alapú single-page alkalmazásokban az különbözteti meg az oldalakat. A sima horgonyokat (`#kapcsolat`) figyelmen kívül hagyjuk, hogy az oldalon belüli ugrás ne számítson új oldalnak. Ha a saját útvonalozásod más módon különbözteti meg az oldalakat (pl. csak `localStorage`-ban vagy állapotban tárolja), a widget nem tudja megkülönböztetni őket.
+- A widget a navigációt a `history.pushState`/`replaceState` becsomagolásával figyeli (az eredetit változatlanul meghívja). Ha az oldal más könyvtára is csomagolja ezeket, a kettő egymás mellett működik.
+- **Mélylink**: `?tickoff-comment=<id>` az oldal URL-je mögött. A widget betöltéskor kiolvassa, és azonnal eltávolítja a címsorból (nem marad az előzményekben, és nem kerül új kommentek URL-jébe). Csak a nyitott kör kommentjeire működik: lezárt körnél, törölt kommentnél vagy más oldal kommentjénél a widget tájékoztató üzenetet ad. Ha az oldal az elemeket késve rajzolja ki, a widget néhány másodpercig újrapróbálja.
 - A képernyőkép a görgetést eltolással kezeli, ezért görgetett oldalon a `position: fixed` elemek (pl. rögzített fejléc) elcsúszhatnak a képen. A kép best effort: ha nem sikerül (idegen domainről érkező képek, 10 mp időtúllépés, a böngészőlap a háttérben van), a komment akkor is mentődik, és az ügyfél jelzést kap.
-- A widget mérete kb. 17,6 KB gzip.
+- A widget mérete kb. 19,3 KB gzip.
 
 ## Adatmodell (V1 migráció)
 
@@ -326,7 +329,10 @@ Titkot nem használ. Egy ágon egyszerre csak a legfrissebb futás számít (a r
 
 ## Következő lépések
 
-- Widget: SPA-útvonalváltás kezelése, a dashboardról a jelölés "megmutatása" az oldalon
+A "Még nincs meg" lista (a Funkciók szakasz végén) a hátralévő ötletek gyűjtője. Nagyobb, még nem megoldott tervek:
+
+- E-mail-megerősítés regisztrációkor, ami után a még nem regisztrált kollégák meghívása és a tulajdonjog átadása biztonságosan megoldható.
+- Több példányos üzemeltetés: közös kérésszám-korlát tároló (Redis) és objektumtároló a képernyőképeknek.
 
 ## Ismert probléma
 
