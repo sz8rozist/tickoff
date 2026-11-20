@@ -1,6 +1,45 @@
 # Tickoff
 
-Ügyfél-visszajelzések kezelése weboldal-projektekben, javítási körökre (rounds) bontva. Az ügyfél regisztráció nélkül, egy megosztott linken keresztül kommentel közvetlenül az oldalon; a designer egy helyen látja a státuszokat.
+[![CI](https://github.com/sz8rozist/tickoff/actions/workflows/ci.yml/badge.svg)](https://github.com/sz8rozist/tickoff/actions/workflows/ci.yml)
+
+Ügyfél-visszajelzések kezelése weboldal-projektekben, javítási körökre (rounds) bontva. Az ügyfél regisztráció nélkül, közvetlenül a lapon kommentel egy beágyazott widgeten keresztül (rákattint egy elemre, leírja, mit változtatna); a designer egy helyen látja a visszajelzéseket körönként, oldalanként csoportosítva, státusszal és képernyőképpel.
+
+## Funkciók
+
+### Designer (dashboard)
+
+- **Fiók**: regisztráció és belépés e-mail + jelszóval (JWT, bcrypt), a munkamenet oldalfrissítés után is megmarad. A nyilvános regisztráció éles üzemben kikapcsolható.
+- **Projektek**: létrehozás, szerkesztés, törlés (a körök és kommentek is törlődnek). Minden projekthez tartozik egy megosztó token a widgethez, egy kattintással másolható.
+- **Javítási körök**: új kör nyitása és lezárása. Egyszerre egy nyitott kör van, új kört csak az előző lezárása után lehet nyitni. A köröknél látszik az összes és a nyitott kommentek száma.
+- **Kommentek**: körönként listázva, **oldalanként csoportosítva**. Mindegyiknél látszik a szerző, az idő, a szöveg, az elem CSS-selectora, a viewport mérete és a böngésző/rendszer. Státusz: nyitott, folyamatban, kész.
+- **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
+- Magyar felület, világos és sötét téma.
+
+### Ügyfél (widget)
+
+- **Beágyazás** egyetlen `<script>` címkével, regisztráció és telepítés nélkül; a widget Shadow DOM-ban fut, nem zavarja az oldal stílusait (17,6 KB gzip).
+- **Elemkiválasztás**: a gomb elindítja a kiválasztást, az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). A widget a kattintást elnyeli, az oldal saját kezelője nem fut le.
+- **Visszajelzés-űrlap**: név (megjegyzi a böngésző) és szöveg, opcionális képernyőkép.
+- **Képernyőkép** a látható nézetről, a kiválasztott elem piros-fehér kerettel kiemelve. Ha nem sikerül elkészíteni, a komment akkor is elmegy, és az ügyfél jelzést kap.
+- **Jelölések**: a már beküldött kommentek számozott jelölésként látszanak az oldalon (színük a státuszt mutatja), kattintásra megnyílik a szövegük. Követik az elemet, ha az elrendezés változik (pl. mobil nézetben).
+- Ha nincs nyitott kör, az ügyfél tájékoztató üzenetet kap. Rossz token vagy origin esetén a widget a vendégoldalon nem jelenik meg.
+- Mobilbarát űrlap, a widget minden hibaesetre magyar üzenetet ad (pl. túl sok kérés).
+
+### Biztonság és működés
+
+- **Token + origin-ellenőrzés**: a widget csak azon az origin-en működik, amit a projektnél megadtál; a CORS-fejléceket is csak erre adjuk, tokenenként feloldva.
+- **Hozzáférés-védelem**: a designer csak a saját projektjeit éri el (idegen erőforrásra `404`), a képernyőképek JWT-vel védettek, a feltöltés típusát és méretét ellenőrizzük (PNG/JPEG, max. 3 MB, a fájl tartalmát is).
+- **Kérésszám-korlát** a widget és a belépés/regisztráció végpontjain (komment-spam, jelszó-találgatás, preflight-árasztás ellen).
+- **Production stack**: Docker Compose, Caddy automatikus HTTPS-sel, szigorú CSP és biztonsági fejlécek, titkok nélkül nem induló `prod` profil, nem root backend, mentő szkript.
+- **CI**: GitHub Actions minden pushnál és pull requestnél: backend build és tesztek, dashboard és widget típusellenőrzés és build, Docker image-ek és compose-fájlok ellenőrzése.
+
+### Még nincs meg
+
+- E-mail értesítések (új komment, státuszváltás), jelszó-visszaállítás.
+- Kommentszálak (válasz a visszajelzésre), komment törlése/szerkesztése.
+- Single-page alkalmazások útvonalváltásának kezelése a widgetben (a jelölések betöltéskor töltődnek).
+- A megosztó token újragenerálása, több felhasználó egy projekten, fiók törlése.
+- A dashboardról a jelölés "megmutatása" az ügyfél oldalán, export.
 
 ## Felépítés (monorepo)
 
@@ -215,10 +254,21 @@ docker compose -f docker-compose.prod.yml exec -T backend sh -c 'tar -C /data -x
 - A JWT-titok cseréje mindenkit kijelentkeztet. A `MYSQL_*` jelszavakat csak úgy lehet utólag cserélni, ha az adatbázisban is átírod őket (a változó csak az első létrehozáskor érvényesül).
 - Ha egy korábban rootként létrehozott `screenshots` kötetet használnál tovább, a tartalmát a nem root backendnek adni kell: `docker compose -f docker-compose.prod.yml run --rm --user root --entrypoint chown backend -R 10001:10001 /data`.
 
+## CI (GitHub Actions)
+
+A `.github/workflows/ci.yml` minden `main`-re érkező pushnál és minden pull requestnél lefut, három párhuzamos jobbal:
+
+| Job | Mit csinál |
+|---|---|
+| **Backend** | MySQL 8.4 service mellett `./mvnw verify`: fordítás, a kérésszám-korlát egységtesztjei és a Spring-kontextus betöltése a valódi Flyway-migrációkkal. Hibánál feltölti a teszt-jelentéseket. |
+| **Frontend** | `npm ci`, majd `npm run build`: mindkét workspace típusellenőrzése (`tsc`) és `vite build` |
+| **Docker** | A backend és a web image építése (a `Dockerfile.web` a Caddyfile-t is érvényesíti), a dev és a prod compose-fájl ellenőrzése |
+
+Titkot nem használ. Egy ágon egyszerre csak a legfrissebb futás számít (a régebbit megszakítja). Helyben ugyanez: `npm ci && npm run build`, a backendhez futó MySQL mellett `cd backend && DB_URL=jdbc:mysql://localhost:3307/tickoff ./mvnw verify`.
+
 ## Következő lépések
 
 - Widget: SPA-útvonalváltás kezelése, kommentek válaszolása/szálak, a dashboardról a jelölés "megmutatása" az oldalon
-- Automata integrációs tesztek (Testcontainers), a Docker-build jelenleg kihagyja a teszteket
 - E-mail értesítések
 
 ## Ismert probléma
