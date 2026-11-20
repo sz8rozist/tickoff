@@ -19,6 +19,10 @@ public class Project {
     @JoinColumn(name = "owner_id")
     private User owner;
 
+    // Csak olvasható tükör az owner_id oszlopról: a tulajdonos azonosítója a lusta kapcsolat betöltése nélkül is elérhető
+    @Column(name = "owner_id", insertable = false, updatable = false)
+    private Long ownerId;
+
     @Column(nullable = false, length = 160)
     private String name;
 
@@ -39,6 +43,11 @@ public class Project {
         this.name = name;
         this.siteUrl = siteUrl;
         this.shareToken = generateToken();
+    }
+
+    public Long getOwnerId() {
+        // Frissen létrehozott (még nem újratöltött) projektnél a tükör üres, ilyenkor a kapcsolat azonosítóját adjuk
+        return ownerId != null ? ownerId : owner.getId();
     }
 
     /** Új megosztó token: a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak. */

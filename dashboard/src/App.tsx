@@ -63,7 +63,7 @@ export function App() {
           </Button>
         </Group>
       </Group>
-      <ProjectsPage />
+      <ProjectsPage currentUserId={user.id} />
       <DeleteAccountModal
         opened={deleteAccountOpen}
         onClose={() => setDeleteAccountOpen(false)}

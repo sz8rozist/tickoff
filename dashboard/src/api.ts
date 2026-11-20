@@ -53,12 +53,24 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type ProjectRole = 'OWNER' | 'MEMBER';
+
 export interface Project {
   id: number;
   name: string;
   siteUrl: string;
   shareToken: string;
   createdAt: string;
+  /** A bejelentkezett felhasználó szerepe a projektben: a tulajdonos mindent, a tag csak a visszajelzéseket kezelheti */
+  role: ProjectRole;
+  ownerName: string;
+}
+
+export interface Member {
+  userId: number;
+  name: string;
+  email: string;
+  role: ProjectRole;
 }
 
 export interface Round {
@@ -131,6 +143,15 @@ export const api = {
     remove: (id: number) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
     /** Új megosztó token: a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak. */
     regenerateToken: (id: number) => request<Project>(`/api/projects/${id}/share-token`, { method: 'POST' }),
+  },
+  members: {
+    list: (projectId: number) => request<Member[]>(`/api/projects/${projectId}/members`),
+    /** Meghívás e-mail-cím alapján (csak a tulajdonos); a címhez már létező fióknak kell tartoznia. */
+    add: (projectId: number, email: string) =>
+      request<Member>(`/api/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ email }) }),
+    /** A tulajdonos bárkit eltávolíthat, a tag csak saját magát (kilépés). */
+    remove: (projectId: number, userId: number) =>
+      request<void>(`/api/projects/${projectId}/members/${userId}`, { method: 'DELETE' }),
   },
   rounds: {
     list: (projectId: number) => request<Round[]>(`/api/projects/${projectId}/rounds`),

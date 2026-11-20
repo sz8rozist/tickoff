@@ -58,6 +58,19 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void invitingMembersIsLimitedPerIp() throws Exception {
+        RateLimitFilter filter = RateLimits.afterCors();
+
+        for (int i = 0; i < 20; i++) {
+            assertThat(call(filter, "POST", "/api/projects/" + i + "/members", "8.8.8.8").getStatus()).isEqualTo(200);
+        }
+        assertThat(call(filter, "POST", "/api/projects/5/members", "8.8.8.8").getStatus()).isEqualTo(429);
+        // a tagok listázása és az eltávolítás nincs korlátozva
+        assertThat(call(filter, "GET", "/api/projects/5/members", "8.8.8.8").getStatus()).isEqualTo(200);
+        assertThat(call(filter, "DELETE", "/api/projects/5/members/7", "8.8.8.8").getStatus()).isEqualTo(200);
+    }
+
+    @Test
     void commentAndScreenshotShareTheWriteBudget() throws Exception {
         RateLimitFilter filter = RateLimits.afterCors();
 

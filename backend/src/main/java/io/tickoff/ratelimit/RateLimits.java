@@ -38,6 +38,8 @@ public final class RateLimits {
     // Jelszavas végpontok: nyers erő és tömeges regisztráció ellen.
     private static final Limit LOGIN_IP = new Limit("login-ip", 10, 10);
     private static final Limit REGISTER_IP = new Limit("register-ip", 5, 5);
+    // A meghívás e-mail alapján keres fiókot: a létezésük így kideríthető, ezért korlátozzuk.
+    private static final Limit INVITE_IP = new Limit("invite-ip", 20, 20);
     // A fiók törlése jelszót kér, ezért ellopott token mellett is korlátozni kell a találgatást.
     private static final Limit DELETE_ACCOUNT_IP = new Limit("delete-account-ip", 5, 5);
 
@@ -61,6 +63,7 @@ public final class RateLimits {
                 new Scoped(Scope.IP, WIDGET_READ_IP), new Scoped(Scope.TOKEN, WIDGET_READ_TOKEN)),
             Rule.of(HttpMethod.POST, "/api/auth/login", new Scoped(Scope.IP, LOGIN_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/register", new Scoped(Scope.IP, REGISTER_IP)),
-            Rule.of(HttpMethod.DELETE, "/api/me", new Scoped(Scope.IP, DELETE_ACCOUNT_IP))));
+            Rule.of(HttpMethod.DELETE, "/api/me", new Scoped(Scope.IP, DELETE_ACCOUNT_IP)),
+            Rule.of(HttpMethod.POST, "/api/projects/{id}/members", new Scoped(Scope.IP, INVITE_IP))));
     }
 }

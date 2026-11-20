@@ -51,7 +51,8 @@ export function DeleteAccountModal({
         <Stack>
           <Text size="sm">
             A fiókod és <b>minden projekted</b> (a körökkel, kommentekkel és képernyőképekkel együtt) véglegesen
-            törlődik. Ez nem vonható vissza, és a projektjeidhez beágyazott widgetek leállnak.
+            törlődik, a meghívott tagok számára is megszűnnek. Ez nem vonható vissza, és a projektjeidhez
+            beágyazott widgetek leállnak. A más projektjeiben írt válaszaid megmaradnak, a neveddel.
           </Text>
           <PasswordInput
             label="Jelszó a megerősítéshez"

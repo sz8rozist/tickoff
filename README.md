@@ -15,6 +15,7 @@
 - **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
 - **Kommentszálak**: a designer válaszolhat a kommentekre (a válasz a widgetben is megjelenik, "csapat" jelvénnyel), és törölheti a válaszokat (két kattintással, véletlen törlés ellen). Az ügyfél válaszai is itt jelennek meg.
 - **Komment törlése** (a képernyőképével és a válaszaival együtt) megerősítéssel.
+- **Csapatmunka**: a tulajdonos meghívhatja a kollégáit (e-mail-cím alapján, meglévő fiókot). A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), de a projekt beállításait, a tokent és a tagokat nem; kiléphetnek a projektből. A projektlistán megjelölve látszik, melyik projektben vagy tag, és ki a tulajdonosa.
 - **Export CSV-be**: egy kör vagy a teljes projekt kommentjei, magyar Excelben helyesen megnyíló formátumban (ékezetek, pontosvessző).
 - Magyar felület, világos és sötét téma.
 
@@ -32,7 +33,7 @@
 ### Biztonság és működés
 
 - **Token + origin-ellenőrzés**: a widget csak azon az origin-en működik, amit a projektnél megadtál; a CORS-fejléceket is csak erre adjuk, tokenenként feloldva.
-- **Hozzáférés-védelem**: a designer csak a saját projektjeit éri el (idegen erőforrásra `404`), a képernyőképek JWT-vel védettek, a feltöltés típusát és méretét ellenőrizzük (PNG/JPEG, max. 3 MB, a fájl tartalmát is).
+- **Hozzáférés-védelem**: a designer csak a saját és a hozzá meghívott projekteket éri el (idegen erőforrásra `404`; a tag az owner-only műveletekre `403`-at kap), a képernyőképek JWT-vel védettek, a feltöltés típusát és méretét ellenőrizzük (PNG/JPEG, max. 3 MB, a fájl tartalmát is).
 - **Kérésszám-korlát** a widget és a belépés/regisztráció végpontjain (komment-spam, jelszó-találgatás, preflight-árasztás ellen).
 - **Production stack**: Docker Compose, Caddy automatikus HTTPS-sel, szigorú CSP és biztonsági fejlécek, titkok nélkül nem induló `prod` profil, nem root backend, mentő szkript.
 - **CI**: GitHub Actions minden pushnál és pull requestnél: backend build és tesztek, dashboard és widget típusellenőrzés és build, Docker image-ek és compose-fájlok ellenőrzése.
@@ -42,7 +43,7 @@
 - E-mail értesítések (új komment, státuszváltás), jelszó-visszaállítás.
 - Komment szerkesztése: az ügyfélnek nincs azonosítója, így nem dönthető el, kié a komment.
 - Single-page alkalmazások útvonalváltásának kezelése a widgetben (a jelölések betöltéskor töltődnek).
-- Több felhasználó egy projekten.
+- Meghívás még nem létező fiókra (jelenleg a kollégának előbb regisztrálnia kell), tulajdonjog átadása.
 - A dashboardról a jelölés "megmutatása" az ügyfél oldalán.
 
 ## Felépítés (monorepo)
@@ -117,16 +118,35 @@ A jelszavak bcrypt hash-ként tárolódnak. Konfiguráció: `TICKOFF_JWT_SECRET`
 
 ## Projektek
 
-Minden `/api/projects` végpont tokent kér, és csak a bejelentkezett felhasználó saját projektjeit éri el (más projektjére `404`-et adnak).
+Minden `/api/projects` végpont tokent kér. Egy projekthez két szerepkör tartozik (a hozzáférést egyetlen helyen, a `ProjectAccess` szolgáltatás ellenőrzi):
+
+| | **Tulajdonos** | **Meghívott tag** |
+|---|---|---|
+| Projekt megtekintése, token látása | ✓ | ✓ |
+| Körök nyitása/lezárása, kommentek, státusz, válasz, komment törlése, export | ✓ | ✓ |
+| Projekt szerkesztése és törlése, token újragenerálása | ✓ | ✗ (`403`) |
+| Tagok meghívása és eltávolítása | ✓ | ✗ (`403`), kivéve a saját kilépés |
+
+Aki nem tulajdonos és nem tag, annak a projekt nem létezik: minden végpont `404`-et ad (hogy a létezése se derüljön ki). A tag az owner-only műveletekre `403`-at kap, mert látja a projektet.
 
 | Végpont | Leírás |
 |---|---|
-| `GET /api/projects` | saját projektek, újabb elöl |
+| `GET /api/projects` | saját és tagként elérhető projektek, újabb elöl; mindegyiknél `role` (`OWNER` / `MEMBER`) és `ownerName` |
 | `POST /api/projects` | `{name, siteUrl (http/https)}` → `201`; automatikusan létrejön az 1. kör |
-| `GET /api/projects/{id}` | egy projekt |
-| `PUT /api/projects/{id}` | név és URL módosítása |
-| `POST /api/projects/{id}/share-token` | új megosztó token; a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak (a kommentek megmaradnak) |
-| `DELETE /api/projects/{id}` | `204`; a körök és kommentek az adatbázisban kaszkádolva törlődnek, a képernyőképek fájljai is |
+| `GET /api/projects/{id}` | egy projekt (tag is) |
+| `PUT /api/projects/{id}` | név és URL módosítása (csak tulajdonos) |
+| `POST /api/projects/{id}/share-token` | új megosztó token; a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak (a kommentek megmaradnak) (csak tulajdonos) |
+| `DELETE /api/projects/{id}` | `204`; a körök, kommentek és tagságok az adatbázisban kaszkádolva törlődnek, a képernyőképek fájljai is; a tagoknak is megszűnik (csak tulajdonos) |
+
+### Tagok
+
+| Végpont | Leírás |
+|---|---|
+| `GET /api/projects/{id}/members` | a tulajdonos (elöl) és a tagok: `{userId, name, email, role}`; a projekt minden tagja látja |
+| `POST /api/projects/{id}/members` | `{email}` → `201`: meghívás **meglévő fiókra** (e-mail alapján, kis- és nagybetűre érzéketlenül). `404`, ha nincs ilyen fiók (a kollégának előbb regisztrálnia kell), `409`, ha már tag vagy ő a tulajdonos. Csak tulajdonos; IP-nként 20/perc, mert a válaszból a fiókok létezése kideríthető |
+| `DELETE /api/projects/{id}/members/{userId}` | `204`: a tulajdonos bárkit eltávolíthat, a tag csak saját magát (kilépés). A tulajdonos nem távolítható el (`409`), ha nincs rá szükség, a projektet kell törölni |
+
+A tagság az adatbázisban a projekthez és a felhasználóhoz is kaszkádol: a tag fiókjának törlésekor a tagságai megszűnnek (a más projektekben írt válaszai megmaradnak a nevével), a tulajdonos fiókjának törlésekor a projekt a tagok számára is megszűnik.
 
 ## Körök
 
@@ -189,6 +209,7 @@ A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás
 | `POST /api/auth/login` | IP | 10 / 10 percenként |
 | `POST /api/auth/register` | IP | 5 / 5 percenként |
 | `DELETE /api/me` (fiók törlése, jelszót kér) | IP | 5 / 5 percenként |
+| `POST /api/projects/{id}/members` (tag meghívása) | IP | 20 / 20 percenként |
 
 Két szűrő fut: a durva IP-korlát a CORS előtt (minden widget-kérés, a preflight is, adatbázis-lekérdezéssel jár a CORS-beállításhoz, ezt védi), a pontos korlátok a CORS után (így a 429-es válaszban már ott van az `Access-Control-Allow-Origin`, és a widget el tudja olvasni, majd barátságos üzenetet mutat). A durva korlát 429-es válasza CORS-fejléc nélkül megy, ez csak támadásszerű forgalomnál fordul elő.
 

@@ -3,7 +3,6 @@ package io.tickoff.project;
 import io.tickoff.domain.Comment;
 import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.Project;
-import io.tickoff.domain.ProjectRepository;
 import io.tickoff.domain.Reply;
 import io.tickoff.domain.ReplyRepository;
 import io.tickoff.domain.Round;
@@ -74,7 +73,7 @@ public class CommentController {
         }
     }
 
-    private final ProjectRepository projects;
+    private final ProjectAccess access;
     private final RoundRepository rounds;
     private final CommentRepository comments;
     private final ReplyRepository replyRepository;
@@ -83,10 +82,10 @@ public class CommentController {
     private final ScreenshotStorage storage;
     private final ZoneId exportZone;
 
-    public CommentController(ProjectRepository projects, RoundRepository rounds, CommentRepository comments,
+    public CommentController(ProjectAccess access, RoundRepository rounds, CommentRepository comments,
                              ReplyRepository replyRepository, ReplyService replyService, UserRepository users,
                              ScreenshotStorage storage, @Value("${tickoff.export-zone:Europe/Budapest}") String zone) {
-        this.projects = projects;
+        this.access = access;
         this.rounds = rounds;
         this.comments = comments;
         this.replyRepository = replyRepository;
@@ -241,8 +240,8 @@ public class CommentController {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
+    /** A visszajelzések kezelése a projekt tagjainak is megengedett (nem csak a tulajdonosnak). */
     private Project owned(Jwt jwt, Long projectId) {
-        return projects.findByIdAndOwnerId(projectId, Long.valueOf(jwt.getSubject()))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return access.member(projectId, Long.valueOf(jwt.getSubject()));
     }
 }

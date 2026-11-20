@@ -3,7 +3,6 @@ package io.tickoff.project;
 import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.CommentRepository.RoundCommentCount;
 import io.tickoff.domain.Project;
-import io.tickoff.domain.ProjectRepository;
 import io.tickoff.domain.Round;
 import io.tickoff.domain.RoundRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,12 +37,12 @@ public class RoundController {
         }
     }
 
-    private final ProjectRepository projects;
+    private final ProjectAccess access;
     private final RoundRepository rounds;
     private final CommentRepository comments;
 
-    public RoundController(ProjectRepository projects, RoundRepository rounds, CommentRepository comments) {
-        this.projects = projects;
+    public RoundController(ProjectAccess access, RoundRepository rounds, CommentRepository comments) {
+        this.access = access;
         this.rounds = rounds;
         this.comments = comments;
     }
@@ -94,8 +93,8 @@ public class RoundController {
             .collect(Collectors.toMap(RoundCommentCount::getRoundId, Function.identity()));
     }
 
+    /** A körök kezelése a projekt tagjainak is megengedett (nem csak a tulajdonosnak). */
     private Project owned(Jwt jwt, Long projectId) {
-        return projects.findByIdAndOwnerId(projectId, Long.valueOf(jwt.getSubject()))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return access.member(projectId, Long.valueOf(jwt.getSubject()));
     }
 }

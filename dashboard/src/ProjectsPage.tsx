@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Anchor,
+  Badge,
   Button,
   Card,
   Code,
@@ -17,6 +18,7 @@ import {
 import { useForm } from '@mantine/form';
 import { api, ApiError, type Project } from './api';
 import { saveBlob } from './download';
+import { MembersPanel } from './MembersPanel';
 import { RoundsPanel } from './RoundsPanel';
 
 function describe(e: unknown): string {
@@ -99,7 +101,7 @@ function ProjectForm({
   );
 }
 
-export function ProjectsPage() {
+export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -111,10 +113,19 @@ export function ProjectsPage() {
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [regenerateBusy, setRegenerateBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [membersOpen, setMembersOpen] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     api.projects.list().then(setProjects).catch(() => setLoadError(true));
   }, []);
+
+  function toggleMembers(id: number) {
+    setMembersOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
 
   async function create(name: string, siteUrl: string) {
     const created = await api.projects.create({ name, siteUrl });
@@ -209,22 +220,34 @@ export function ProjectsPage() {
                     {p.siteUrl}
                   </Anchor>
                 </div>
-                <Group gap="xs">
-                  <Button variant="default" size="xs" onClick={() => setEditingId(p.id)}>
-                    Szerkesztés
-                  </Button>
-                  <Button
-                    variant="light"
-                    color="red"
-                    size="xs"
-                    onClick={() => {
-                      setDeleting(p);
-                      setDeleteOpen(true);
-                    }}
-                  >
-                    Törlés
-                  </Button>
-                </Group>
+                {p.role === 'OWNER' ? (
+                  <Group gap="xs">
+                    <Button variant="default" size="xs" onClick={() => setEditingId(p.id)}>
+                      Szerkesztés
+                    </Button>
+                    <Button
+                      variant="light"
+                      color="red"
+                      size="xs"
+                      onClick={() => {
+                        setDeleting(p);
+                        setDeleteOpen(true);
+                      }}
+                    >
+                      Törlés
+                    </Button>
+                  </Group>
+                ) : (
+                  // A tag a visszajelzéseket kezelheti, a projekt beállításait nem
+                  <Group gap="xs">
+                    <Badge variant="light" color="grape">
+                      meghívott tag
+                    </Badge>
+                    <Text size="xs" c="dimmed">
+                      Tulajdonos: {p.ownerName}
+                    </Text>
+                  </Group>
+                )}
               </Group>
 
               <Group gap="xs">
@@ -239,21 +262,35 @@ export function ProjectsPage() {
                     </Button>
                   )}
                 </CopyButton>
-                <Button
-                  variant="subtle"
-                  color="orange"
-                  size="compact-xs"
-                  onClick={() => {
-                    setRegenerating(p);
-                    setRegenerateOpen(true);
-                  }}
-                >
-                  Új token
-                </Button>
+                {p.role === 'OWNER' && (
+                  <Button
+                    variant="subtle"
+                    color="orange"
+                    size="compact-xs"
+                    onClick={() => {
+                      setRegenerating(p);
+                      setRegenerateOpen(true);
+                    }}
+                  >
+                    Új token
+                  </Button>
+                )}
                 <Button variant="subtle" size="compact-xs" onClick={() => exportAll(p)}>
                   Összes komment (CSV)
                 </Button>
+                <Button variant="subtle" size="compact-xs" onClick={() => toggleMembers(p.id)}>
+                  {membersOpen.has(p.id) ? 'Tagok elrejtése' : 'Tagok'}
+                </Button>
               </Group>
+
+              {membersOpen.has(p.id) && (
+                <MembersPanel
+                  projectId={p.id}
+                  role={p.role}
+                  currentUserId={currentUserId}
+                  onLeft={() => setProjects((prev) => prev?.filter((x) => x.id !== p.id) ?? null)}
+                />
+              )}
 
               <RoundsPanel projectId={p.id} />
             </Stack>
@@ -282,8 +319,8 @@ export function ProjectsPage() {
       <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title="Projekt törlése" centered>
         <Stack>
           <Text size="sm">
-            Biztosan törlöd a(z) „{deleting?.name}” projektet? A körei és kommentjei is törlődnek, ez nem vonható
-            vissza.
+            Biztosan törlöd a(z) „{deleting?.name}” projektet? A körei és kommentjei is törlődnek, és a meghívott
+            tagok számára is megszűnik. Ez nem vonható vissza.
           </Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setDeleteOpen(false)}>
