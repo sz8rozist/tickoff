@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Group, Loader, Stack, Text } from '@mantine/core';
+import { Alert, Badge, Button, Group, Loader, Progress, Stack, Text } from '@mantine/core';
 import { api, ApiError, type Round } from './api';
 import { CommentsPanel } from './CommentsPanel';
 import { saveBlob } from './download';
@@ -79,43 +79,51 @@ export function RoundsPanel({ projectId }: { projectId: number }) {
   const open = rounds.find((r) => r.status === 'OPEN');
 
   return (
-    <Stack gap="xs" mt="xs">
-      <Text fw={600} size="sm">
-        Körök
-      </Text>
+    <Stack gap="sm">
       {rounds.map((r) => (
-        <Stack key={r.id} gap={4}>
-          <Group gap="sm">
-            <Text size="sm" w={60}>
-              {r.number}. kör
-            </Text>
-            {r.status === 'OPEN' ? (
-              <Badge color="green" variant="light">
-                nyitott
-              </Badge>
-            ) : (
-              <Badge color="gray" variant="light">
-                lezárva · {fmt(r.closedAt!)}
-              </Badge>
-            )}
-            <Text size="xs" c="dimmed">
-              {r.commentCount} komment
-              {r.commentCount > 0 && ` · ${r.openCommentCount} nyitott`}
-            </Text>
-            <Button size="compact-xs" variant="subtle" onClick={() => toggle(r.id)}>
-              {expanded.has(r.id) ? 'Kommentek elrejtése' : 'Kommentek'}
-            </Button>
-            {r.commentCount > 0 && (
-              <Button size="compact-xs" variant="subtle" disabled={busy} onClick={() => exportCsv(r.id)}>
-                Export (CSV)
+        <div key={r.id} className="round-row" data-open={r.status === 'OPEN'}>
+          <Group justify="space-between" gap="sm">
+            <Group gap="sm">
+              <Text fw={700}>{r.number}. kör</Text>
+              {r.status === 'OPEN' ? (
+                <Badge color="teal" variant="light">
+                  nyitott
+                </Badge>
+              ) : (
+                <Badge color="gray" variant="light">
+                  lezárva · {fmt(r.closedAt!)}
+                </Badge>
+              )}
+              <Text size="xs" c="dimmed">
+                {r.commentCount} komment
+                {r.commentCount > 0 && ` · ${r.openCommentCount} nyitott`}
+              </Text>
+            </Group>
+            <Group gap={4}>
+              <Button size="compact-xs" variant="subtle" onClick={() => toggle(r.id)}>
+                {expanded.has(r.id) ? 'Kommentek elrejtése' : 'Kommentek'}
               </Button>
-            )}
-            {r.status === 'OPEN' && (
-              <Button size="compact-xs" variant="default" disabled={busy} onClick={() => run(() => api.rounds.close(projectId, r.id))}>
-                Kör lezárása
-              </Button>
-            )}
+              {r.commentCount > 0 && (
+                <Button size="compact-xs" variant="subtle" color="gray" disabled={busy} onClick={() => exportCsv(r.id)}>
+                  Export (CSV)
+                </Button>
+              )}
+              {r.status === 'OPEN' && (
+                <Button size="compact-xs" variant="default" disabled={busy} onClick={() => run(() => api.rounds.close(projectId, r.id))}>
+                  Kör lezárása
+                </Button>
+              )}
+            </Group>
           </Group>
+          {r.commentCount > 0 && (
+            <Progress
+              mt="xs"
+              size={5}
+              color="teal"
+              value={((r.commentCount - r.openCommentCount) / r.commentCount) * 100}
+              aria-label="Lezárt kommentek aránya"
+            />
+          )}
           {expanded.has(r.id) && (
             <CommentsPanel
               projectId={projectId}
@@ -124,7 +132,7 @@ export function RoundsPanel({ projectId }: { projectId: number }) {
               onChanged={() => void reload()}
             />
           )}
-        </Stack>
+        </div>
       ))}
       {!open && (
         <div>

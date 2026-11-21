@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  ActionIcon,
   Alert,
   Anchor,
   Badge,
@@ -8,9 +9,12 @@ import {
   Code,
   CopyButton,
   Group,
+  Menu,
   Modal,
   Paper,
+  SimpleGrid,
   Stack,
+  Tabs,
   Text,
   TextInput,
   Title,
@@ -67,7 +71,7 @@ function ProjectForm({
   return (
     <form onSubmit={form.onSubmit(submit)}>
       <Stack gap="sm">
-        <Group align="flex-start" grow>
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <TextInput
             label="Projekt neve"
             placeholder="Kávézó weboldal"
@@ -80,7 +84,7 @@ function ProjectForm({
             maxLength={500}
             {...form.getInputProps('siteUrl')}
           />
-        </Group>
+        </SimpleGrid>
         {error && (
           <Alert color="red" role="alert">
             {error}
@@ -101,6 +105,16 @@ function ProjectForm({
   );
 }
 
+function DotsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
+  );
+}
+
 export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -113,19 +127,10 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [regenerateBusy, setRegenerateBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [membersOpen, setMembersOpen] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     api.projects.list().then(setProjects).catch(() => setLoadError(true));
   }, []);
-
-  function toggleMembers(id: number) {
-    setMembersOpen((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  }
 
   async function create(name: string, siteUrl: string) {
     const created = await api.projects.create({ name, siteUrl });
@@ -180,9 +185,19 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
 
   return (
     <Stack gap="lg">
-      <Title order={2}>Projektek</Title>
+      <Group justify="space-between" align="baseline">
+        <Title order={2}>Projektek</Title>
+        {projects && projects.length > 0 && (
+          <Text size="sm" c="dimmed">
+            {projects.length} projekt
+          </Text>
+        )}
+      </Group>
 
-      <Paper withBorder p="md" radius="md">
+      <Paper withBorder p="lg" shadow="xs">
+        <Text fw={700} mb="sm">
+          Új projekt
+        </Text>
         <ProjectForm submitLabel="Projekt létrehozása" onSubmit={create} />
       </Paper>
 
@@ -197,11 +212,15 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
         </Alert>
       )}
       {projects && projects.length === 0 && (
-        <Text c="dimmed">Még nincs projekted. Hozd létre az elsőt fent.</Text>
+        <Paper withBorder p="xl" style={{ borderStyle: 'dashed' }}>
+          <Text c="dimmed" ta="center">
+            Még nincs projekted. Hozd létre az elsőt fent, és add át az ügyfélnek a megosztó tokent.
+          </Text>
+        </Paper>
       )}
 
       {projects?.map((p) => (
-        <Card key={p.id} withBorder radius="md" padding="md">
+        <Card key={p.id} withBorder padding="lg">
           {editingId === p.id ? (
             <ProjectForm
               initial={p}
@@ -210,95 +229,103 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
               onCancel={() => setEditingId(null)}
             />
           ) : (
-            <Stack gap="xs">
-              <Group justify="space-between" align="flex-start">
-                <div>
-                  <Title order={3} size="h4">
-                    {p.name}
-                  </Title>
-                  <Anchor href={p.siteUrl} target="_blank" rel="noopener noreferrer" size="sm">
-                    {p.siteUrl}
-                  </Anchor>
-                </div>
+            <Stack gap="md">
+              <Group justify="space-between" align="flex-start" wrap="nowrap">
+                <Group gap="md" wrap="nowrap" style={{ minWidth: 0 }}>
+                  <div className="project-mark" aria-hidden="true">
+                    {(p.name.trim()[0] ?? '?').toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <Title order={3} lineClamp={1}>
+                      {p.name}
+                    </Title>
+                    <Anchor href={p.siteUrl} target="_blank" rel="noopener noreferrer" size="sm" c="dimmed">
+                      {p.siteUrl}
+                    </Anchor>
+                  </div>
+                </Group>
                 {p.role === 'OWNER' ? (
-                  <Group gap="xs">
-                    <Button variant="default" size="xs" onClick={() => setEditingId(p.id)}>
-                      Szerkesztés
-                    </Button>
-                    <Button
-                      variant="light"
-                      color="red"
-                      size="xs"
-                      onClick={() => {
-                        setDeleting(p);
-                        setDeleteOpen(true);
-                      }}
-                    >
-                      Törlés
-                    </Button>
-                  </Group>
+                  <Menu position="bottom-end" withinPortal>
+                    <Menu.Target>
+                      <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Projekt műveletei">
+                        <DotsIcon />
+                      </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      <Menu.Item onClick={() => setEditingId(p.id)}>Szerkesztés</Menu.Item>
+                      <Menu.Item
+                        onClick={() => {
+                          setRegenerating(p);
+                          setRegenerateOpen(true);
+                        }}
+                      >
+                        Új token generálása
+                      </Menu.Item>
+                      <Menu.Divider />
+                      <Menu.Item
+                        color="red"
+                        onClick={() => {
+                          setDeleting(p);
+                          setDeleteOpen(true);
+                        }}
+                      >
+                        Projekt törlése
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
                 ) : (
                   // A tag a visszajelzéseket kezelheti, a projekt beállításait nem
-                  <Group gap="xs">
+                  <Stack gap={2} align="flex-end">
                     <Badge variant="light" color="grape">
                       meghívott tag
                     </Badge>
                     <Text size="xs" c="dimmed">
                       Tulajdonos: {p.ownerName}
                     </Text>
-                  </Group>
+                  </Stack>
                 )}
               </Group>
 
-              <Group gap="xs">
-                <Text size="xs" c="dimmed">
-                  Megosztó token:
+              <div className="token-bar">
+                <Text size="xs" c="dimmed" fw={600}>
+                  Megosztó token
                 </Text>
                 <Code>{p.shareToken}</Code>
                 <CopyButton value={p.shareToken}>
                   {({ copied, copy }) => (
-                    <Button variant="subtle" size="compact-xs" onClick={copy}>
+                    <Button variant="light" size="compact-xs" onClick={copy}>
                       {copied ? 'Másolva' : 'Másolás'}
                     </Button>
                   )}
                 </CopyButton>
-                {p.role === 'OWNER' && (
-                  <Button
-                    variant="subtle"
-                    color="orange"
-                    size="compact-xs"
-                    onClick={() => {
-                      setRegenerating(p);
-                      setRegenerateOpen(true);
-                    }}
-                  >
-                    Új token
-                  </Button>
-                )}
-                <Button variant="subtle" size="compact-xs" onClick={() => exportAll(p)}>
+                <Button variant="subtle" color="gray" size="compact-xs" ml="auto" onClick={() => exportAll(p)}>
                   Összes komment (CSV)
                 </Button>
-                <Button variant="subtle" size="compact-xs" onClick={() => toggleMembers(p.id)}>
-                  {membersOpen.has(p.id) ? 'Tagok elrejtése' : 'Tagok'}
-                </Button>
-              </Group>
+              </div>
 
-              {membersOpen.has(p.id) && (
-                <MembersPanel
-                  projectId={p.id}
-                  role={p.role}
-                  currentUserId={currentUserId}
-                  onLeft={() => setProjects((prev) => prev?.filter((x) => x.id !== p.id) ?? null)}
-                  onTransferred={(newOwnerName) =>
-                    setProjects(
-                      (prev) =>
-                        prev?.map((x) => (x.id === p.id ? { ...x, role: 'MEMBER', ownerName: newOwnerName } : x)) ?? null,
-                    )
-                  }
-                />
-              )}
-
-              <RoundsPanel projectId={p.id} />
+              <Tabs defaultValue="rounds" keepMounted={false}>
+                <Tabs.List>
+                  <Tabs.Tab value="rounds">Körök</Tabs.Tab>
+                  <Tabs.Tab value="members">Tagok</Tabs.Tab>
+                </Tabs.List>
+                <Tabs.Panel value="rounds" pt="sm">
+                  <RoundsPanel projectId={p.id} />
+                </Tabs.Panel>
+                <Tabs.Panel value="members" pt="sm">
+                  <MembersPanel
+                    projectId={p.id}
+                    role={p.role}
+                    currentUserId={currentUserId}
+                    onLeft={() => setProjects((prev) => prev?.filter((x) => x.id !== p.id) ?? null)}
+                    onTransferred={(newOwnerName) =>
+                      setProjects(
+                        (prev) =>
+                          prev?.map((x) => (x.id === p.id ? { ...x, role: 'MEMBER', ownerName: newOwnerName } : x)) ?? null,
+                      )
+                    }
+                  />
+                </Tabs.Panel>
+              </Tabs>
             </Stack>
           )}
         </Card>

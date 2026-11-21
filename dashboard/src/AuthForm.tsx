@@ -79,7 +79,7 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
   }
 
   return (
-    <Paper withBorder shadow="sm" p="xl" radius="md">
+    <Paper withBorder shadow="lg" p="xl" radius="lg">
       <form onSubmit={form.onSubmit(submit)}>
         <Stack>
           <Title order={2} size="h3">

@@ -1,0 +1,137 @@
+:root {
+  --tk-page: #f5f6fb;
+  --tk-grad: linear-gradient(135deg, #6b75e6 0%, #8b5cf6 100%);
+}
+
+:root[data-mantine-color-scheme='light'] body {
+  background: var(--tk-page);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Bejelentkezés / jelszó-visszaállítás: középre igazított kártya lágy színátmenetes háttéren */
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(60rem 30rem at 15% -10%, rgba(107, 117, 230, 0.18), transparent 60%),
+    radial-gradient(50rem 28rem at 100% 110%, rgba(139, 92, 246, 0.16), transparent 60%);
+}
+
+.auth-inner {
+  width: min(100%, 420px);
+}
+
+.wordmark {
+  letter-spacing: -0.03em;
+}
+
+/* Fejléc */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--mantine-color-body) 85%, transparent);
+  backdrop-filter: saturate(160%) blur(10px);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.logo-mark {
+  display: grid;
+  place-items: center;
+  border-radius: 28%;
+  background: var(--tk-grad);
+  box-shadow: 0 4px 14px rgba(107, 117, 230, 0.4);
+  color: #fff;
+  flex: none;
+}
+
+/* Projekt-monogram */
+.project-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #fff;
+  background: var(--tk-grad);
+  flex: none;
+}
+
+/* Megosztó token sáv */
+.token-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--mantine-radius-md);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  border: 1px dashed var(--mantine-color-default-border);
+}
+
+.token-bar code {
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* Körök */
+.round-row {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  padding: 12px 14px;
+  background: var(--mantine-color-body);
+}
+
+.round-row[data-open='true'] {
+  border-color: var(--mantine-color-brand-3);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mantine-color-brand-5) 12%, transparent);
+}
+
+/* Kommentkártya: a bal oldali sáv jelzi az állapotot */
+.comment-card {
+  border: 1px solid var(--mantine-color-default-border);
+  border-left: 4px solid var(--status, var(--mantine-color-gray-4));
+  border-radius: var(--mantine-radius-md);
+  padding: 12px 14px;
+  background: var(--mantine-color-body);
+}
+
+.comment-card[data-status='OPEN'] {
+  --status: var(--mantine-color-orange-5);
+}
+.comment-card[data-status='IN_PROGRESS'] {
+  --status: var(--mantine-color-brand-5);
+}
+.comment-card[data-status='DONE'] {
+  --status: var(--mantine-color-teal-5);
+}
+
+.page-pill {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: light-dark(var(--mantine-color-brand-0), color-mix(in srgb, var(--mantine-color-brand-5) 20%, transparent));
+}
+
+.thread {
+  border-left: 2px solid var(--mantine-color-default-border);
+}
+
+@media (max-width: 36em) {
+  .app-header .user-name {
+    display: none;
+  }
+}

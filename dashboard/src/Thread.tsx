@@ -60,7 +60,7 @@ export function Thread({
   return (
     <Stack gap={6}>
       {replies.length > 0 && (
-        <Stack gap={6} pl="sm" style={{ borderLeft: '2px solid var(--mantine-color-default-border)' }}>
+        <Stack gap={8} pl="sm" className="thread">
           {replies.map((r) => (
             <Box key={r.id}>
               <Group gap={6} align="center">

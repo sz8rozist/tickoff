@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Anchor,
+  Avatar,
   Button,
-  Card,
   Code,
   Group,
   Image,
@@ -12,7 +12,6 @@ import {
   SegmentedControl,
   Stack,
   Text,
-  Title,
 } from '@mantine/core';
 import { api, type Comment, type CommentStatus } from './api';
 import { Thread } from './Thread';
@@ -29,6 +28,8 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateSt
 function pagePath(url: string): string {
   try {
     const u = new URL(url);
+    // A megosztó token a widget indításához kell, a listában csak zajt (és titkot) mutatna
+    u.searchParams.delete('token');
     return u.pathname + u.search || '/';
   } catch {
     return url;
@@ -176,7 +177,7 @@ export function CommentsPanel({
   }
 
   return (
-    <Stack gap="md" mt="xs">
+    <Stack gap="md" mt="md">
       {error && (
         <Alert color="red" role="alert">
           {error}
@@ -184,24 +185,38 @@ export function CommentsPanel({
       )}
       {[...byPage.entries()].map(([url, items]) => (
         <Stack key={url} gap="xs">
-          <Title order={5}>
-            <Anchor href={url} target="_blank" rel="noopener noreferrer" inherit>
+          <Group gap="xs" wrap="nowrap">
+            <Anchor
+              className="page-pill"
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              underline="never"
+              title={url}
+            >
               {pagePath(url)}
-            </Anchor>{' '}
-            <Text span size="sm" c="dimmed" fw={400}>
-              ({items.length})
+            </Anchor>
+            <Text size="xs" c="dimmed">
+              {items.length} komment
             </Text>
-          </Title>
+          </Group>
           {items.map((c) => (
-            <Card key={c.id} withBorder padding="sm" radius="sm">
-              <Stack gap={6}>
+            <div key={c.id} className="comment-card" data-status={c.status}>
+              <Stack gap={8}>
                 <Group justify="space-between" align="flex-start" wrap="wrap">
-                  <Text size="sm" fw={600}>
-                    {c.authorName}{' '}
-                    <Text span size="xs" c="dimmed" fw={400}>
-                      {dateTime(c.createdAt)}
-                    </Text>
-                  </Text>
+                  <Group gap="xs" wrap="nowrap">
+                    <Avatar size={28} radius="xl" color="gray" variant="light">
+                      {(c.authorName.trim()[0] ?? '?').toUpperCase()}
+                    </Avatar>
+                    <div>
+                      <Text size="sm" fw={600} lh={1.2}>
+                        {c.authorName}
+                      </Text>
+                      <Text size="xs" c="dimmed" lh={1.2}>
+                        {dateTime(c.createdAt)}
+                      </Text>
+                    </div>
+                  </Group>
                   <SegmentedControl
                     size="xs"
                     data={STATUS_OPTIONS}
@@ -256,7 +271,7 @@ export function CommentsPanel({
                   onRemove={(replyId) => removeReply(c, replyId)}
                 />
               </Stack>
-            </Card>
+            </div>
           ))}
         </Stack>
       ))}

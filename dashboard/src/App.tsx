@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Button, Center, Container, Group, Loader, Switch, Text, Title } from '@mantine/core';
+import { Avatar, Box, Center, Container, Group, Loader, Menu, Switch, Text, UnstyledButton } from '@mantine/core';
 import { api, ApiError, getToken, type User } from './api';
 import { AuthForm } from './AuthForm';
+import { AuthShell } from './AuthShell';
+import { Wordmark } from './Logo';
 import { DeleteAccountModal } from './DeleteAccountModal';
 import { ProjectsPage } from './ProjectsPage';
 import { ResetPasswordPage } from './ResetPasswordPage';
@@ -11,6 +13,17 @@ const RESET_PARAM = 'reset-token';
 /** A jelszó-visszaállító linkből érkező token (tiszta olvasás: a címsorból törlés külön, effectben történik). */
 function readResetToken(): string | null {
   return new URLSearchParams(window.location.search).get(RESET_PARAM);
+}
+
+function initials(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? '')
+      .join('') || '?'
+  );
 }
 
 export function App() {
@@ -59,10 +72,7 @@ export function App() {
   // A visszaállító linkről érkező felhasználó (be van-e jelentkezve vagy sem) először az új jelszót adja meg
   if (resetToken) {
     return (
-      <Container size={420} py={80}>
-        <Title order={1} ta="center" mb="xl">
-          Tickoff
-        </Title>
+      <AuthShell>
         <ResetPasswordPage
           token={resetToken}
           onDone={() => {
@@ -72,7 +82,7 @@ export function App() {
             setResetToken(null);
           }}
         />
-      </Container>
+      </AuthShell>
     );
   }
 
@@ -86,38 +96,61 @@ export function App() {
 
   if (!user) {
     return (
-      <Container size={420} py={80}>
-        <Title order={1} ta="center" mb="xl">
-          Tickoff
-        </Title>
+      <AuthShell>
         <AuthForm onAuth={setUser} />
-      </Container>
+      </AuthShell>
     );
   }
 
   return (
-    <Container size="md" py="xl">
-      <Group justify="space-between" mb="xl">
-        <Title order={1}>Tickoff</Title>
-        <Group gap="sm">
-          <Switch
-            size="xs"
-            label="E-mail értesítések"
-            checked={user.notifyEmail}
-            onChange={(e) => void toggleNotify(e.currentTarget.checked)}
-            error={notifyError ? 'A beállítás mentése nem sikerült' : undefined}
-          />
-          <Text size="sm" c="dimmed">
-            {user.name} ({user.email})
-          </Text>
-          <Button variant="default" size="xs" onClick={logout}>
-            Kilépés
-          </Button>
-          <Button variant="subtle" color="red" size="xs" onClick={() => setDeleteAccountOpen(true)}>
-            Fiók törlése
-          </Button>
-        </Group>
-      </Group>
+    <>
+      <header className="app-header">
+        <Container size="md" py="sm">
+          <Group justify="space-between" wrap="nowrap">
+            <Wordmark size={32} />
+            <Menu position="bottom-end" width={280} withinPortal>
+              <Menu.Target>
+                <UnstyledButton aria-label="Fiók menü">
+                  <Group gap="xs" wrap="nowrap">
+                    <Text size="sm" fw={500} className="user-name">
+                      {user.name}
+                    </Text>
+                    <Avatar color="brand" variant="filled" radius="xl" size={34}>
+                      {initials(user.name)}
+                    </Avatar>
+                  </Group>
+                </UnstyledButton>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Box px="sm" py={6}>
+                  <Text size="sm" fw={600}>
+                    {user.name}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {user.email}
+                  </Text>
+                </Box>
+                <Menu.Divider />
+                <Menu.Item component="div" closeMenuOnClick={false}>
+                  <Switch
+                    size="sm"
+                    label="E-mail értesítések"
+                    checked={user.notifyEmail}
+                    onChange={(e) => void toggleNotify(e.currentTarget.checked)}
+                    error={notifyError ? 'A beállítás mentése nem sikerült' : undefined}
+                  />
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item onClick={logout}>Kilépés</Menu.Item>
+                <Menu.Item color="red" onClick={() => setDeleteAccountOpen(true)}>
+                  Fiók törlése
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
+        </Container>
+      </header>
+      <Container size="md" py="xl">
       <ProjectsPage currentUserId={user.id} />
       <DeleteAccountModal
         opened={deleteAccountOpen}
@@ -127,6 +160,7 @@ export function App() {
           logout();
         }}
       />
-    </Container>
+      </Container>
+    </>
   );
 }
