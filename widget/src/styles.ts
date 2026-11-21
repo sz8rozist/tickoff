@@ -7,13 +7,13 @@ export const styles = `
     -webkit-font-smoothing: antialiased;
   }
 
-  .fab, .banner, .panel, .toast, .pin, .pop, .hl { z-index: 2147483647; }
+  .fab, .dock, .banner, .panel, .toast, .pin, .pop, .hl { z-index: 2147483647; }
 
   /* Márkaszínek: egyeznek a dashboardéval */
   .fab, .btn.primary { --brand: #5b64e3; --brand-dark: #4a52c9; }
 
+  .dock { position: fixed; right: 20px; bottom: 20px; display: flex; gap: 8px; align-items: center; }
   .fab {
-    position: fixed; right: 20px; bottom: 20px;
     display: inline-flex; align-items: center; gap: 8px;
     padding: 11px 18px 11px 14px; border: 0; border-radius: 999px;
     background: linear-gradient(135deg, #6b75e6 0%, #8b5cf6 100%); color: #fff;
@@ -24,6 +24,16 @@ export const styles = `
   .fab::before {
     content: ""; width: 18px; height: 18px; flex: none;
     background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .fab.ghost {
+    background: #fff; color: #1f2140; padding: 11px 14px;
+    box-shadow: 0 4px 16px rgba(31,33,64,.2); border: 1px solid rgba(31,33,64,.08);
+  }
+  .fab.ghost::before { display: none; }
+  .fab.ghost:hover { box-shadow: 0 6px 20px rgba(31,33,64,.28); }
+  .count {
+    min-width: 20px; padding: 1px 6px; border-radius: 999px; text-align: center;
+    background: #eef0ff; color: #4a52c9; font-size: 12px; font-weight: 700;
   }
   .fab:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(107,117,230,.55); }
   .fab:focus-visible, .btn:focus-visible, .pin:focus-visible { outline: 3px solid rgba(91,100,227,.45); outline-offset: 2px; }
@@ -141,4 +151,32 @@ export const styles = `
   .reply-form .actions { margin-top: 2px; display: flex; gap: 6px; justify-content: flex-end; }
   .reply-form .actions .btn.small { margin-top: 0; }
   .reply-form .err { margin: 0 0 6px; padding: 7px 10px; border-radius: 8px; background: #fdecee; color: #b3261e; font-size: 12px; }
+
+  /* Összes visszajelzés panel */
+  .panel.list { padding: 0; display: flex; flex-direction: column; max-height: min(520px, calc(100vh - 100px)); }
+  .list-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 4px; }
+  .list-head h2 { margin: 0; }
+  .x { border: 0; background: none; font-size: 22px; line-height: 1; color: #6b7094; cursor: pointer; padding: 2px 6px; border-radius: 8px; }
+  .x:hover { background: #f1f2fa; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 18px 10px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: #f1f2fa; color: #3b3f66; font-size: 12px; font-weight: 600; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dot.OPEN { background: #f76707; }
+  .dot.IN_PROGRESS { background: #5b64e3; }
+  .dot.DONE { background: #12b886; }
+  .empty { margin: 0; padding: 8px 18px 18px; color: #6b7094; font-size: 13px; }
+  .list-body { overflow-y: auto; padding: 0 10px 12px; border-top: 1px solid #eceef8; }
+  .page-title { display: flex; align-items: center; gap: 8px; margin: 12px 8px 4px; }
+  .page-title .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 12px ui-monospace, Consolas, monospace; color: #4a52c9; }
+  .here { flex: none; padding: 1px 8px; border-radius: 999px; background: #e6fcf5; color: #0b7a5a; font-size: 11px; font-weight: 600; }
+  .item {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    padding: 9px 8px; border: 0; border-radius: 10px; background: none; cursor: pointer; color: inherit;
+  }
+  .item:hover, .item:focus-visible { background: #f5f6fb; outline: none; }
+  .item .txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .item .who { font-size: 12px; font-weight: 600; color: #3b3f66; }
+  .item .rc { font-weight: 400; color: #6b7094; }
+  .item .snip { font-size: 13px; line-height: 1.35; color: #1f2140; overflow-wrap: anywhere; }
+  .item .go { color: #9aa0c7; font-size: 20px; }
 `;

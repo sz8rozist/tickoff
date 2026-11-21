@@ -3,7 +3,8 @@ import { ApiError, createApi, type ProjectInfo, type WidgetComment } from './api
 import type { Config } from './config';
 import { Composer, type ComposerValues } from './Composer';
 import { onNavigate } from './navigation';
-import { pageUrl, readFocusId, stripFocusParam } from './page';
+import { Overview } from './Overview';
+import { deepLinkTo, pageUrl, readFocusId, stripFocusParam } from './page';
 import { Pins } from './Pins';
 import { captureViewport } from './screenshot';
 import { cssSelectorFor, resolve } from './selector';
@@ -54,7 +55,9 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
 
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [fatal, setFatal] = useState(false);
-  const [comments, setComments] = useState<WidgetComment[]>([]);
+  // A nyitott kör összes kommentje (minden oldalról); az aktuális oldaléi ebből származnak
+  const [all, setAll] = useState<WidgetComment[]>([]);
+  const [listOpen, setListOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('idle');
   const [hover, setHover] = useState<Element | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
@@ -65,6 +68,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
 
   // Az aktuális "oldal": single-page alkalmazásban a History API-val változik, betöltés nélkül
   const [page, setPage] = useState(pageUrl);
+  const comments = useMemo(() => all.filter((c) => c.pageUrl === page), [all, page]);
   // Az az oldal, amelynek a kommentjei be vannak töltve (a mélylink csak ezután dolgozhat)
   const [loadedPage, setLoadedPage] = useState<string | null>(null);
 
@@ -104,12 +108,11 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
   useEffect(() => {
     if (!project) return;
     let cancelled = false;
-    setComments([]);
     api
-      .comments(page)
+      .comments()
       .then((list) => {
         if (!cancelled) {
-          setComments(list);
+          setAll(list);
           setLoadedPage(page);
         }
       })
@@ -218,7 +221,25 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
     setError(null);
   }
 
+  /** Ugrás egy kommentre a listából: ugyanazon az oldalon görgetés + szál, másik oldalon betöltés mélylinkkel. */
+  function goTo(c: WidgetComment) {
+    setListOpen(false);
+    if (c.pageUrl === page) {
+      setFocusId(c.id);
+      return;
+    }
+    const href = deepLinkTo(c.pageUrl, c.id);
+    if (href) location.href = href;
+  }
+
+  function toggleList() {
+    if (mode !== 'idle') return;
+    setNotice(null);
+    setListOpen((v) => !v);
+  }
+
   function toggle() {
+    setListOpen(false);
     if (mode !== 'idle') {
       if (!busy) cancel();
       return;
@@ -263,7 +284,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       }
 
       setToast(shotOk ? 'Köszönjük, a visszajelzés elküldve.' : 'A visszajelzés elküldve, de a képernyőképet nem sikerült csatolni.');
-      setComments(await api.comments(pageUrl()).catch(() => comments));
+      setAll(await api.comments().catch(() => all));
       cancel();
     } catch (e) {
       setError(sendError(e));
@@ -277,7 +298,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
     try {
       saveAuthor(authorName);
       await api.createReply(commentId, { authorName, body });
-      setComments(await api.comments(pageUrl()).catch(() => comments));
+      setAll(await api.comments().catch(() => all));
       return null;
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) return 'Ehhez már nem lehet válaszolni (lezárt kör vagy betelt szál).';
@@ -334,6 +355,10 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         </div>
       )}
 
+      {listOpen && mode === 'idle' && (
+        <Overview comments={all} currentPage={page} onGo={goTo} onClose={() => setListOpen(false)} />
+      )}
+
       {toast && (
         <div class="toast" role="status">
           {toast}
@@ -341,9 +366,17 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       )}
 
       {project && (
-        <button class="fab" onClick={toggle}>
-          {mode === 'idle' ? 'Visszajelzés' : 'Mégse'}
-        </button>
+        <div class="dock">
+          {mode === 'idle' && all.length > 0 && (
+            <button class="fab ghost" onClick={toggleList} aria-expanded={listOpen}>
+              Lista
+              <span class="count">{all.length}</span>
+            </button>
+          )}
+          <button class="fab" onClick={toggle}>
+            {mode === 'idle' ? 'Visszajelzés' : 'Mégse'}
+          </button>
+        </div>
       )}
     </>
   );

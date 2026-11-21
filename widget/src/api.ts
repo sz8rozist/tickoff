@@ -61,7 +61,9 @@ export function createApi({ token, apiBase }: Config) {
   return {
     project: () => json<ProjectInfo>('/project'),
 
-    comments: (pageUrl: string) => json<WidgetComment[]>(`/comments?pageUrl=${encodeURIComponent(pageUrl)}`),
+    /** A nyitott kör összes kommentje (az összes oldalról), vagy egy oldaléi. */
+    comments: (pageUrl?: string) =>
+      json<WidgetComment[]>(pageUrl === undefined ? "/comments" : `/comments?pageUrl=${encodeURIComponent(pageUrl)}`),
 
     createComment: (c: NewComment) =>
       json<WidgetComment>('/comments', {

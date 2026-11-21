@@ -33,3 +33,27 @@ export function stripFocusParam() {
   const rest = params.toString();
   history.replaceState(history.state, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
 }
+
+/** Egy oldal rövid, olvasható neve a listákhoz: útvonal és query, a widget saját paraméterei és a token nélkül. */
+export function displayPath(url: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.delete('token');
+    u.searchParams.delete(FOCUS_PARAM);
+    return u.pathname + u.search + (/^#!?\//.test(u.hash) ? u.hash : '') || '/';
+  } catch {
+    return url;
+  }
+}
+
+/** Mélylink egy másik oldalon lévő kommenthez, vagy null, ha az URL nem http(s). */
+export function deepLinkTo(url: string, commentId: number): string | null {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    u.searchParams.set(FOCUS_PARAM, String(commentId));
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
