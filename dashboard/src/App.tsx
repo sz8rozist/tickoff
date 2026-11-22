@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Avatar, Box, Center, Container, Group, Loader, Menu, Switch, Text, UnstyledButton } from '@mantine/core';
+import { Alert, Avatar, Box, Button, Center, Container, Group, Loader, Menu, Switch, Text, UnstyledButton } from '@mantine/core';
 import { api, ApiError, getToken, type User } from './api';
 import { AuthForm } from './AuthForm';
 import { AuthShell } from './AuthShell';
@@ -9,6 +9,7 @@ import { ProjectsPage } from './ProjectsPage';
 import { ResetPasswordPage } from './ResetPasswordPage';
 
 const RESET_PARAM = 'reset-token';
+const VERIFY_PARAM = 'verify-token';
 
 /** A jelszó-visszaállító linkből érkező token (tiszta olvasás: a címsorból törlés külön, effectben történik). */
 function readResetToken(): string | null {
@@ -31,17 +32,43 @@ export function App() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [notifyError, setNotifyError] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(readResetToken);
+  // Az e-mail-megerősítő linkből érkező token és az eredménye
+  const [verifyToken] = useState<string | null>(() => new URLSearchParams(window.location.search).get(VERIFY_PARAM));
+  const [verifyResult, setVerifyResult] = useState<'ok' | 'fail' | null>(null);
+  const [resent, setResent] = useState(false);
   // Ha van mentett token, először megnézzük, érvényes-e.
   const [loading, setLoading] = useState<boolean>(() => getToken() !== null);
 
   // A token a címsorban maradna (előzmények, Referer, megosztott képernyő): azonnal eltávolítjuk, a state-ben megvan.
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.has(RESET_PARAM)) {
+    if (url.searchParams.has(RESET_PARAM) || url.searchParams.has(VERIFY_PARAM)) {
       url.searchParams.delete(RESET_PARAM);
+      url.searchParams.delete(VERIFY_PARAM);
       window.history.replaceState({}, '', url.pathname + url.search + url.hash);
     }
   }, []);
+
+  // Megerősítő link: beváltjuk, és ha be vagyunk jelentkezve, frissítjük a felhasználót (a függő meghívók ilyenkor lépnek életbe)
+  useEffect(() => {
+    if (!verifyToken) return;
+    api
+      .verifyEmail(verifyToken)
+      .then(() => {
+        setVerifyResult('ok');
+        if (getToken()) api.me().then(setUser).catch(() => undefined);
+      })
+      .catch(() => setVerifyResult('fail'));
+  }, [verifyToken]);
+
+  async function resendVerification() {
+    try {
+      await api.resendVerification();
+      setResent(true);
+    } catch {
+      /* a következő próbálkozásnál újra lehet kérni */
+    }
+  }
 
   async function toggleNotify(checked: boolean) {
     setNotifyError(false);
@@ -97,6 +124,16 @@ export function App() {
   if (!user) {
     return (
       <AuthShell>
+        {verifyResult === 'ok' && (
+          <Alert color="teal" mb="md" role="status">
+            Az e-mail-címed megerősítve. Most már beléphetsz.
+          </Alert>
+        )}
+        {verifyResult === 'fail' && (
+          <Alert color="red" mb="md" role="alert">
+            A megerősítő link érvénytelen vagy lejárt. Belépés után kérhetsz újat.
+          </Alert>
+        )}
         <AuthForm onAuth={setUser} />
       </AuthShell>
     );
@@ -151,6 +188,28 @@ export function App() {
         </Container>
       </header>
       <Container size="md" py="xl">
+      {verifyResult === 'ok' && (
+        <Alert color="teal" mb="md" role="status" withCloseButton onClose={() => setVerifyResult(null)}>
+          Az e-mail-címed megerősítve.
+        </Alert>
+      )}
+      {verifyResult === 'fail' && (
+        <Alert color="red" mb="md" role="alert" withCloseButton onClose={() => setVerifyResult(null)}>
+          A megerősítő link érvénytelen vagy lejárt. Kérj újat lent.
+        </Alert>
+      )}
+      {!user.emailVerified && (
+        <Alert color="yellow" mb="md" title="Erősítsd meg az e-mail-címed">
+          Küldtünk egy levelet a(z) {user.email} címre. A megerősítésig a hozzád érkező projektmeghívók nem lépnek életbe.{' '}
+          {resent ? (
+            'Új levelet küldtünk.'
+          ) : (
+            <Button size="compact-xs" variant="light" onClick={() => void resendVerification()}>
+              Küldd újra
+            </Button>
+          )}
+        </Alert>
+      )}
       <ProjectsPage currentUserId={user.id} />
       <DeleteAccountModal
         opened={deleteAccountOpen}

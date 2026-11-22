@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Alert, Badge, Button, Group, Loader, Modal, Stack, Text, TextInput } from '@mantine/core';
-import { api, ApiError, type Member, type ProjectRole } from './api';
+import { api, ApiError, type Invite, type Member, type ProjectRole } from './api';
 
 function inviteError(e: unknown): string {
   if (e instanceof ApiError) {
-    if (e.status === 404) return 'Ezzel az e-mail címmel nincs fiók. A kollégának előbb regisztrálnia kell.';
-    if (e.status === 409) return 'Ő már tagja a projektnek.';
+    if (e.status === 409) return 'Őt már meghívtad, vagy már tagja a projektnek, vagy túl sok a függő meghívó.';
+    if (e.status === 503) return 'Még nem regisztrált kolléga meghívásához be kell állítani az e-mail-küldést (SMTP).';
     if (e.status === 400) return 'Adj meg egy érvényes e-mail címet.';
     if (e.status === 429) return 'Túl sok próbálkozás. Várj egy percet, és próbáld újra.';
   }
@@ -32,6 +32,8 @@ export function MembersPanel({
   onTransferred: (newOwnerName: string) => void;
 }) {
   const [members, setMembers] = useState<Member[] | null>(null);
+  const [pending, setPending] = useState<Invite[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,19 +49,47 @@ export function MembersPanel({
     api.members.list(projectId).then(setMembers).catch(() => setError('A tagok betöltése nem sikerült.'));
   }, [projectId]);
 
+  // A függő meghívókat csak a tulajdonos látja
+  useEffect(() => {
+    if (role === 'OWNER') api.members.invites(projectId).then(setPending).catch(() => undefined);
+  }, [projectId, role]);
+
   async function invite(e: FormEvent) {
     e.preventDefault();
     if (email.trim() === '') return;
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
       const member = await api.members.add(projectId, email.trim());
       setMembers((prev) => [...(prev ?? []), member]);
       setEmail('');
     } catch (err) {
-      setError(inviteError(err));
+      if (err instanceof ApiError && err.status === 404) {
+        // Nincs megerősített fiók ezzel a címmel: függő meghívót küldünk, ami a regisztráció és megerősítés után lép életbe
+        try {
+          const created = await api.members.invite(projectId, email.trim());
+          setPending((prev) => [...prev, created]);
+          setEmail('');
+          setNotice('Még nincs megerősített fiókja, ezért meghívó levelet küldtünk. Ha regisztrál és megerősíti a címét, automatikusan csatlakozik.');
+        } catch (err2) {
+          setError(inviteError(err2));
+        }
+      } else {
+        setError(inviteError(err));
+      }
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function cancelInvite(invite: Invite) {
+    setError(null);
+    try {
+      await api.members.cancelInvite(projectId, invite.id);
+      setPending((prev) => prev.filter((i) => i.id !== invite.id));
+    } catch {
+      setError('A meghívó visszavonása nem sikerült.');
     }
   }
 
@@ -152,6 +182,25 @@ export function MembersPanel({
         </Group>
       ))}
 
+      {isOwner && pending.length > 0 && (
+        <Stack gap={4}>
+          <Text size="xs" c="dimmed" fw={600}>
+            Függő meghívók
+          </Text>
+          {pending.map((i) => (
+            <Group key={i.id} gap="xs">
+              <Text size="sm">{i.email}</Text>
+              <Badge size="xs" variant="light" color="yellow">
+                vár a regisztrációra
+              </Badge>
+              <Button size="compact-xs" variant="subtle" color="red" onClick={() => cancelInvite(i)}>
+                Visszavonás
+              </Button>
+            </Group>
+          ))}
+        </Stack>
+      )}
+
       {isOwner ? (
         <form onSubmit={invite}>
           <Group gap="xs" align="flex-start">
@@ -170,7 +219,7 @@ export function MembersPanel({
           </Group>
           <Text size="xs" c="dimmed" mt={4}>
             A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), a projekt beállításait nem.
-            A kollégának már lennie kell fiókjának.
+            Ha a kollégának még nincs fiókja, meghívó levelet kap, és a regisztráció után automatikusan csatlakozik.
           </Text>
         </form>
       ) : (
@@ -181,6 +230,11 @@ export function MembersPanel({
         </div>
       )}
 
+      {notice && (
+        <Alert color="teal" role="status">
+          {notice}
+        </Alert>
+      )}
       {error && (
         <Alert color="red" role="alert">
           {error}

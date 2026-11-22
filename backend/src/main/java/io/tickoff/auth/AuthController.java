@@ -40,9 +40,12 @@ public class AuthController {
         @NotBlank @Size(min = 8, max = 72) String password) {
     }
 
-    public record UserDto(Long id, String email, String name, boolean notifyEmail) {
+    public record VerifyEmailRequest(@NotBlank @Size(max = 200) String token) {
+    }
+
+    public record UserDto(Long id, String email, String name, boolean notifyEmail, boolean emailVerified) {
         static UserDto of(User u) {
-            return new UserDto(u.getId(), u.getEmail(), u.getName(), u.isNotifyEmail());
+            return new UserDto(u.getId(), u.getEmail(), u.getName(), u.isNotifyEmail(), u.isEmailVerified());
         }
     }
 
@@ -56,15 +59,17 @@ public class AuthController {
     private final String dummyHash;
 
     private final PasswordResetService passwordReset;
+    private final EmailVerificationService verification;
     private final boolean registrationEnabled;
 
     public AuthController(UserRepository users, PasswordEncoder encoder, TokenService tokens,
-                          PasswordResetService passwordReset,
+                          PasswordResetService passwordReset, EmailVerificationService verification,
                           @Value("${tickoff.registration.enabled:true}") boolean registrationEnabled) {
         this.users = users;
         this.encoder = encoder;
         this.tokens = tokens;
         this.passwordReset = passwordReset;
+        this.verification = verification;
         this.registrationEnabled = registrationEnabled;
         this.dummyHash = encoder.encode("tickoff-dummy-password");
     }
@@ -87,7 +92,18 @@ public class AuthController {
             // Párhuzamos regisztráció ugyanarra az e-mailre: az egyedi index elkapja.
             throw emailTaken();
         }
-        return new AuthResponse(tokens.issue(user), UserDto.of(user));
+        // Megerősítő levél (ha nincs e-mail-küldés, a fiók azonnal megbízható lesz)
+        verification.sendVerification(user.getId());
+        return new AuthResponse(tokens.issue(user), UserDto.of(users.findById(user.getId()).orElse(user)));
+    }
+
+    /** A regisztrációkor kapott linkkel megerősíti az e-mail-címet. Érvénytelen vagy lejárt tokenre 400. */
+    @PostMapping("/verify-email")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void verifyEmail(@Valid @RequestBody VerifyEmailRequest req) {
+        if (!verification.verify(req.token().trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Érvénytelen vagy lejárt link");
+        }
     }
 
     @PostMapping("/login")

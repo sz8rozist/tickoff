@@ -19,7 +19,7 @@
 - **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
 - **Kommentszálak**: a designer válaszolhat a kommentekre (a válasz a widgetben is megjelenik, "csapat" jelvénnyel), és törölheti a válaszokat (két kattintással, véletlen törlés ellen). Az ügyfél válaszai is itt jelennek meg.
 - **Komment törlése** (a képernyőképével és a válaszaival együtt) megerősítéssel.
-- **Csapatmunka**: a tulajdonos meghívhatja a kollégáit (e-mail-cím alapján, meglévő fiókot). A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), de a projekt beállításait, a tokent és a tagokat nem; kiléphetnek a projektből. A tulajdonos a projektet **átadhatja** egy tagnak (a régi tulajdonos tag marad). A projektlistán megjelölve látszik, melyik projektben vagy tag, és ki a tulajdonosa.
+- **Csapatmunka**: a tulajdonos meghívhatja a kollégáit e-mail-cím alapján. Ha a címhez van **megerősített** fiók, azonnal tag lesz; ha még nincs (vagy nincs megerősítve), **függő meghívó** és levél megy, és a regisztráció + e-mail-megerősítés után a kolléga automatikusan csatlakozik (a függő meghívók a Tagok fülön látszanak és visszavonhatók, projektenként legfeljebb 20). A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), de a projekt beállításait, a tokent és a tagokat nem; kiléphetnek a projektből. A tulajdonos a projektet **átadhatja** egy tagnak (a régi tulajdonos tag marad). A projektlistán megjelölve látszik, melyik projektben vagy tag, és ki a tulajdonosa.
 - **Export CSV-be**: egy kör vagy a teljes projekt kommentjei, magyar Excelben helyesen megnyíló formátumban (ékezetek, pontosvessző).
 - Magyar felület, világos és sötét téma.
 
@@ -162,7 +162,7 @@ Aki nem tulajdonos és nem tag, annak a projekt nem létezik: minden végpont `4
 | Végpont | Leírás |
 |---|---|
 | `GET /api/projects/{id}/members` | a tulajdonos (elöl) és a tagok: `{userId, name, email, role}`; a projekt minden tagja látja |
-| `POST /api/projects/{id}/members` | `{email}` → `201`: meghívás **meglévő fiókra** (e-mail alapján, kis- és nagybetűre érzéketlenül). `404`, ha nincs ilyen fiók (a kollégának előbb regisztrálnia kell), `409`, ha már tag vagy ő a tulajdonos. Csak tulajdonos; IP-nként 20/perc, mert a válaszból a fiókok létezése kideríthető |
+| `POST /api/projects/{id}/members` | `{email}` → `201`: meghívás **megerősített fiókra** (e-mail alapján, kis- és nagybetűre érzéketlenül). `404`, ha nincs ilyen megerősített fiók (ilyenkor a kliens a lenti függő meghívót küldi), `409`, ha már tag vagy ő a tulajdonos. Csak tulajdonos; IP-nként 20/perc, mert a válaszból a fiókok létezése kideríthető |
 | `POST /api/projects/{id}/members/{userId}/transfer-ownership` | `200` + a tagok frissített listája: a projekt átadása egy **meglévő tagnak** (csak tulajdonos). Az új tulajdonos mindent megkap, a régi tag marad (a visszajelzéseket tovább kezelheti, de a beállításokat már nem). `409`, ha a célpont nem tag. A visszaadást csak az új tulajdonos kezdeményezheti |
 | `DELETE /api/projects/{id}/members/{userId}` | `204`: a tulajdonos bárkit eltávolíthat, a tag csak saját magát (kilépés). A tulajdonos nem távolítható el (`409`), ha nincs rá szükség, a projektet kell törölni |
 
@@ -188,6 +188,9 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 | `POST /api/projects/{id}/comments/{commentId}/replies` | `{body (max. 4000)}` → `201`: válasz a designer nevében (lezárt kör kommentjére is). Egy kommenthez legfeljebb 200 válasz fűzhető, utána `409` |
 | `DELETE /api/projects/{id}/comments/{commentId}/replies/{replyId}` | `204` |
 | `PATCH /api/projects/{id}/comments/{commentId}` | `{status: OPEN \| IN_PROGRESS \| DONE}`; érvénytelen értékre `400` |
+| `GET /api/projects/{id}/members/invites` | a függő meghívók (csak a tulajdonos) |
+| `POST /api/projects/{id}/members/invites` | `{email}` → `201`: meghívó még nem megerősítetten regisztrált kollégának (levelet kap). `503`, ha nincs e-mail-küldés beállítva; `409`, ha már meghívták / tag, vagy 20 függő meghívó van; IP-nként 20/perc |
+| `DELETE /api/projects/{id}/members/invites/{inviteId}` | `204`: a meghívó visszavonása |
 | `PUT /api/projects/{id}/webhook` | `{url}`: webhook beállítása (csak a tulajdonos), üres/`null` kikapcsolja; `400`, ha a cím nem nyilvános https-cím |
 | `POST /api/projects/{id}/webhook/test` | teszt-üzenet a webhookra → `{ok, status, error}`; `409`, ha nincs beállítva; IP-nként 5/perc |
 | `PUT /api/projects/{id}/comments/{commentId}/assignee` | `{userId}`: felelős kijelölése, `null` törli. `400`, ha a felhasználó nem a projekt csapatának tagja |
@@ -250,6 +253,10 @@ A backend két célra küld levelet: **jelszó-visszaállítás** és **értesí
 Események: `comment.created`, `reply.created` (ügyfél-válasz), `comment.reopened`, `round.approved`, `test`. A kérés `POST`, `Content-Type: application/json`, fejlécei: `X-Tickoff-Event`, `X-Tickoff-Signature` (`sha256=` + a nyers törzs HMAC-SHA256-ja a projekt titkával), `User-Agent: Tickoff-Webhook`. A küldés a mentés után, külön szálon történik, **újrapróbálkozás nincs** (legjobb szándékú értesítés), a hibákat csak naplózzuk (a címet nem: abban titok lehet).
 
 **Biztonság (SSRF):** a szerver a felhasználó által megadott címre küld kérést, ezért a cím csak **nyilvános https-cím** lehet, nem tartalmazhat felhasználónevet, és a név minden feloldott címe nyilvános kell legyen (nem loopback, privát, link-local, CGNAT, többesküldéses, IPv6 egyedi helyi). Az ellenőrzés mentéskor és minden küldés előtt újra lefut, a küldő nem követ átirányítást, a kapcsolat és a válasz ideje korlátos, a válasz törzsét nem olvassuk. Fejlesztéshez a `TICKOFF_WEBHOOK_ALLOW_PRIVATE=true` engedélyezi a helyi http-címeket (a dev `docker-compose.yml`-ben be van kapcsolva, élesben nem szabad). Ismert korlát: a feloldás és a kapcsolódás között a DNS elméletileg megváltozhat (DNS-rebinding), ezt a küldés előtti újraellenőrzés csökkenti, de nem zárja ki teljesen; magasabb biztonsági igénynél kimenő proxy mögé érdemes tenni.
+
+## E-mail-megerősítés
+
+Regisztrációkor a fiók megerősítetlen, és levelet kap egy egyszer használatos linkkel (24 óráig érvényes, a token csak hash-ként van tárolva, újabb kérés lecseréli, percenként legfeljebb egy levél megy). A dashboard fent figyelmeztet és újraküldést kínál (`POST /api/me/verification`); a link beváltása `POST /api/auth/verify-email` (`400` érvénytelen vagy lejárt tokenre). **Megerősítés nélkül a fiókra szóló meghívók nem lépnek életbe**, mert különben bárki bejuthatna egy projektbe egy másik címmel regisztrálva. A meglévő fiókokat a migráció megerősítettnek jelöli. **SMTP nélkül** a megerősítés nem lehetséges, ezért ilyenkor a fiók azonnal megbízható (senki nem reked ki), de a függő meghívók sem küldhetők (`503`).
 
 ## Kérésszám-korlát
 
@@ -363,7 +370,6 @@ Titkot nem használ. Egy ágon egyszerre csak a legfrissebb futás számít (a r
 
 A "Még nincs meg" lista (a Funkciók szakasz végén) a hátralévő ötletek gyűjtője. Nagyobb, még nem megoldott tervek:
 
-- E-mail-megerősítés regisztrációkor, ami után a még nem regisztrált kollégák meghívása biztonságosan megoldható.
 - Éles levélküldés: a Brevo API-s küldő beépítése (az API-kulcs IP-engedélyezése még hiányzik a Brevo fiókban), lásd az E-mail szakaszt.
 - Több példányos üzemeltetés: közös kérésszám-korlát tároló (Redis) és objektumtároló a képernyőképeknek.
 

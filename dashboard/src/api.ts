@@ -4,6 +4,15 @@ export interface User {
   name: string;
   /** E-mail értesítés új visszajelzésről */
   notifyEmail: boolean;
+  /** Az e-mail-cím megerősítve (regisztrációkor levélben kapott linkkel). */
+  emailVerified: boolean;
+}
+
+/** Függő meghívó: olyan címre, amelyhez még nincs megerősített fiók. */
+export interface Invite {
+  id: number;
+  email: string;
+  createdAt: string;
 }
 
 interface AuthResponse {
@@ -167,6 +176,11 @@ export const api = {
     return r.user;
   },
   me: () => request<User>('/api/me'),
+  /** A regisztrációkor kapott linkkel megerősíti az e-mail-címet; érvénytelen vagy lejárt tokenre 400. */
+  verifyEmail: (token: string) =>
+    request<void>('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+  /** Új megerősítő levél kérése (percenként legfeljebb egy megy el). */
+  resendVerification: () => request<void>('/api/me/verification', { method: 'POST' }),
   /** A válasz mindig 204, akár van ilyen fiók, akár nincs: a végpont nem árulja el, kinek van fiókja. */
   forgotPassword: (email: string) =>
     request<void>('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
@@ -193,6 +207,13 @@ export const api = {
     /** Meghívás e-mail-cím alapján (csak a tulajdonos); a címhez már létező fióknak kell tartoznia. */
     add: (projectId: number, email: string) =>
       request<Member>(`/api/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ email }) }),
+    /** Függő meghívók (csak a tulajdonos). */
+    invites: (projectId: number) => request<Invite[]>(`/api/projects/${projectId}/members/invites`),
+    /** Meghívó még nem megerősítetten regisztrált kollégának: levelet kap, a regisztráció és megerősítés után tag lesz. */
+    invite: (projectId: number, email: string) =>
+      request<Invite>(`/api/projects/${projectId}/members/invites`, { method: 'POST', body: JSON.stringify({ email }) }),
+    cancelInvite: (projectId: number, inviteId: number) =>
+      request<void>(`/api/projects/${projectId}/members/invites/${inviteId}`, { method: 'DELETE' }),
     /** A projekt átadása egy tagnak (csak a tulajdonos): az új tulajdonos mindent megkap, a régi tag marad. */
     transferOwnership: (projectId: number, userId: number) =>
       request<Member[]>(`/api/projects/${projectId}/members/${userId}/transfer-ownership`, { method: 'POST' }),

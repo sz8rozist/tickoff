@@ -30,6 +30,19 @@ public class User {
     @Column(name = "notify_email", nullable = false)
     private boolean notifyEmail = true;
 
+    /** Mikor erősítette meg az e-mail-címét (null: még nem). A meglévő fiókokat a migráció megerősítettnek jelöli. */
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
+    @Column(name = "email_verify_hash", length = 64)
+    private String emailVerifyHash;
+
+    @Column(name = "email_verify_expires_at")
+    private Instant emailVerifyExpiresAt;
+
+    @Column(name = "email_verify_sent_at")
+    private Instant emailVerifySentAt;
+
     protected User() {
     }
 
@@ -46,6 +59,25 @@ public class User {
     }
 
     public void setNotifyEmail(boolean notifyEmail) { this.notifyEmail = notifyEmail; }
+
+    public boolean isEmailVerified() { return emailVerifiedAt != null; }
+
+    /** A cím megerősítve: a függő token érvényét veszti. */
+    public void markEmailVerified(Instant now) {
+        this.emailVerifiedAt = now;
+        this.emailVerifyHash = null;
+        this.emailVerifyExpiresAt = null;
+    }
+
+    /** Új megerősítő token (csak a hash-e); a korábbi érvényét veszti. */
+    public void setEmailVerification(String hash, Instant expiresAt, Instant sentAt) {
+        this.emailVerifyHash = hash;
+        this.emailVerifyExpiresAt = expiresAt;
+        this.emailVerifySentAt = sentAt;
+    }
+
+    public Instant getEmailVerifyExpiresAt() { return emailVerifyExpiresAt; }
+    public Instant getEmailVerifySentAt() { return emailVerifySentAt; }
 
     public Instant getPasswordChangedAt() { return passwordChangedAt; }
     public boolean isNotifyEmail() { return notifyEmail; }

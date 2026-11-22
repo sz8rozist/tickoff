@@ -46,6 +46,9 @@ public final class RateLimits {
     // A fiók törlése jelszót kér, ezért ellopott token mellett is korlátozni kell a találgatást.
     private static final Limit DELETE_ACCOUNT_IP = new Limit("delete-account-ip", 5, 5);
     // A leiratkozó link titka 128 bites, de a találgatást így is korlátozzuk.
+    // E-mail-megerősítés: a token találgatása és a levélküldés ellen
+    private static final Limit VERIFY_EMAIL_IP = new Limit("verify-email-ip", 10, 10);
+    private static final Limit RESEND_VERIFICATION_IP = new Limit("resend-verification-ip", 5, 5);
     private static final Limit UNSUBSCRIBE_IP = new Limit("unsubscribe-ip", 10, 10);
     // A teszt-webhook kimenő kérést indít a szerverről, ezért szigorúan korlátozzuk.
     private static final Limit WEBHOOK_TEST_IP = new Limit("webhook-test-ip", 5, 5);
@@ -73,6 +76,9 @@ public final class RateLimits {
             Rule.of(HttpMethod.POST, "/api/auth/login", new Scoped(Scope.IP, LOGIN_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/register", new Scoped(Scope.IP, REGISTER_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/forgot-password", new Scoped(Scope.IP, FORGOT_PASSWORD_IP)),
+            Rule.of(HttpMethod.POST, "/api/auth/verify-email", new Scoped(Scope.IP, VERIFY_EMAIL_IP)),
+            Rule.of(HttpMethod.POST, "/api/me/verification", new Scoped(Scope.IP, RESEND_VERIFICATION_IP)),
+            Rule.of(HttpMethod.POST, "/api/projects/{id}/members/invites", new Scoped(Scope.IP, INVITE_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/reset-password", new Scoped(Scope.IP, RESET_PASSWORD_IP)),
             Rule.of(HttpMethod.POST, "/api/projects/{id}/webhook/test", new Scoped(Scope.IP, WEBHOOK_TEST_IP)),
             Rule.of(HttpMethod.GET, "/api/notifications/unsubscribe/{token}", new Scoped(Scope.IP, UNSUBSCRIBE_IP)),

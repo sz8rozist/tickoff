@@ -32,13 +32,15 @@ public class MeController {
     private final AccountService accounts;
     private final PasswordEncoder encoder;
     private final ScreenshotStorage storage;
+    private final EmailVerificationService verification;
 
     public MeController(UserRepository users, AccountService accounts, PasswordEncoder encoder,
-                        ScreenshotStorage storage) {
+                        ScreenshotStorage storage, EmailVerificationService verification) {
         this.users = users;
         this.accounts = accounts;
         this.encoder = encoder;
         this.storage = storage;
+        this.verification = verification;
     }
 
     @GetMapping("/api/me")
@@ -49,6 +51,13 @@ public class MeController {
     }
 
     /** Beállítások: az e-mail értesítések be- és kikapcsolása. */
+    /** Új megerősítő levél kérése (percenként legfeljebb egy megy el; megerősített fióknál nem történik semmi). */
+    @org.springframework.web.bind.annotation.PostMapping("/api/me/verification")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void resendVerification(@AuthenticationPrincipal Jwt jwt) {
+        verification.sendVerification(Long.valueOf(jwt.getSubject()));
+    }
+
     @PatchMapping("/api/me")
     public UserDto updateSettings(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody SettingsRequest req) {
         User user = current(jwt).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));

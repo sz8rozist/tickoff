@@ -2,6 +2,9 @@ package io.tickoff.project;
 
 import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.Project;
+import io.tickoff.domain.ProjectInvite;
+import io.tickoff.domain.ProjectInviteRepository;
+import io.tickoff.mail.MailService;
 import io.tickoff.domain.ProjectMember;
 import io.tickoff.domain.ProjectMemberRepository;
 import io.tickoff.domain.User;
@@ -41,6 +44,16 @@ public class MemberController {
         }
     }
 
+    /** Függő meghívó: olyan címre, amelyhez még nincs megerősített fiók. */
+    public record InviteDto(Long id, String email, java.time.Instant createdAt) {
+        static InviteDto of(ProjectInvite i) {
+            return new InviteDto(i.getId(), i.getEmail(), i.getCreatedAt());
+        }
+    }
+
+    /** Egy projektnek legfeljebb ennyi függő meghívója lehet (levélbombázás és adatszemét ellen). */
+    static final int MAX_PENDING_INVITES = 20;
+
     public record AddMemberRequest(@NotBlank @Email @Size(max = 255) String email) {
     }
 
@@ -48,13 +61,20 @@ public class MemberController {
     private final ProjectMemberRepository members;
     private final UserRepository users;
     private final CommentRepository comments;
+    private final ProjectInviteRepository invites;
+    private final MailService mail;
+    private final String baseUrl;
 
     public MemberController(ProjectAccess access, ProjectMemberRepository members, UserRepository users,
-                            CommentRepository comments) {
+                            CommentRepository comments, ProjectInviteRepository invites, MailService mail,
+                            @org.springframework.beans.factory.annotation.Value("${tickoff.dashboard-origin}") String baseUrl) {
         this.access = access;
         this.members = members;
         this.users = users;
         this.comments = comments;
+        this.invites = invites;
+        this.mail = mail;
+        this.baseUrl = baseUrl.replaceAll("/+$", "");
     }
 
     /** A tulajdonos és a tagok listája (a projekt minden tagja láthatja). A tulajdonos az első. */
@@ -78,9 +98,11 @@ public class MemberController {
                          @Valid @RequestBody AddMemberRequest req) {
         Project project = access.owner(projectId, userId(jwt));
         String email = req.email().trim().toLowerCase(Locale.ROOT);
-        User user = users.findByEmail(email)
+        // Csak megerősített címen lehet közvetlenül taggá tenni: egy meg nem erősített fiók bárki lehet, aki a címet
+        // beírta. Ilyenkor (és ha nincs fiók) a kliens függő meghívót küld (lásd {@link #invite}).
+        User user = users.findByEmail(email).filter(User::isEmailVerified)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "Ezzel az e-mail címmel nincs fiók. A kollégának előbb regisztrálnia kell."));
+                "Ezzel az e-mail címmel nincs megerősített fiók."));
         if (user.getId().equals(project.getOwnerId()) || members.existsByProjectIdAndUserId(projectId, user.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ő már tagja a projektnek");
         }
@@ -91,6 +113,66 @@ public class MemberController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ő már tagja a projektnek");
         }
         return MemberDto.of(user, Role.MEMBER);
+    }
+
+    /** A függő meghívók (csak a tulajdonos látja). */
+    @GetMapping("/invites")
+    public List<InviteDto> pendingInvites(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId) {
+        Project project = access.owner(projectId, userId(jwt));
+        return invites.findByProjectIdOrderByCreatedAtAsc(project.getId()).stream().map(InviteDto::of).toList();
+    }
+
+    /**
+     * Meghívó még nem (megerősítetten) regisztrált kollégának: levelet kap, és ha ezzel a címmel regisztrál és
+     * megerősíti, automatikusan tagja lesz a projektnek. Csak működő e-mail-küldés mellett használható (409
+     * különben), és projektenként legfeljebb {@value #MAX_PENDING_INVITES} függő meghívó lehet.
+     */
+    @PostMapping("/invites")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public InviteDto invite(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
+                            @Valid @RequestBody AddMemberRequest req) {
+        Project project = access.owner(projectId, userId(jwt));
+        String email = req.email().trim().toLowerCase(Locale.ROOT);
+        if (!mail.isEnabled()) {
+            // 503: a kliens ebből tudja, hogy nem a kérés hibás, hanem a szerver nincs felkészítve levélküldésre
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Meghívó küldéséhez be kell állítani az e-mail-küldést (SMTP).");
+        }
+        User inviter = users.findById(userId(jwt))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        boolean alreadyIn = users.findByEmail(email)
+            .map(u -> u.getId().equals(project.getOwnerId()) || members.existsByProjectIdAndUserId(projectId, u.getId()))
+            .orElse(false);
+        if (alreadyIn || invites.existsByProjectIdAndEmail(projectId, email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Őt már meghívtad, vagy már tagja a projektnek");
+        }
+        if (invites.countByProjectId(projectId) >= MAX_PENDING_INVITES) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Túl sok függő meghívó van, töröld a feleslegeseket");
+        }
+        ProjectInvite saved;
+        try {
+            saved = invites.saveAndFlush(new ProjectInvite(project, email, inviter));
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Őt már meghívtad, vagy már tagja a projektnek");
+        }
+        mail.send(email, "[Tickoff] Meghívó: " + project.getName(),
+            inviter.getName() + " meghívott a(z) „" + project.getName() + "” projekt visszajelzéseinek kezelésére a Tickoffban.\n\n"
+                + "Regisztrálj erre az e-mail-címre, és erősítsd meg a címedet: " + baseUrl + "/\n"
+                + "A megerősítés után automatikusan csatlakozol a projekthez.\n\n"
+                + "Ha nem ismered a meghívót, hagyd figyelmen kívül ezt a levelet.\n");
+        return InviteDto.of(saved);
+    }
+
+    /** Függő meghívó visszavonása (csak a tulajdonos). */
+    @DeleteMapping("/invites/{inviteId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void cancelInvite(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId, @PathVariable Long inviteId) {
+        Project project = access.owner(projectId, userId(jwt));
+        ProjectInvite invite = invites.findByIdAndProjectId(inviteId, project.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        invites.delete(invite);
     }
 
     /**
