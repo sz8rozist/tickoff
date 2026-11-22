@@ -309,7 +309,7 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                   <Tabs.Tab value="members">Tagok</Tabs.Tab>
                 </Tabs.List>
                 <Tabs.Panel value="rounds" pt="sm">
-                  <RoundsPanel projectId={p.id} />
+                  <RoundsPanel projectId={p.id} currentUserId={currentUserId} />
                 </Tabs.Panel>
                 <Tabs.Panel value="members" pt="sm">
                   <MembersPanel

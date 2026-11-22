@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -60,18 +61,25 @@ public class CommentController {
     public record StatusRequest(@NotNull Comment.Status status) {
     }
 
+    /** {@code userId == null}: a felelős törlése. */
+    public record AssigneeRequest(Long userId) {
+    }
+
     public record ReplyRequest(@NotBlank @Size(max = 4000) String body) {
     }
 
     public record CommentDto(Long id, String authorName, String body, String pageUrl, String cssSelector,
                              Double posX, Double posY, Integer viewportWidth, Integer viewportHeight,
                              String userAgent, Comment.Status status, boolean hasScreenshot, Instant createdAt,
-                             Instant customerApprovedAt, boolean notifiesCustomer, List<ReplyDto> replies) {
+                             Instant customerApprovedAt, boolean notifiesCustomer, Long assigneeId, String assigneeName,
+                             List<ReplyDto> replies) {
         static CommentDto of(Comment c, List<ReplyDto> replies) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
                 c.getPosX(), c.getPosY(), c.getViewportWidth(), c.getViewportHeight(), c.getUserAgent(),
                 c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), c.getCustomerApprovedAt(),
-                c.getNotifyToken() != null, replies);
+                c.getNotifyToken() != null,
+                c.getAssignee() == null ? null : c.getAssignee().getId(),
+                c.getAssignee() == null ? null : c.getAssignee().getName(), replies);
         }
     }
 
@@ -122,6 +130,36 @@ public class CommentController {
         comment.setStatus(req.status());
         if (becameDone) {
             notifications.commentDone(project, comment);
+        }
+        return CommentDto.of(comment, replyService.forComment(comment.getId()));
+    }
+
+    /**
+     * Felelős kijelölése (vagy törlése). Csak a projekt csapatának tagja lehet felelős (400 különben). Ha valaki
+     * másra bíz egy kommentet, az értesítést kap e-mailben (ha nem kapcsolta ki).
+     */
+    @PutMapping("/comments/{commentId}/assignee")
+    @Transactional
+    public CommentDto assign(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
+                             @PathVariable Long commentId, @RequestBody AssigneeRequest req) {
+        Project project = owned(jwt, projectId);
+        Comment comment = comments.findByIdAndRoundProjectId(commentId, project.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Long actorId = Long.valueOf(jwt.getSubject());
+        User assignee = null;
+        if (req.userId() != null) {
+            if (!access.isTeamMember(project, req.userId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Csak a projekt tagja lehet felelős");
+            }
+            assignee = users.findById(req.userId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ismeretlen felhasználó"));
+        }
+        boolean changed = !java.util.Objects.equals(
+            comment.getAssignee() == null ? null : comment.getAssignee().getId(), req.userId());
+        comment.setAssignee(assignee);
+        if (changed && assignee != null && !assignee.getId().equals(actorId)) {
+            String by = users.findById(actorId).map(User::getName).orElse("Egy kolléga");
+            notifications.assigned(project, comment, assignee, by);
         }
         return CommentDto.of(comment, replyService.forComment(comment.getId()));
     }
@@ -180,7 +218,7 @@ public class CommentController {
         DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(exportZone);
         CsvWriter csv = new CsvWriter().row(List.of(
             "Kör", "Oldal", "Szerző", "Szöveg", "Státusz", "Elem (selector)", "Viewport", "Böngésző", "Létrehozva",
-            "Válaszok"));
+            "Válaszok", "Felelős"));
         List<Comment> exported = comments.findAllForExport(project.getId()).stream()
             .filter(c -> roundId == null || c.getRound().getId().equals(roundId))
             .toList();
@@ -201,7 +239,8 @@ public class CommentController {
                 replies.getOrDefault(c.getId(), List.of()).stream()
                     .map(r -> r.authorName() + (r.authorType() == Reply.AuthorType.DESIGNER ? " (csapat)" : "")
                         + ": " + r.body())
-                    .collect(Collectors.joining("\n"))));
+                    .collect(Collectors.joining("\n")),
+                c.getAssignee() == null ? "" : c.getAssignee().getName()));
         }
 
         String filename = "tickoff-" + slug(project.getName())

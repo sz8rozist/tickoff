@@ -11,10 +11,12 @@ import {
   Loader,
   Modal,
   SegmentedControl,
+  Select,
   Stack,
   Text,
+  TextInput,
 } from '@mantine/core';
-import { api, type Comment, type CommentStatus } from './api';
+import { api, type Comment, type CommentStatus, type Member } from './api';
 import { Thread } from './Thread';
 
 const STATUS_OPTIONS = [
@@ -22,6 +24,19 @@ const STATUS_OPTIONS = [
   { value: 'IN_PROGRESS', label: 'Folyamatban' },
   { value: 'DONE', label: 'Kész' },
 ];
+
+const STATUS_FILTER = [{ value: 'ALL', label: 'Mind' }, ...STATUS_OPTIONS];
+
+const ASSIGNEE_FILTER = [
+  { value: 'ALL', label: 'Bárki' },
+  { value: 'ME', label: 'Hozzám rendelt' },
+  { value: 'NONE', label: 'Gazdátlan' },
+];
+
+/** Ékezet- és kisbetű-független összehasonlításhoz (a keresés "kave"-ra is megtalálja a "Kávé"-t). */
+function fold(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase();
+}
 
 const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -72,10 +87,15 @@ export function CommentsPanel({
   projectId,
   roundId,
   roundOpen,
+  team,
+  currentUserId,
   onChanged,
 }: {
   projectId: number;
   roundId: number;
+  /** A csapat tagjai a felelős kijelöléséhez. */
+  team: Member[];
+  currentUserId: number;
   /** A widget csak a nyitott kör kommentjeit mutatja, ezért a "megnyitás az oldalon" csak ott értelmes. */
   roundOpen: boolean;
   /** A státuszváltás után a körök számlálóit frissíteni kell. */
@@ -88,6 +108,9 @@ export function CommentsPanel({
   // A `deleting` a bezáródó animáció alatt is megmarad, hogy a szöveg ne ürüljön ki.
   const [deleting, setDeleting] = useState<Comment | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [assigneeFilter, setAssigneeFilter] = useState('ALL');
 
   useEffect(() => {
     api.comments.list(projectId, roundId).then(setComments).catch(() => setError('A kommentek betöltése nem sikerült.'));
@@ -110,6 +133,19 @@ export function CommentsPanel({
       onChanged();
     } catch {
       setError('A státusz módosítása nem sikerült.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function assign(c: Comment, userId: number | null) {
+    setError(null);
+    setBusyId(c.id);
+    try {
+      const updated = await api.comments.assign(projectId, c.id, userId);
+      setComments((prev) => prev?.map((x) => (x.id === c.id ? updated : x)) ?? null);
+    } catch {
+      setError('A felelős kijelölése nem sikerült.');
     } finally {
       setBusyId(null);
     }
@@ -171,14 +207,62 @@ export function CommentsPanel({
     );
   }
 
+  const needle = fold(query.trim());
+  const visible = comments.filter((c) => {
+    if (statusFilter !== 'ALL' && c.status !== statusFilter) return false;
+    if (assigneeFilter === 'ME' && c.assigneeId !== currentUserId) return false;
+    if (assigneeFilter === 'NONE' && c.assigneeId !== null) return false;
+    if (needle === '') return true;
+    const haystack = fold(
+      [c.authorName, c.body, pagePath(c.pageUrl), c.assigneeName ?? '', ...c.replies.map((r) => r.body)].join(' '),
+    );
+    return haystack.includes(needle);
+  });
+  const filtering = statusFilter !== 'ALL' || assigneeFilter !== 'ALL' || needle !== '';
+
   // Oldalanként csoportosítjuk: "a második oldalon az a gomb" típusú visszajelzések így egy helyen vannak.
   const byPage = new Map<string, Comment[]>();
-  for (const c of comments) {
+  for (const c of visible) {
     byPage.set(c.pageUrl, [...(byPage.get(c.pageUrl) ?? []), c]);
   }
 
   return (
     <Stack gap="md" mt="md">
+      <Group gap="xs" align="center">
+        <TextInput
+          size="xs"
+          placeholder="Keresés a kommentekben…"
+          aria-label="Keresés a kommentekben"
+          value={query}
+          onChange={(e) => setQuery(e.currentTarget.value)}
+          style={{ flex: '1 1 180px' }}
+        />
+        <SegmentedControl size="xs" data={STATUS_FILTER} value={statusFilter} onChange={setStatusFilter} aria-label="Szűrés státuszra" />
+        <SegmentedControl size="xs" data={ASSIGNEE_FILTER} value={assigneeFilter} onChange={setAssigneeFilter} aria-label="Szűrés felelősre" />
+      </Group>
+      {filtering && (
+        <Group gap="xs">
+          <Text size="xs" c="dimmed">
+            {visible.length} / {comments.length} komment
+          </Text>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            onClick={() => {
+              setQuery('');
+              setStatusFilter('ALL');
+              setAssigneeFilter('ALL');
+            }}
+          >
+            Szűrők törlése
+          </Button>
+        </Group>
+      )}
+      {visible.length === 0 && (
+        <Text size="sm" c="dimmed">
+          Nincs a szűrésnek megfelelő komment.
+        </Text>
+      )}
       {error && (
         <Alert color="red" role="alert">
           {error}
@@ -230,6 +314,22 @@ export function CommentsPanel({
                 <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
                   {c.body}
                 </Text>
+                <Select
+                  size="xs"
+                  w={220}
+                  placeholder="Nincs felelős"
+                  aria-label="Felelős"
+                  clearable
+                  searchable
+                  nothingFoundMessage="Nincs ilyen tag"
+                  disabled={busyId === c.id}
+                  data={team.map((m) => ({
+                    value: String(m.userId),
+                    label: m.userId === currentUserId ? `${m.name} (te)` : m.name,
+                  }))}
+                  value={c.assigneeId === null ? null : String(c.assigneeId)}
+                  onChange={(v) => void assign(c, v === null ? null : Number(v))}
+                />
                 <Group gap="xs">
                   {c.cssSelector && <Code>{c.cssSelector}</Code>}
                   {c.customerApprovedAt && (

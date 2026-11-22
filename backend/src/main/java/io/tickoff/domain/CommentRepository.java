@@ -1,6 +1,8 @@
 package io.tickoff.domain;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,15 +20,27 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
         Number getOpenCount();
     }
 
+    // A felelőst együtt töltjük be: a listában minden komment nevét kiírjuk (nincs kérésenkénti betöltés)
+    @EntityGraph(attributePaths = "assignee")
     List<Comment> findByRoundIdOrderByCreatedAtAsc(Long roundId);
 
+    @EntityGraph(attributePaths = "assignee")
     Optional<Comment> findByIdAndRoundProjectId(Long id, Long projectId);
+
+    /** Ha valaki kilép a projektből vagy eltávolítják, a rá bízott kommentek felelős nélkül maradnak. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update Comment c set c.assignee = null
+        where c.assignee.id = :userId
+          and c.round.id in (select r.id from Round r where r.project.id = :projectId)
+        """)
+    int clearAssignee(@Param("projectId") Long projectId, @Param("userId") Long userId);
 
     Optional<Comment> findByNotifyToken(String notifyToken);
 
     /** A projekt összes kommentje a körrel együtt (exporthoz), kör és időrend szerint. */
     @Query("""
-        select c from Comment c join fetch c.round r
+        select c from Comment c join fetch c.round r left join fetch c.assignee
         where r.project.id = :projectId
         order by r.number, c.createdAt
         """)

@@ -67,6 +67,11 @@ public class Comment {
     @Column(name = "customer_approved_at")
     private Instant customerApprovedAt;
 
+    /** A felelős csapattag (tulajdonos vagy tag), vagy null. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
+
     protected Comment() {
     }
 
@@ -128,6 +133,9 @@ public class Comment {
         this.customerEmail = null;
         this.notifyToken = null;
     }
+
+    public void setAssignee(User assignee) { this.assignee = assignee; }
+    public User getAssignee() { return assignee; }
 
     public String getCustomerEmail() { return customerEmail; }
     public String getNotifyToken() { return notifyToken; }

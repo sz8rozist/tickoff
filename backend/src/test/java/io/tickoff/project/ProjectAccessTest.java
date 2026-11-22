@@ -66,6 +66,15 @@ class ProjectAccessTest {
     }
 
     @Test
+    void onlyTheTeamCanBeAssigned() {
+        when(project.getId()).thenReturn(PROJECT);
+
+        assertThat(access.isTeamMember(project, OWNER)).isTrue();
+        assertThat(access.isTeamMember(project, MEMBER)).isTrue();
+        assertThat(access.isTeamMember(project, STRANGER)).isFalse();
+    }
+
+    @Test
     void unknownProjectIsNotFound() {
         when(projects.findById(99L)).thenReturn(Optional.empty());
         assertStatus(() -> access.member(99L, OWNER), HttpStatus.NOT_FOUND);

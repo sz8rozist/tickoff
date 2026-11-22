@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Group, Loader, Progress, Stack, Text } from '@mantine/core';
-import { api, ApiError, type Round } from './api';
+import { api, ApiError, type Member, type Round } from './api';
 import { CommentsPanel } from './CommentsPanel';
 import { saveBlob } from './download';
 
@@ -13,13 +13,19 @@ function describe(e: unknown): string {
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString('hu-HU');
 
-export function RoundsPanel({ projectId }: { projectId: number }) {
+export function RoundsPanel({ projectId, currentUserId }: { projectId: number; currentUserId: number }) {
   const [rounds, setRounds] = useState<Round[] | null>(null);
+  // A felelős-választóhoz: a csapat tagjai (egyszer töltjük le, minden kör kommentjei ezt használják)
+  const [team, setTeam] = useState<Member[]>([]);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const reload = () => api.rounds.list(projectId).then(setRounds);
+
+  useEffect(() => {
+    api.members.list(projectId).then(setTeam).catch(() => undefined);
+  }, [projectId]);
 
   useEffect(() => {
     api.rounds
@@ -134,6 +140,8 @@ export function RoundsPanel({ projectId }: { projectId: number }) {
               projectId={projectId}
               roundId={r.id}
               roundOpen={r.status === 'OPEN'}
+              team={team}
+              currentUserId={currentUserId}
               onChanged={() => void reload()}
             />
           )}

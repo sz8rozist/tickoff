@@ -44,6 +44,11 @@ public class ProjectAccess {
         return project.getOwnerId().equals(userId) ? Role.OWNER : Role.MEMBER;
     }
 
+    /** Tulajdonos vagy tag-e a felhasználó (a projekt csapatának tagja). */
+    public boolean isTeamMember(Project project, Long userId) {
+        return project.getOwnerId().equals(userId) || members.existsByProjectIdAndUserId(project.getId(), userId);
+    }
+
     public record Access(Project project, Role role) {
     }
 

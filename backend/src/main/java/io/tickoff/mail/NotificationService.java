@@ -64,6 +64,23 @@ public class NotificationService {
                 + project.getName() + "” projektben (oldal: " + comment.getPageUrl() + "):\n\n" + excerpt(reply.getBody()));
     }
 
+    /** Valaki egy kommentet másra bízott: az új felelős értesítést kap (ha nem kapcsolta ki). */
+    public void assigned(Project project, Comment comment, User assignee, String by) {
+        if (!mail.isEnabled() || !assignee.isNotifyEmail()) return;
+        String text = by + " rád bízta ezt a visszajelzést a(z) „" + project.getName() + "” projektben"
+            + " (oldal: " + comment.getPageUrl() + "):\n\n" + excerpt(comment.getBody())
+            + "\n\nMegnyitás: " + baseUrl + "/\n\n"
+            + "Ezt a levelet azért kaptad, mert a Tickoffban értesítést kértél. "
+            + "A beállítást a Tickoff felületén kapcsolhatod ki.\n";
+        String email = assignee.getEmail();
+        Long id = assignee.getId();
+        afterCommit(() -> {
+            if (limiter.tryAcquire("u" + id, PER_RECIPIENT) == 0) {
+                mail.send(email, "[Tickoff] Feladatot kaptál: " + project.getName(), text);
+            }
+        });
+    }
+
     /** Az ügyfél újranyitotta a kész kommentet: a csapatnak tudnia kell, hogy dolga van vele. */
     public void commentReopened(Project project, Comment comment, String by, String reason) {
         notifyTeam(project,

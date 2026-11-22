@@ -117,6 +117,9 @@ export interface Comment {
   customerApprovedAt: string | null;
   /** Az ügyfél e-mail-értesítést kért a válaszokról (a címet nem mutatjuk). */
   notifiesCustomer: boolean;
+  /** A felelős csapattag, vagy null. */
+  assigneeId: number | null;
+  assigneeName: string | null;
   replies: Reply[];
 }
 
@@ -192,6 +195,12 @@ export const api = {
       request<Reply>(`/api/projects/${projectId}/comments/${commentId}/replies`, {
         method: 'POST',
         body: JSON.stringify({ body }),
+      }),
+    /** Felelős kijelölése; `null` törli. Csak a projekt csapatának tagja lehet felelős. */
+    assign: (projectId: number, commentId: number, userId: number | null) =>
+      request<Comment>(`/api/projects/${projectId}/comments/${commentId}/assignee`, {
+        method: 'PUT',
+        body: JSON.stringify({ userId }),
       }),
     removeReply: (projectId: number, commentId: number, replyId: number) =>
       request<void>(`/api/projects/${projectId}/comments/${commentId}/replies/${replyId}`, { method: 'DELETE' }),

@@ -1,5 +1,6 @@
 package io.tickoff.project;
 
+import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.Project;
 import io.tickoff.domain.ProjectMember;
 import io.tickoff.domain.ProjectMemberRepository;
@@ -46,11 +47,14 @@ public class MemberController {
     private final ProjectAccess access;
     private final ProjectMemberRepository members;
     private final UserRepository users;
+    private final CommentRepository comments;
 
-    public MemberController(ProjectAccess access, ProjectMemberRepository members, UserRepository users) {
+    public MemberController(ProjectAccess access, ProjectMemberRepository members, UserRepository users,
+                            CommentRepository comments) {
         this.access = access;
         this.members = members;
         this.users = users;
+        this.comments = comments;
     }
 
     /** A tulajdonos és a tagok listája (a projekt minden tagja láthatja). A tulajdonos az első. */
@@ -109,6 +113,8 @@ public class MemberController {
         ProjectMember member = members.findByProjectIdAndUserId(projectId, userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         members.delete(member);
+        // A rá bízott kommentek felelős nélkül maradnak
+        comments.clearAssignee(projectId, userId);
     }
 
     /**
