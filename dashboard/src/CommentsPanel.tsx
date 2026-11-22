@@ -108,6 +108,7 @@ export function CommentsPanel({
   // A `deleting` a bezáródó animáció alatt is megmarad, hogy a szöveg ne ürüljön ki.
   const [deleting, setDeleting] = useState<Comment | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [gallery, setGallery] = useState<{ comment: Comment; urls: string[]; failed: boolean } | null>(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState('ALL');
@@ -123,6 +124,22 @@ export function CommentsPanel({
       if (url) URL.revokeObjectURL(url);
     };
   }, [shot?.url]);
+
+  // A mellékletek object URL-jeit felszabadítjuk, amikor lecserélődnek vagy a galéria bezárul.
+  useEffect(() => {
+    const urls = gallery?.urls ?? [];
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [gallery?.urls]);
+
+  async function showAttachments(c: Comment) {
+    setGallery({ comment: c, urls: [], failed: false });
+    try {
+      const blobs = await Promise.all(c.attachments.map((a) => api.comments.attachment(projectId, c.id, a.id)));
+      setGallery({ comment: c, urls: blobs.map((b) => URL.createObjectURL(b)), failed: false });
+    } catch {
+      setGallery({ comment: c, urls: [], failed: true });
+    }
+  }
 
   async function changeStatus(c: Comment, status: CommentStatus) {
     setError(null);
@@ -352,6 +369,11 @@ export function CommentsPanel({
                       Képernyőkép
                     </Button>
                   )}
+                  {c.attachments.length > 0 && (
+                    <Button size="compact-xs" variant="light" onClick={() => showAttachments(c)}>
+                      Mellékletek ({c.attachments.length})
+                    </Button>
+                  )}
                   {roundOpen && deepLink(c.pageUrl, c.id) && (
                     <Button
                       component="a"
@@ -400,6 +422,16 @@ export function CommentsPanel({
               Törlés
             </Button>
           </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={gallery !== null} onClose={() => setGallery(null)} title="Mellékletek" size="xl" centered>
+        {gallery?.failed && <Alert color="red">A mellékletek betöltése nem sikerült.</Alert>}
+        {gallery && !gallery.failed && gallery.urls.length === 0 && <Loader size="sm" />}
+        <Stack>
+          {gallery?.urls.map((url, i) => (
+            <Image key={url} src={url} alt={`${i + 1}. melléklet: ${gallery.comment.body.slice(0, 60)}`} fit="contain" />
+          ))}
         </Stack>
       </Modal>
 

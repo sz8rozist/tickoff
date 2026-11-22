@@ -29,7 +29,20 @@ public class ScreenshotStorage {
 
     /** Elmenti a képet, és visszaadja a tárolóhoz viszonyított útvonalat (pl. {@code 3/17.png}). */
     public String save(long projectId, long commentId, String extension, byte[] data) throws IOException {
-        String relative = projectId + "/" + commentId + "." + extension;
+        return write(projectId + "/" + commentId + "." + extension, data);
+    }
+
+    /**
+     * Melléklet mentése. A fájlnév véletlen (a komment azonosítója + 128 bit), így több melléklet nem ütközik, és a
+     * név nem találgatható; az útvonal itt is csak számokból, hex karakterekből és a felismert kiterjesztésből áll.
+     */
+    public String saveAttachment(long projectId, long commentId, String extension, byte[] data) throws IOException {
+        byte[] random = new byte[16];
+        new java.security.SecureRandom().nextBytes(random);
+        return write(projectId + "/c" + commentId + "-" + java.util.HexFormat.of().formatHex(random) + "." + extension, data);
+    }
+
+    private String write(String relative, byte[] data) throws IOException {
         Path target = resolve(relative);
         Files.createDirectories(target.getParent());
         Path tmp = Files.createTempFile(target.getParent(), "upload-", ".tmp");

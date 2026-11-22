@@ -306,7 +306,16 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
 
       // Új komment érvénytelenítheti a kör jóváhagyását: a kör állapotát frissítjük
       api.project().then(setProject).catch(() => undefined);
-      setToast(shotOk ? 'Köszönjük, a visszajelzés elküldve.' : 'A visszajelzés elküldve, de a képernyőképet nem sikerült csatolni.');
+      let failedFiles = 0;
+      for (const file of values.files) {
+        try {
+          await api.uploadAttachment(created.id, file);
+        } catch {
+          failedFiles++;
+        }
+      }
+
+      setToast(failedFiles > 0 ? `A visszajelzés elküldve, de ${failedFiles} kép csatolása nem sikerült.` : shotOk ? 'Köszönjük, a visszajelzés elküldve.' : 'A visszajelzés elküldve, de a képernyőképet nem sikerült csatolni.');
       setAll(await api.comments().catch(() => all));
       cancel();
     } catch (e) {

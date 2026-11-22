@@ -32,6 +32,7 @@
 - **Single-page alkalmazások**: a widget észleli az útvonalváltást (`pushState`/`replaceState`, böngésző vissza/előre, hash-útvonal), és az új "oldal" kommentjeit tölti be. A félbehagyott kommentelést megszakítja, a komment mindig azzal az oldallal kerül mentésre, amelyiken az ügyfél éppen van.
 - **Megnyitás az oldalon** (a dashboardról): a komment mellett a gomb az ügyfél oldalát nyitja meg, ahol a widget a komment elemére görget, pulzáló kerettel kiemeli, és megnyitja a szálát.
 - **Válasz a kommentre**: a kártyából az ügyfél is válaszolhat (név + szöveg), a csapat válaszai "csapat" jelvénnyel látszanak. Csak a nyitott kör kommentjeire lehet válaszolni.
+- **Képek csatolása**: az űrlapon legfeljebb 5 kép (PNG, JPEG, GIF, WebP, egyenként max. 3 MB) csatolható a kommenthez; a csapat a dashboardon a "Mellékletek" gombbal nézi meg őket.
 - **Összes visszajelzés (Lista)**: a gomb mellett látszó "Lista" panel oldalak szerint csoportosítva mutatja a nyitott kör összes kommentjét állapottal; egy elemre kattintva a widget odaugrik (másik oldalra mélylinkkel tölt át).
 - **Korábbi körök**: a panel második füle a lezárt köröket mutatja (a legutóbbi 10-et), csak olvasásra: kommentek, állapotuk és az utolsó válasz.
 - **Elfogadás és visszanyitás**: a "Kész" kommentnél az ügyfél elfogadhatja a javítást, vagy visszanyithatja rövid indoklással (az indoklás a szálba kerül, és a csapat értesítést kap).
@@ -186,6 +187,7 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 | `DELETE /api/projects/{id}/comments/{commentId}/replies/{replyId}` | `204` |
 | `PATCH /api/projects/{id}/comments/{commentId}` | `{status: OPEN \| IN_PROGRESS \| DONE}`; érvénytelen értékre `400` |
 | `PUT /api/projects/{id}/comments/{commentId}/assignee` | `{userId}`: felelős kijelölése, `null` törli. `400`, ha a felhasználó nem a projekt csapatának tagja |
+| `GET /api/projects/{id}/comments/{commentId}/attachments/{attachmentId}` | a melléklet képe; `404`, ha nincs. A komment listaelemében az `attachments` tömb tartalmazza az azonosítókat |
 | `GET /api/projects/{id}/comments/{commentId}/screenshot` | a képernyőkép (PNG/JPEG); `404`, ha nincs |
 | `DELETE /api/projects/{id}/comments/{commentId}` | `204`; a képernyőkép fájlja is törlődik |
 | `GET /api/projects/{id}/comments/export[?roundId=]` | CSV a projekt (vagy egy kör) kommentjeiről: pontosvessző, UTF-8 BOM (magyar Excelhez), a cellák védettek a CSV-injection ellen (az `=`, `+`, `-`, `@` kezdetű szöveg elé aposztróf kerül), az időpontok budapesti idő szerint (`TICKOFF_EXPORT_ZONE`-nal állítható); a "Válaszok" oszlopban a szál egy cellában, soronként "Név (csapat): szöveg" |
@@ -207,6 +209,7 @@ A widgetet tehát azon az origin-en kell beágyazni, amit a projektnél megadtá
 | `GET /api/widget/{token}/comments?pageUrl=` | a nyitott kör kommentjei, opcionálisan egy oldalra szűrve |
 | `POST /api/widget/{token}/comments` | komment mentése a nyitott körbe → `201`; `409`, ha nincs nyitott kör; `400`, ha a `pageUrl` nem a projekt oldaláról való |
 | `POST /api/widget/{token}/comments/{id}/replies` | `{authorName, body}` → `201`: az ügyfél válasza. `409`, ha nincs nyitott kör, ha a komment lezárt körhöz tartozik, vagy ha a szál betelt (200 válasz). A `GET .../comments` válasza a `replies` szálat is tartalmazza |
+| `POST /api/widget/{token}/comments/{id}/attachments` | melléklet: nyers kép a törzsben (PNG/JPEG/GIF/WebP, max. 3 MB) → `201`; `409`, ha lezárt körhöz tartozik vagy már van 5 melléklete; `413` túl nagy; `400`, ha a tartalom nem támogatott kép (a típust az első bájtok döntik el, az SVG nem engedélyezett) |
 | `GET /api/widget/{token}/history` | a lezárt körök (a legutóbbi 10, legújabb elöl) kommentjei szálastul, csak olvasásra |
 | `POST /api/widget/{token}/comments/{id}/approve` | az ügyfél elfogadja a "Kész" kommentet → `200`; `409`, ha nem kész vagy lezárt körhöz tartozik |
 | `POST /api/widget/{token}/comments/{id}/reopen` | `{authorName, reason?}`: a "Kész" komment visszanyitása, a szálba "Visszanyitva: …" bejegyzés kerül, a csapat értesítést kap → `200`; `409` ugyanúgy |

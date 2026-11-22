@@ -120,6 +120,16 @@ export function createApi({ token, apiBase }: Config) {
         body: JSON.stringify(reply),
       }),
 
+    /** Kép csatolása egy kommenthez (nyers törzs, max. 3 MB). */
+    async uploadAttachment(commentId: number, image: Blob): Promise<void> {
+      const res = await fetch(`${base}/comments/${commentId}/attachments`, {
+        method: 'POST',
+        headers: { 'Content-Type': image.type || 'application/octet-stream' },
+        body: image,
+      });
+      if (!res.ok) throw new ApiError(res.status);
+    },
+
     async uploadScreenshot(commentId: number, image: Blob): Promise<void> {
       const res = await fetch(`${base}/comments/${commentId}/screenshot`, {
         method: 'POST',

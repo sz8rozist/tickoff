@@ -99,6 +99,12 @@ export interface Reply {
   createdAt: string;
 }
 
+export interface Attachment {
+  id: number;
+  contentType: string;
+  size: number;
+}
+
 export interface Comment {
   id: number;
   authorName: string;
@@ -120,6 +126,7 @@ export interface Comment {
   /** A felelős csapattag, vagy null. */
   assigneeId: number | null;
   assigneeName: string | null;
+  attachments: Attachment[];
   replies: Reply[];
 }
 
@@ -212,6 +219,12 @@ export const api = {
       const disposition = res.headers.get('Content-Disposition') ?? '';
       const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'tickoff-export.csv';
       return { blob: await res.blob(), filename };
+    },
+    // A mellékletek is JWT mögött vannak, ezért ezeket is fejléccel kérjük le.
+    async attachment(projectId: number, commentId: number, attachmentId: number): Promise<Blob> {
+      const res = await authFetch(`/api/projects/${projectId}/comments/${commentId}/attachments/${attachmentId}`);
+      if (!res.ok) throw new ApiError(res.status);
+      return res.blob();
     },
     // A képet JWT védi, ezért fejléccel kérjük le, nem <img src>-vel.
     async screenshot(projectId: number, commentId: number): Promise<Blob> {

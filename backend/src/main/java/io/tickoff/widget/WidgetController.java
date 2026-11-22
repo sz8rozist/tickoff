@@ -1,5 +1,7 @@
 package io.tickoff.widget;
 
+import io.tickoff.domain.Attachment;
+import io.tickoff.domain.AttachmentRepository;
 import io.tickoff.domain.Comment;
 import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.Project;
@@ -47,6 +49,8 @@ import java.util.Map;
 public class WidgetController {
 
     static final int MAX_SCREENSHOT_BYTES = 3 * 1024 * 1024;
+    /** Egy kommenthez legfeljebb ennyi melléklet csatolható (mindegyik legfeljebb {@link #MAX_SCREENSHOT_BYTES}). */
+    static final int MAX_ATTACHMENTS_PER_COMMENT = 5;
     private static final byte[] PNG_MAGIC = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
     private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
 
@@ -107,10 +111,12 @@ public class WidgetController {
     private final ReplyService replyService;
     private final NotificationService notifications;
     private final ScreenshotStorage storage;
+    private final AttachmentRepository attachments;
 
     public WidgetController(ProjectRepository projects, RoundRepository rounds, CommentRepository comments,
                             ReplyRepository replyRepository, ReplyService replyService,
-                            NotificationService notifications, ScreenshotStorage storage) {
+                            NotificationService notifications, ScreenshotStorage storage,
+                            AttachmentRepository attachments) {
         this.projects = projects;
         this.rounds = rounds;
         this.comments = comments;
@@ -118,6 +124,7 @@ public class WidgetController {
         this.replyService = replyService;
         this.notifications = notifications;
         this.storage = storage;
+        this.attachments = attachments;
     }
 
     @GetMapping("/project")
@@ -267,6 +274,37 @@ public class WidgetController {
         Reply saved = replyRepository.save(Reply.byCustomer(comment, req.authorName().trim(), req.body().trim()));
         notifications.customerReply(project, comment, saved);
         return ReplyDto.of(saved);
+    }
+
+    public record AttachmentInfo(Long id, String contentType, int size) {
+    }
+
+    /**
+     * Melléklet a nyitott kör kommentjéhez: nyers kép (PNG, JPEG, GIF vagy WebP) a kérés törzsében, legfeljebb 3 MB,
+     * kommentenként legfeljebb {@value #MAX_ATTACHMENTS_PER_COMMENT}. A típust a tartalom dönti el, nem a fejléc.
+     */
+    @PostMapping("/comments/{commentId}/attachments")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public AttachmentInfo attach(@PathVariable String token, @PathVariable Long commentId,
+                                 HttpServletRequest request) throws IOException {
+        Project project = authorize(token, request);
+        Comment comment = openRoundComment(project, commentId);
+        if (attachments.countByCommentId(comment.getId()) >= MAX_ATTACHMENTS_PER_COMMENT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ehhez a kommenthez már nem csatolható több kép");
+        }
+        if (request.getContentLengthLong() > MAX_SCREENSHOT_BYTES) {
+            throw new ResponseStatusException(HttpStatus.CONTENT_TOO_LARGE, "A kép túl nagy");
+        }
+        byte[] data = request.getInputStream().readNBytes(MAX_SCREENSHOT_BYTES + 1);
+        if (data.length > MAX_SCREENSHOT_BYTES) {
+            throw new ResponseStatusException(HttpStatus.CONTENT_TOO_LARGE, "A kép túl nagy");
+        }
+        ImageSniffer.Type type = ImageSniffer.detect(data)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Csak PNG, JPEG, GIF vagy WebP kép csatolható"));
+        String path = storage.saveAttachment(project.getId(), comment.getId(), type.extension(), data);
+        Attachment saved = attachments.save(new Attachment(comment, path, type.contentType(), data.length));
+        return new AttachmentInfo(saved.getId(), saved.getContentType(), saved.getSizeBytes());
     }
 
     /** A komment képernyőképe: nyers PNG vagy JPEG a kérés törzsében, legfeljebb 3 MB. */

@@ -220,4 +220,11 @@ export const styles = `
   .approval.muted { color: #6b7094; font-size: 12px; }
   .approval .hint { margin: 0; }
   .approval .err { margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: #fdecee; color: #b3261e; font-size: 12px; }
+
+  /* Csatolt képek az űrlapon */
+  .panel input[type=file] { width: 100%; font-size: 12px; color: #3b3f66; }
+  .panel .files { list-style: none; margin: 6px 0 0; padding: 0; }
+  .panel .files li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+  .panel .files .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1f2140; }
+  .panel .files .fsize { color: #6b7094; }
 `;

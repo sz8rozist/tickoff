@@ -6,7 +6,15 @@ export interface ComposerValues {
   includeScreenshot: boolean;
   /** Üres, ha az ügyfél nem kér értesítést. */
   email: string;
+  /** A csatolt képek (legfeljebb {@link MAX_FILES}). */
+  files: File[];
 }
+
+export const MAX_FILES = 5;
+export const MAX_FILE_BYTES = 3 * 1024 * 1024;
+const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 export function Composer({
   selector,
@@ -29,6 +37,8 @@ export function Composer({
   const [body, setBody] = useState('');
   const [email, setEmail] = useState(defaultEmail);
   const [shot, setShot] = useState(true);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -40,9 +50,23 @@ export function Composer({
   const emailOk = email.trim() === '' || /^\S+@\S+\.\S+$/.test(email.trim());
   const valid = name.trim() !== '' && body.trim() !== '' && emailOk;
 
+  function addFiles(list: FileList | null) {
+    if (!list) return;
+    let next = [...files];
+    let problem: string | null = null;
+    for (const f of Array.from(list)) {
+      if (!ALLOWED_TYPES.includes(f.type)) problem = 'Csak PNG, JPEG, GIF vagy WebP kép csatolható.';
+      else if (f.size > MAX_FILE_BYTES) problem = `"${f.name}" túl nagy (legfeljebb 3 MB).`;
+      else if (next.length >= MAX_FILES) problem = `Legfeljebb ${MAX_FILES} kép csatolható.`;
+      else next.push(f);
+    }
+    setFiles(next);
+    setFileError(problem);
+  }
+
   function submit(e: Event) {
     e.preventDefault();
-    if (valid && !busy) onSubmit({ authorName: name.trim(), body: body.trim(), includeScreenshot: shot, email: email.trim() });
+    if (valid && !busy) onSubmit({ authorName: name.trim(), body: body.trim(), includeScreenshot: shot, email: email.trim(), files });
   }
 
   return (
@@ -88,6 +112,39 @@ export function Composer({
         onInput={(e) => setEmail(e.currentTarget.value)}
       />
       {!emailOk && <p class="hint bad">Ez nem tűnik érvényes e-mail-címnek.</p>}
+
+      <label for="tk-files">Képek csatolása (nem kötelező)</label>
+      <input
+        id="tk-files"
+        type="file"
+        accept={ALLOWED_TYPES.join(',')}
+        multiple
+        onChange={(e) => {
+          addFiles(e.currentTarget.files);
+          e.currentTarget.value = '';
+        }}
+      />
+      {files.length > 0 && (
+        <ul class="files">
+          {files.map((f, i) => (
+            <li key={f.name + i}>
+              <span class="fname" title={f.name}>
+                {f.name}
+              </span>
+              <span class="fsize">{kb(f.size)}</span>
+              <button
+                type="button"
+                class="x"
+                aria-label={`Eltávolítás: ${f.name}`}
+                onClick={() => setFiles(files.filter((_, j) => j !== i))}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {fileError && <p class="hint bad">{fileError}</p>}
 
       <label class="check">
         <input type="checkbox" checked={shot} onChange={(e) => setShot(e.currentTarget.checked)} />

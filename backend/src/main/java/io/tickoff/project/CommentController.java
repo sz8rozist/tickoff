@@ -1,5 +1,7 @@
 package io.tickoff.project;
 
+import io.tickoff.domain.Attachment;
+import io.tickoff.domain.AttachmentRepository;
 import io.tickoff.domain.Comment;
 import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.Project;
@@ -65,6 +67,12 @@ public class CommentController {
     public record AssigneeRequest(Long userId) {
     }
 
+    public record AttachmentDto(Long id, String contentType, int size) {
+        static AttachmentDto of(Attachment a) {
+            return new AttachmentDto(a.getId(), a.getContentType(), a.getSizeBytes());
+        }
+    }
+
     public record ReplyRequest(@NotBlank @Size(max = 4000) String body) {
     }
 
@@ -72,14 +80,14 @@ public class CommentController {
                              Double posX, Double posY, Integer viewportWidth, Integer viewportHeight,
                              String userAgent, Comment.Status status, boolean hasScreenshot, Instant createdAt,
                              Instant customerApprovedAt, boolean notifiesCustomer, Long assigneeId, String assigneeName,
-                             List<ReplyDto> replies) {
-        static CommentDto of(Comment c, List<ReplyDto> replies) {
+                             List<AttachmentDto> attachments, List<ReplyDto> replies) {
+        static CommentDto of(Comment c, List<ReplyDto> replies, List<AttachmentDto> attachments) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
                 c.getPosX(), c.getPosY(), c.getViewportWidth(), c.getViewportHeight(), c.getUserAgent(),
                 c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), c.getCustomerApprovedAt(),
                 c.getNotifyToken() != null,
                 c.getAssignee() == null ? null : c.getAssignee().getId(),
-                c.getAssignee() == null ? null : c.getAssignee().getName(), replies);
+                c.getAssignee() == null ? null : c.getAssignee().getName(), attachments, replies);
         }
     }
 
@@ -90,12 +98,13 @@ public class CommentController {
     private final ReplyService replyService;
     private final UserRepository users;
     private final ScreenshotStorage storage;
+    private final AttachmentRepository attachments;
     private final NotificationService notifications;
     private final ZoneId exportZone;
 
     public CommentController(ProjectAccess access, RoundRepository rounds, CommentRepository comments,
                              ReplyRepository replyRepository, ReplyService replyService, UserRepository users,
-                             ScreenshotStorage storage, NotificationService notifications,
+                             ScreenshotStorage storage, AttachmentRepository attachments, NotificationService notifications,
                              @Value("${tickoff.export-zone:Europe/Budapest}") String zone) {
         this.access = access;
         this.rounds = rounds;
@@ -104,6 +113,7 @@ public class CommentController {
         this.replyService = replyService;
         this.users = users;
         this.storage = storage;
+        this.attachments = attachments;
         this.notifications = notifications;
         this.exportZone = ZoneId.of(zone);
     }
@@ -116,7 +126,12 @@ public class CommentController {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         List<Comment> list = comments.findByRoundIdOrderByCreatedAtAsc(round.getId());
         Map<Long, List<ReplyDto>> replies = replyService.byComment(list.stream().map(Comment::getId).toList());
-        return list.stream().map(c -> CommentDto.of(c, replies.getOrDefault(c.getId(), List.of()))).toList();
+        Map<Long, List<AttachmentDto>> files = attachments.findByCommentIds(list.stream().map(Comment::getId).toList()).stream()
+            .collect(Collectors.groupingBy(a -> a.getComment().getId(),
+                Collectors.mapping(AttachmentDto::of, Collectors.toList())));
+        return list.stream()
+            .map(c -> CommentDto.of(c, replies.getOrDefault(c.getId(), List.of()), files.getOrDefault(c.getId(), List.of())))
+            .toList();
     }
 
     @PatchMapping("/comments/{commentId}")
@@ -131,7 +146,7 @@ public class CommentController {
         if (becameDone) {
             notifications.commentDone(project, comment);
         }
-        return CommentDto.of(comment, replyService.forComment(comment.getId()));
+        return single(comment);
     }
 
     /**
@@ -161,7 +176,7 @@ public class CommentController {
             String by = users.findById(actorId).map(User::getName).orElse("Egy kolléga");
             notifications.assigned(project, comment, assignee, by);
         }
-        return CommentDto.of(comment, replyService.forComment(comment.getId()));
+        return single(comment);
     }
 
     /** Válasz a kommentre a designer nevében. */
@@ -191,14 +206,39 @@ public class CommentController {
         replyRepository.delete(reply);
     }
 
+    private CommentDto single(Comment comment) {
+        return CommentDto.of(comment, replyService.forComment(comment.getId()),
+            attachments.findByCommentIdOrderByIdAsc(comment.getId()).stream().map(AttachmentDto::of).toList());
+    }
+
+    /** Egy melléklet: a képet JWT védi, ezért a kliens fejléccel kéri le (nem {@code <img src>}-vel). */
+    @GetMapping("/comments/{commentId}/attachments/{attachmentId}")
+    public ResponseEntity<byte[]> attachment(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
+                                             @PathVariable Long commentId, @PathVariable Long attachmentId)
+        throws IOException {
+        Comment comment = comment(jwt, projectId, commentId);
+        Attachment a = attachments.findByIdAndCommentId(attachmentId, comment.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Path file = storage.resolve(a.getPath());
+        if (!Files.isRegularFile(file)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(a.getContentType()))
+            .cacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(10)).cachePrivate())
+            .body(Files.readAllBytes(file));
+    }
+
     @DeleteMapping("/comments/{commentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId, @PathVariable Long commentId) {
         Comment comment = comment(jwt, projectId, commentId);
         String screenshot = comment.getScreenshotPath();
+        List<String> files = attachments.findByCommentIdOrderByIdAsc(comment.getId()).stream().map(Attachment::getPath).toList();
         comments.delete(comment);
-        // A kép a fájlrendszerben van: az adatbázis-törlés után külön töröljük
+        // A képek a fájlrendszerben vannak: az adatbázis-törlés után külön töröljük
         storage.delete(screenshot);
+        files.forEach(storage::delete);
     }
 
     /**
