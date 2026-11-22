@@ -40,7 +40,7 @@
 - **Kör jóváhagyása**: ha a nyitott kör minden kommentje kész, az ügyfél jóváhagyhatja a kört (a csapat levelet kap, a dashboardon "az ügyfél jóváhagyta" jelvény látszik). Új vagy újranyitott komment érvényteleníti a jóváhagyást.
 - **E-mail értesítés az ügyfélnek**: az űrlapon megadható (nem kötelező) e-mail-cím. Ha a csapat válaszol, vagy késznek jelöli a kommentet, az ügyfél levelet kap a kommentre mutató linkkel és leiratkozó linkkel. A címet a widget API sosem adja vissza.
 - Ha nincs nyitott kör, az ügyfél tájékoztató üzenetet kap. Rossz token vagy origin esetén a widget a vendégoldalon nem jelenik meg.
-- Mobilbarát űrlap, a widget minden hibaesetre magyar üzenetet ad (pl. túl sok kérés).
+- **Mobil és érintés**: a kijelölés pointer-eseményekkel működik (egér, ujj, toll): koppintás egy elemre, ujjal húzott téglalap egy területre (kijelölés közben az oldal nem görgethető, a Mégse gomb kilép). Érintőképernyőn nagyobb jelölők és gombok, a beviteli mezők 16 px-esek (az iOS nem nagyít rájuk), a gombok követik a biztonságos területet (`safe-area-inset`). A widget minden hibaesetre magyar üzenetet ad (pl. túl sok kérés).
 
 ### Biztonság és működés
 

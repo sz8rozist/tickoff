@@ -230,4 +230,22 @@ export const styles = `
 
   /* Kijelölt terület: szaggatott keret */
   .hl.area { border-style: dashed; background: rgba(91,100,227,.10); }
+
+  /* Mobil és érintőképernyő */
+  .dock { right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); }
+  .panel { max-height: calc(100vh - 100px); overflow-y: auto; }
+  @media (max-width: 600px) {
+    /* 16 px alatti betűmérettől az iOS ráközelít a mezőre fókuszáláskor */
+    .panel input[type=text], .panel input[type=email], .panel textarea,
+    .reply-form input, .reply-form textarea, .approval input[type=text] { font-size: 16px; }
+    .panel { right: 12px; bottom: 76px; width: calc(100vw - 24px); }
+    .fab { padding: 12px 16px 12px 14px; }
+  }
+  @media (pointer: coarse) {
+    .pin { width: 36px; height: 36px; margin: -18px 0 0 -18px; line-height: 32px; font-size: 14px; }
+    .btn { min-height: 40px; }
+    .pop .btn.small, .approval .btn.small { min-height: 36px; }
+    .item { padding: 12px 8px; }
+    .x { padding: 6px 10px; }
+  }
 `;

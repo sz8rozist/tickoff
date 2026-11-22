@@ -68,6 +68,9 @@ function targetBox(t: Target): Rect | null {
   return { left: r.left, top: r.top, width: r.width, height: r.height };
 }
 
+/** Érintőképernyős (durva mutatójú) eszköz-e: a feliratok és a kijelölés ehhez igazodnak. */
+const touchDevice = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
 const clampPct = (v: number) => (Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0);
 
 function sendError(e: unknown): string {
@@ -202,20 +205,20 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
     let start: { x: number; y: number } | null = null;
     let dragging = false;
     let swallowClick = false;
-    const onDown = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || !pageTarget(e)) return;
       start = { x: e.clientX, y: e.clientY };
       dragging = false;
       e.preventDefault(); // ne kezdődjön szövegkijelölés
     };
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       setHover(pageTarget(e));
       if (start && (e.buttons & 1) !== 0) {
         if (!dragging && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) dragging = true;
         if (dragging) setDrag(rectBetween(start.x, start.y, e.clientX, e.clientY));
       }
     };
-    const onUp = (e: MouseEvent) => {
+    const onUp = (e: PointerEvent) => {
       const s = start;
       start = null;
       if (!s || !dragging) return;
@@ -259,20 +262,25 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       if (e.key === 'Escape') cancel();
     };
 
-    document.addEventListener('mousedown', onDown, true);
-    document.addEventListener('mousemove', onMove, true);
-    document.addEventListener('mouseup', onUp, true);
+    // Pointer-események: egér, érintés és toll is ugyanígy működik
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('pointermove', onMove, true);
+    document.addEventListener('pointerup', onUp, true);
     document.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKey, true);
     const prevCursor = document.documentElement.style.cursor;
+    const prevTouch = document.documentElement.style.touchAction;
     document.documentElement.style.cursor = 'crosshair';
+    // Érintőképernyőn a húzás ne görgesse az oldalt (a kijelölés alatt nem lehet görgetni; a Mégse gomb kilép)
+    document.documentElement.style.touchAction = 'none';
     return () => {
-      document.removeEventListener('mousedown', onDown, true);
-      document.removeEventListener('mousemove', onMove, true);
-      document.removeEventListener('mouseup', onUp, true);
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('pointermove', onMove, true);
+      document.removeEventListener('pointerup', onUp, true);
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('keydown', onKey, true);
       document.documentElement.style.cursor = prevCursor;
+      document.documentElement.style.touchAction = prevTouch;
       setHover(null);
       setDrag(null);
     };
@@ -469,7 +477,9 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       {targetRect && <div class={target?.area ? 'hl area' : 'hl'} style={box(targetRect)} />}
 
       {mode === 'pick' && (
-        <div class="banner">Kattints egy elemre, vagy húzz egy téglalapot a területre · Esc: mégse</div>
+        <div class="banner">
+          {touchDevice ? 'Koppints egy elemre, vagy húzz ujjal területet · Mégse: a gombbal' : 'Kattints egy elemre, vagy húzz egy téglalapot a területre · Esc: mégse'}
+        </div>
       )}
 
       {mode === 'compose' && target && (
