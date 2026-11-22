@@ -42,6 +42,9 @@ export interface WidgetComment {
   cssSelector: string | null;
   posX: number | null;
   posY: number | null;
+  /** A kijelölt terület mérete az elem méretének százalékában (null: egyetlen elem). */
+  areaWidth: number | null;
+  areaHeight: number | null;
   status: CommentStatus;
   hasScreenshot: boolean;
   /** Az ügyfél elfogadta a kész kommentet. */
@@ -58,6 +61,8 @@ export interface NewComment {
   /** A kattintás helye az elem méretének százalékában (0–100). */
   posX: number;
   posY: number;
+  areaWidth?: number;
+  areaHeight?: number;
   viewportWidth: number;
   viewportHeight: number;
   /** Opcionális: ide megy az értesítés, ha a csapat válaszol. */

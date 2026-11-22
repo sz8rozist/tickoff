@@ -1,6 +1,7 @@
 import { Fragment } from 'preact';
 import { useEffect, useState } from 'react';
 import type { WidgetComment } from './api';
+import { areaRect } from './area';
 import { resolve } from './selector';
 
 const STATUS_LABEL: Record<WidgetComment['status'], string> = {
@@ -233,6 +234,9 @@ export function Pins({
         const pos = pinPosition(c);
         if (!pos) return null;
         const isOpen = openId === c.id;
+        // A kijelölt területet (ha van) a megnyitott kommentnél mutatjuk
+        const el = isOpen && c.areaWidth !== null && c.areaHeight !== null ? resolve(c.cssSelector) : null;
+        const area = el ? areaRect(el, c.posX ?? 0, c.posY ?? 0, c.areaWidth ?? 0, c.areaHeight ?? 0) : null;
         // A felugró kártyát a viewporton belül tartjuk (a magasságát a CSS max-height korlátozza).
         const popLeft = Math.min(Math.max(8, pos.x + 16), window.innerWidth - 308);
         const popTop = Math.min(Math.max(8, pos.y - 12), Math.max(8, window.innerHeight - 220));
@@ -247,6 +251,7 @@ export function Pins({
             >
               {i + 1}
             </button>
+            {area && <div class="hl area" style={{ left: area.left, top: area.top, width: area.width, height: area.height }} />}
             {isOpen && (
               <div class="pop" role="dialog" style={{ left: popLeft, top: popTop }}>
                 <div class="meta">

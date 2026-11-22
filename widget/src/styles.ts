@@ -227,4 +227,7 @@ export const styles = `
   .panel .files li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
   .panel .files .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1f2140; }
   .panel .files .fsize { color: #6b7094; }
+
+  /* Kijelölt terület: szaggatott keret */
+  .hl.area { border-style: dashed; background: rgba(91,100,227,.10); }
 `;

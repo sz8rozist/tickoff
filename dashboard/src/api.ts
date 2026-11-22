@@ -122,6 +122,9 @@ export interface Comment {
   cssSelector: string | null;
   posX: number | null;
   posY: number | null;
+  /** Kijelölt terület mérete az elem méretének százalékában (null: egyetlen elem). */
+  areaWidth: number | null;
+  areaHeight: number | null;
   viewportWidth: number | null;
   viewportHeight: number | null;
   userAgent: string | null;

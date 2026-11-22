@@ -26,7 +26,7 @@
 ### Ügyfél (widget)
 
 - **Beágyazás** egyetlen `<script>` címkével, regisztráció és telepítés nélkül; a widget Shadow DOM-ban fut, nem zavarja az oldal stílusait (~23,6 KB gzip).
-- **Elemkiválasztás**: a gomb elindítja a kiválasztást, az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). A widget a kattintást elnyeli, az oldal saját kezelője nem fut le.
+- **Elemkiválasztás**: a gomb elindítja a kiválasztást, az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). **Területkijelölés**: egérrel téglalapot is lehet húzni (képnél, elrendezési hibánál pontosabb); a terület a legkisebb, egészében tartalmazó elemhez kötődik (a mérete az elem méretének százaléka), a képernyőképen és a megnyitott kommentnél szaggatott kerettel látszik, a dashboardon "kijelölt terület" jelvény jelzi. A widget a kattintást elnyeli, az oldal saját kezelője nem fut le.
 - **Visszajelzés-űrlap**: név (megjegyzi a böngésző) és szöveg, opcionális képernyőkép.
 - **Képernyőkép** a látható nézetről, a kiválasztott elem piros-fehér kerettel kiemelve. Ha nem sikerül elkészíteni, a komment akkor is elmegy, és az ügyfél jelzést kap.
 - **Jelölések**: a már beküldött kommentek számozott jelölésként látszanak az oldalon (színük a státuszt mutatja), kattintásra megnyílik a szövegük és a hozzájuk tartozó **szál**. Követik az elemet, ha az elrendezés változik (pl. mobil nézetben).
@@ -219,7 +219,7 @@ A widgetet tehát azon az origin-en kell beágyazni, amit a projektnél megadtá
 | `POST /api/widget/{token}/round/approve` | `{authorName}`: a nyitott kör jóváhagyása → `200`; `409`, ha nincs komment vagy van nem kész |
 | `POST /api/widget/{token}/comments/{id}/screenshot` | képernyőkép: nyers `image/png` vagy `image/jpeg` a törzsben, max. 3 MB → `204`; `413` túl nagy, `415` rossz típus, `400` ha a tartalom nem kép (a fájl első bájtjait ellenőrizzük), `409` ha már van képe |
 
-Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, viewportWidth?, viewportHeight?, customerEmail?}`. A user agentet a szerver a fejlécből veszi.
+Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, areaWidth?, areaHeight?, viewportWidth?, viewportHeight?, customerEmail?}`. A user agentet a szerver a fejlécből veszi.
 
 A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `screenshots` kötet), az adatbázisban csak a relatív útvonal.
 

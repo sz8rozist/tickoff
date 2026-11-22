@@ -73,6 +73,9 @@ public class WidgetController {
         @Size(max = 1000) String cssSelector,
         @DecimalMin("0") @DecimalMax("1000000") Double posX,
         @DecimalMin("0") @DecimalMax("1000000") Double posY,
+        // A kijelölt terület mérete (az elem méretének százalékában); csak együtt értelmes
+        @DecimalMin("0") @DecimalMax("1000000") Double areaWidth,
+        @DecimalMin("0") @DecimalMax("1000000") Double areaHeight,
         @Min(1) @Max(20000) Integer viewportWidth,
         @Min(1) @Max(20000) Integer viewportHeight,
         // Opcionális: ide megy az értesítés, ha a csapat válaszol. Nem kerül vissza a widgetnek.
@@ -95,11 +98,11 @@ public class WidgetController {
     }
 
     public record CommentDto(Long id, String authorName, String body, String pageUrl, String cssSelector,
-                             Double posX, Double posY, Comment.Status status, boolean hasScreenshot,
-                             boolean approved, Instant createdAt, List<ReplyDto> replies) {
+                             Double posX, Double posY, Double areaWidth, Double areaHeight, Comment.Status status,
+                             boolean hasScreenshot, boolean approved, Instant createdAt, List<ReplyDto> replies) {
         static CommentDto of(Comment c, List<ReplyDto> replies) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
-                c.getPosX(), c.getPosY(), c.getStatus(), c.getScreenshotPath() != null,
+                c.getPosX(), c.getPosY(), c.getAreaWidth(), c.getAreaHeight(), c.getStatus(), c.getScreenshotPath() != null,
                 c.getCustomerApprovedAt() != null, c.getCreatedAt(), replies);
         }
     }
@@ -165,6 +168,9 @@ public class WidgetController {
         Comment comment = new Comment(round, req.authorName().trim(), req.body().trim(), req.pageUrl().trim());
         comment.setLocation(blankToNull(req.cssSelector()), req.posX(), req.posY());
         comment.setCustomerEmail(blankToNull(req.customerEmail()));
+        if (req.areaWidth() != null && req.areaHeight() != null) {
+            comment.setArea(req.areaWidth(), req.areaHeight());
+        }
         // Új, még nem kész komment: a kör korábbi jóváhagyása már nem érvényes
         round.clearApproval();
         // A user agentet a fejlécből vesszük, nem a kliens által küldött törzsből.

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ApiError, createApi, type ProjectInfo, type RoundInfo, type WidgetComment } from './api';
 import type { Config } from './config';
+import { areaOf, areaRect, elementFor, rectBetween, type Rect } from './area';
 import { Composer, type ComposerValues } from './Composer';
 import { onNavigate } from './navigation';
 import { Overview } from './Overview';
@@ -19,6 +20,8 @@ interface Target {
   /** A kattintás helye az elem méretének százalékában. */
   posX: number;
   posY: number;
+  /** Kijelölt terület mérete az elem méretének százalékában (ha nem egyetlen pont/elem). */
+  area?: { w: number; h: number };
 }
 
 const AUTHOR_KEY = 'tickoff.author';
@@ -58,6 +61,13 @@ function saveEmail(email: string) {
   }
 }
 
+/** A kijelölés doboza a viewportban: a terület, vagy (ha nincs) az egész elem. */
+function targetBox(t: Target): Rect | null {
+  if (t.area) return areaRect(t.el, t.posX, t.posY, t.area.w, t.area.h);
+  const r = t.el.getBoundingClientRect();
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
+}
+
 const clampPct = (v: number) => (Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0);
 
 function sendError(e: unknown): string {
@@ -80,6 +90,8 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
   const [mode, setMode] = useState<Mode>('idle');
   const [hover, setHover] = useState<Element | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
+  // A húzás közben látszó kijelölő téglalap (viewport-koordináták)
+  const [drag, setDrag] = useState<Rect | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -186,10 +198,50 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       if (e.composedPath().includes(host)) return null;
       return e.target instanceof Element ? e.target : null;
     };
-    const onMove = (e: MouseEvent) => setHover(pageTarget(e));
+    // Húzással téglalap-területet is ki lehet jelölni; rövid mozgás (6 px alatt) sima kattintásnak számít.
+    let start: { x: number; y: number } | null = null;
+    let dragging = false;
+    let swallowClick = false;
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0 || !pageTarget(e)) return;
+      start = { x: e.clientX, y: e.clientY };
+      dragging = false;
+      e.preventDefault(); // ne kezdődjön szövegkijelölés
+    };
+    const onMove = (e: MouseEvent) => {
+      setHover(pageTarget(e));
+      if (start && (e.buttons & 1) !== 0) {
+        if (!dragging && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) dragging = true;
+        if (dragging) setDrag(rectBetween(start.x, start.y, e.clientX, e.clientY));
+      }
+    };
+    const onUp = (e: MouseEvent) => {
+      const s = start;
+      start = null;
+      if (!s || !dragging) return;
+      dragging = false;
+      setDrag(null);
+      // A húzás utáni kattintás-eseményt elnyeljük, hogy az oldal saját kezelője ne fusson le
+      swallowClick = true;
+      window.setTimeout(() => {
+        swallowClick = false;
+      }, 0);
+      const rect = rectBetween(s.x, s.y, e.clientX, e.clientY);
+      const el = elementFor(rect, host);
+      const a = areaOf(el, rect);
+      setTarget({ el, selector: cssSelectorFor(el), posX: a.posX, posY: a.posY, area: { w: a.w, h: a.h } });
+      setHover(null);
+      setMode('compose');
+    };
     const onClick = (e: MouseEvent) => {
       const el = pageTarget(e);
       if (!el) return;
+      if (swallowClick) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -207,17 +259,22 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       if (e.key === 'Escape') cancel();
     };
 
+    document.addEventListener('mousedown', onDown, true);
     document.addEventListener('mousemove', onMove, true);
+    document.addEventListener('mouseup', onUp, true);
     document.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKey, true);
     const prevCursor = document.documentElement.style.cursor;
     document.documentElement.style.cursor = 'crosshair';
     return () => {
+      document.removeEventListener('mousedown', onDown, true);
       document.removeEventListener('mousemove', onMove, true);
+      document.removeEventListener('mouseup', onUp, true);
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('keydown', onKey, true);
       document.documentElement.style.cursor = prevCursor;
       setHover(null);
+      setDrag(null);
     };
   }, [mode, host]);
 
@@ -285,6 +342,8 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         cssSelector: target.selector,
         posX: target.posX,
         posY: target.posY,
+        areaWidth: target.area?.w,
+        areaHeight: target.area?.h,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
         customerEmail: values.email || undefined,
@@ -292,7 +351,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
 
       let shotOk = true;
       if (values.includeScreenshot) {
-        const image = await captureViewport(target.el);
+        const image = await captureViewport(targetBox(target) ?? undefined);
         shotOk = false;
         if (image) {
           try {
@@ -384,9 +443,9 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
   if (fatal) return null;
 
   const hoverRect = mode === 'pick' && hover ? hover.getBoundingClientRect() : null;
-  const targetRect = mode === 'compose' && target ? target.el.getBoundingClientRect() : null;
+  const targetRect = mode === 'compose' && target ? targetBox(target) : null;
   const spotRect = spotlight && spotlight.isConnected ? spotlight.getBoundingClientRect() : null;
-  const box = (r: DOMRect) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
+  const box = (r: Rect) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
 
   return (
     <>
@@ -406,9 +465,12 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
 
       {spotRect && <div class="hl spot" style={box(spotRect)} />}
       {hoverRect && <div class="hl" style={box(hoverRect)} />}
-      {targetRect && <div class="hl" style={box(targetRect)} />}
+      {drag && <div class="hl area" style={box(drag)} />}
+      {targetRect && <div class={target?.area ? 'hl area' : 'hl'} style={box(targetRect)} />}
 
-      {mode === 'pick' && <div class="banner">Kattints arra az elemre, amihez megjegyzésed van · Esc: mégse</div>}
+      {mode === 'pick' && (
+        <div class="banner">Kattints egy elemre, vagy húzz egy téglalapot a területre · Esc: mégse</div>
+      )}
 
       {mode === 'compose' && target && (
         <Composer

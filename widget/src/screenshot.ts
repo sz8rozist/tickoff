@@ -1,4 +1,5 @@
 import { toCanvas } from 'html-to-image';
+import type { Rect } from './area';
 import { HOST_ID } from './config';
 
 const MAX_BYTES = 3 * 1024 * 1024; // a szerver korlátja
@@ -9,13 +10,13 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Prom
 }
 
 /**
- * Képet készít az aktuális nézetről (viewport), és piros kerettel kiemeli a kiválasztott elemet.
+ * Képet készít az aktuális nézetről (viewport), és piros kerettel kiemeli a kiválasztott elemet vagy területet.
  * Best effort: bármilyen hiba (pl. idegen domainről érkező kép, időtúllépés) esetén null-t ad.
  *
  * Korlát: a scroll-pozíciót eltolással kezeljük, ezért görgetett oldalon a `position: fixed` elemek
  * (pl. rögzített fejléc) elcsúszhatnak a képen.
  */
-export async function captureViewport(highlight?: Element): Promise<Blob | null> {
+export async function captureViewport(highlight?: Rect): Promise<Blob | null> {
   try {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -33,7 +34,7 @@ export async function captureViewport(highlight?: Element): Promise<Blob | null>
     const canvas = await Promise.race([render, timeout]);
 
     if (highlight) {
-      const r = highlight.getBoundingClientRect();
+      const r = { left: highlight.left, top: highlight.top, width: highlight.width, height: highlight.height };
       const ctx = canvas.getContext('2d');
       if (ctx && r.width > 0 && r.height > 0) {
         ctx.fillStyle = 'rgba(229, 57, 53, 0.12)';

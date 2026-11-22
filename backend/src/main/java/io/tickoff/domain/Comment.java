@@ -37,6 +37,13 @@ public class Comment {
     @Column(name = "pos_y")
     private Double posY;
 
+    /** A kijelölt terület mérete az elem méretének százalékában (null: egyetlen pont/elem). */
+    @Column(name = "area_width")
+    private Double areaWidth;
+
+    @Column(name = "area_height")
+    private Double areaHeight;
+
     @Column(name = "viewport_width")
     private Integer viewportWidth;
 
@@ -86,6 +93,11 @@ public class Comment {
         this.cssSelector = cssSelector;
         this.posX = posX;
         this.posY = posY;
+    }
+
+    public void setArea(Double areaWidth, Double areaHeight) {
+        this.areaWidth = areaWidth;
+        this.areaHeight = areaHeight;
     }
 
     public void setEnvironment(Integer viewportWidth, Integer viewportHeight, String userAgent) {
@@ -149,6 +161,8 @@ public class Comment {
     public String getCssSelector() { return cssSelector; }
     public Double getPosX() { return posX; }
     public Double getPosY() { return posY; }
+    public Double getAreaWidth() { return areaWidth; }
+    public Double getAreaHeight() { return areaHeight; }
     public Integer getViewportWidth() { return viewportWidth; }
     public Integer getViewportHeight() { return viewportHeight; }
     public String getUserAgent() { return userAgent; }

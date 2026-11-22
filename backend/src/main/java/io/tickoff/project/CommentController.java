@@ -77,13 +77,13 @@ public class CommentController {
     }
 
     public record CommentDto(Long id, String authorName, String body, String pageUrl, String cssSelector,
-                             Double posX, Double posY, Integer viewportWidth, Integer viewportHeight,
+                             Double posX, Double posY, Double areaWidth, Double areaHeight, Integer viewportWidth, Integer viewportHeight,
                              String userAgent, Comment.Status status, boolean hasScreenshot, Instant createdAt,
                              Instant customerApprovedAt, boolean notifiesCustomer, Long assigneeId, String assigneeName,
                              List<AttachmentDto> attachments, List<ReplyDto> replies) {
         static CommentDto of(Comment c, List<ReplyDto> replies, List<AttachmentDto> attachments) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
-                c.getPosX(), c.getPosY(), c.getViewportWidth(), c.getViewportHeight(), c.getUserAgent(),
+                c.getPosX(), c.getPosY(), c.getAreaWidth(), c.getAreaHeight(), c.getViewportWidth(), c.getViewportHeight(), c.getUserAgent(),
                 c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), c.getCustomerApprovedAt(),
                 c.getNotifyToken() != null,
                 c.getAssignee() == null ? null : c.getAssignee().getId(),
