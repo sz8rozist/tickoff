@@ -51,6 +51,8 @@ public class WidgetController {
     static final int MAX_SCREENSHOT_BYTES = 3 * 1024 * 1024;
     /** Egy kommenthez legfeljebb ennyi melléklet csatolható (mindegyik legfeljebb {@link #MAX_SCREENSHOT_BYTES}). */
     static final int MAX_ATTACHMENTS_PER_COMMENT = 5;
+    /** Ennyi ideig szerkesztheti vagy vonhatja vissza az ügyfél a saját kommentjét (a létrehozástól számítva). */
+    static final java.time.Duration EDIT_WINDOW = java.time.Duration.ofMinutes(10);
     private static final byte[] PNG_MAGIC = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
     private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
 
@@ -92,6 +94,12 @@ public class WidgetController {
                                List<CommentDto> comments) {
     }
 
+    public record EditRequest(@NotBlank @Size(max = 4000) String body, @NotBlank @Size(max = 64) String editToken) {
+    }
+
+    public record WithdrawRequest(@NotBlank @Size(max = 64) String editToken) {
+    }
+
     public record ReplyRequest(
         @NotBlank @Size(max = 120) String authorName,
         @NotBlank @Size(max = 4000) String body) {
@@ -99,11 +107,19 @@ public class WidgetController {
 
     public record CommentDto(Long id, String authorName, String body, String pageUrl, String cssSelector,
                              Double posX, Double posY, Double areaWidth, Double areaHeight, Comment.Status status,
-                             boolean hasScreenshot, boolean approved, Instant createdAt, List<ReplyDto> replies) {
+                             boolean hasScreenshot, boolean approved, Instant createdAt, boolean edited,
+                             // Csak a létrehozás válaszában: a szerkesztéshez/visszavonáshoz szükséges titok és a határidő
+                             String editToken, Instant editableUntil, List<ReplyDto> replies) {
         static CommentDto of(Comment c, List<ReplyDto> replies) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
                 c.getPosX(), c.getPosY(), c.getAreaWidth(), c.getAreaHeight(), c.getStatus(), c.getScreenshotPath() != null,
-                c.getCustomerApprovedAt() != null, c.getCreatedAt(), replies);
+                c.getCustomerApprovedAt() != null, c.getCreatedAt(), c.getEditedAt() != null,
+                null, null, replies);
+        }
+
+        CommentDto withEdit(String editToken, Instant editableUntil) {
+            return new CommentDto(id, authorName, body, pageUrl, cssSelector, posX, posY, areaWidth, areaHeight, status,
+                hasScreenshot, approved, createdAt, edited, editToken, editableUntil, replies);
         }
     }
 
@@ -175,9 +191,10 @@ public class WidgetController {
         round.clearApproval();
         // A user agentet a fejlécből vesszük, nem a kliens által küldött törzsből.
         comment.setEnvironment(req.viewportWidth(), req.viewportHeight(), truncate(request.getHeader("User-Agent"), 500));
+        String editToken = comment.issueEditToken();
         Comment saved = comments.save(comment);
         notifications.newComment(project, saved);
-        return CommentDto.of(saved, List.of());
+        return CommentDto.of(saved, List.of()).withEdit(editToken, saved.getCreatedAt().plus(EDIT_WINDOW));
     }
 
     /** A lezárt körök (legfeljebb a legutóbbi {@value #MAX_HISTORY_ROUNDS}) kommentjei, csak olvasásra. */
@@ -248,6 +265,53 @@ public class WidgetController {
         open.approve(name);
         notifications.roundApproved(project, open, name);
         return RoundInfo.of(open);
+    }
+
+    /**
+     * A komment szövegének módosítása az ügyfél által: a létrehozás utáni {@code EDIT_WINDOW} alatt, a komment
+     * szerkesztési titkával, amíg a komment nyitott. A dashboardon "szerkesztve" jelzés látszik.
+     */
+    @PostMapping("/comments/{commentId}/edit")
+    @Transactional
+    public CommentDto edit(@PathVariable String token, @PathVariable Long commentId,
+                           @Valid @RequestBody EditRequest req, HttpServletRequest request) {
+        Project project = authorize(token, request);
+        Comment comment = ownComment(project, commentId, req.editToken());
+        if (comment.getStatus() != Comment.Status.OPEN) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A feldolgozás alatt álló komment már nem szerkeszthető");
+        }
+        comment.editBody(req.body().trim());
+        return CommentDto.of(comment, replyService.forComment(comment.getId()));
+    }
+
+    /** A komment visszavonása (törlése) az ügyfél által: ugyanazzal a határidővel és titokkal, és csak válasz nélkül. */
+    @PostMapping("/comments/{commentId}/withdraw")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void withdraw(@PathVariable String token, @PathVariable Long commentId,
+                         @Valid @RequestBody WithdrawRequest req, HttpServletRequest request) {
+        Project project = authorize(token, request);
+        Comment comment = ownComment(project, commentId, req.editToken());
+        if (!replyService.forComment(comment.getId()).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Válaszolt rá valaki, ezért már nem vonható vissza");
+        }
+        String screenshot = comment.getScreenshotPath();
+        List<String> files = attachments.findByCommentIdOrderByIdAsc(comment.getId()).stream().map(Attachment::getPath).toList();
+        comments.delete(comment);
+        storage.delete(screenshot);
+        files.forEach(storage::delete);
+    }
+
+    /** A nyitott kör kommentje, ha a titok egyezik és a szerkesztési határidő nem járt le (403 / 409 különben). */
+    private Comment ownComment(Project project, Long commentId, String editToken) {
+        Comment comment = openRoundComment(project, commentId);
+        if (!comment.matchesEditToken(editToken)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ezt a kommentet nem te küldted");
+        }
+        if (Instant.now().isAfter(comment.getCreatedAt().plus(EDIT_WINDOW))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A szerkesztési idő lejárt");
+        }
+        return comment;
     }
 
     /** A nyitott kör kommentje: 404, ha nincs ilyen a projektben, 409, ha lezárt körhöz tartozik. */

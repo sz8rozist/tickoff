@@ -33,6 +33,7 @@
 - **Single-page alkalmazások**: a widget észleli az útvonalváltást (`pushState`/`replaceState`, böngésző vissza/előre, hash-útvonal), és az új "oldal" kommentjeit tölti be. A félbehagyott kommentelést megszakítja, a komment mindig azzal az oldallal kerül mentésre, amelyiken az ügyfél éppen van.
 - **Megnyitás az oldalon** (a dashboardról): a komment mellett a gomb az ügyfél oldalát nyitja meg, ahol a widget a komment elemére görget, pulzáló kerettel kiemeli, és megnyitja a szálát.
 - **Válasz a kommentre**: a kártyából az ügyfél is válaszolhat (név + szöveg), a csapat válaszai "csapat" jelvénnyel látszanak. Csak a nyitott kör kommentjeire lehet válaszolni.
+- **Szerkesztés és visszavonás**: a saját, nemrég küldött kommentet az ügyfél **10 percig** módosíthatja vagy visszavonhatja (törölheti), fiók nélkül. A jogosultságot egy véletlen szerkesztési titok adja, amelyet a widget csak a komment létrehozásakor kap meg és a böngészőben őriz (az adatbázisban csak az SHA-256 hash-e van). Szerkeszteni csak nyitott kommentet lehet, visszavonni csak akkor, ha még nem válaszolt rá senki. A dashboardon a módosított komment "szerkesztve" jelvényt kap.
 - **Képek csatolása**: az űrlapon legfeljebb 5 kép (PNG, JPEG, GIF, WebP, egyenként max. 3 MB) csatolható a kommenthez; a csapat a dashboardon a "Mellékletek" gombbal nézi meg őket.
 - **Összes visszajelzés (Lista)**: a gomb mellett látszó "Lista" panel oldalak szerint csoportosítva mutatja a nyitott kör összes kommentjét állapottal; egy elemre kattintva a widget odaugrik (másik oldalra mélylinkkel tölt át).
 - **Korábbi körök**: a panel második füle a lezárt köröket mutatja (a legutóbbi 10-et), csak olvasásra: kommentek, állapotuk és az utolsó válasz.
@@ -213,6 +214,8 @@ A widgetet tehát azon az origin-en kell beágyazni, amit a projektnél megadtá
 | `POST /api/widget/{token}/comments` | komment mentése a nyitott körbe → `201`; `409`, ha nincs nyitott kör; `400`, ha a `pageUrl` nem a projekt oldaláról való |
 | `POST /api/widget/{token}/comments/{id}/replies` | `{authorName, body}` → `201`: az ügyfél válasza. `409`, ha nincs nyitott kör, ha a komment lezárt körhöz tartozik, vagy ha a szál betelt (200 válasz). A `GET .../comments` válasza a `replies` szálat is tartalmazza |
 | `POST /api/widget/{token}/comments/{id}/attachments` | melléklet: nyers kép a törzsben (PNG/JPEG/GIF/WebP, max. 3 MB) → `201`; `409`, ha lezárt körhöz tartozik vagy már van 5 melléklete; `413` túl nagy; `400`, ha a tartalom nem támogatott kép (a típust az első bájtok döntik el, az SVG nem engedélyezett) |
+| `POST /api/widget/{token}/comments/{id}/edit` | `{body, editToken}`: a saját komment szövegének módosítása a létrehozás utáni 10 percben → `200`; `403` rossz titok, `409` lejárt határidő vagy nem nyitott komment |
+| `POST /api/widget/{token}/comments/{id}/withdraw` | `{editToken}`: a saját komment törlése ugyanazzal a határidővel → `204`; `409`, ha már válaszoltak rá |
 | `GET /api/widget/{token}/history` | a lezárt körök (a legutóbbi 10, legújabb elöl) kommentjei szálastul, csak olvasásra |
 | `POST /api/widget/{token}/comments/{id}/approve` | az ügyfél elfogadja a "Kész" kommentet → `200`; `409`, ha nem kész vagy lezárt körhöz tartozik |
 | `POST /api/widget/{token}/comments/{id}/reopen` | `{authorName, reason?}`: a "Kész" komment visszanyitása, a szálba "Visszanyitva: …" bejegyzés kerül, a csapat értesítést kap → `200`; `409` ugyanúgy |
@@ -220,6 +223,8 @@ A widgetet tehát azon az origin-en kell beágyazni, amit a projektnél megadtá
 | `POST /api/widget/{token}/comments/{id}/screenshot` | képernyőkép: nyers `image/png` vagy `image/jpeg` a törzsben, max. 3 MB → `204`; `413` túl nagy, `415` rossz típus, `400` ha a tartalom nem kép (a fájl első bájtjait ellenőrizzük), `409` ha már van képe |
 
 Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, areaWidth?, areaHeight?, viewportWidth?, viewportHeight?, customerEmail?}`. A user agentet a szerver a fejlécből veszi.
+
+A komment létrehozásának válasza tartalmazza az `editToken` és `editableUntil` mezőt (csak ott, a listákban nem).
 
 A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `screenshots` kötet), az adatbázisban csak a relatív útvonal.
 

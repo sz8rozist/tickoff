@@ -349,6 +349,11 @@ export function CommentsPanel({
                 />
                 <Group gap="xs">
                   {c.cssSelector && <Code>{c.cssSelector}</Code>}
+                  {c.editedAt && (
+                    <Badge size="sm" color="yellow" variant="light" title={`Módosítva: ${dateTime(c.editedAt)}`}>
+                      szerkesztve
+                    </Badge>
+                  )}
                   {c.areaWidth !== null && (
                     <Badge size="sm" color="grape" variant="light" title="Az ügyfél téglalappal jelölte ki a területet">
                       kijelölt terület

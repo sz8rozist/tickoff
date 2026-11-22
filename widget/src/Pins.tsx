@@ -2,6 +2,7 @@ import { Fragment } from 'preact';
 import { useEffect, useState } from 'react';
 import type { WidgetComment } from './api';
 import { areaRect } from './area';
+import { ownToken } from './own';
 import { resolve } from './selector';
 
 const STATUS_LABEL: Record<WidgetComment['status'], string> = {
@@ -97,6 +98,85 @@ function ReplyForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/** A saját, nemrég küldött komment szerkesztése és visszavonása (a szerkesztési határidőn belül). */
+function OwnActions({
+  comment,
+  onEdit,
+  onWithdraw,
+}: {
+  comment: WidgetComment;
+  onEdit: (body: string) => Promise<string | null>;
+  onWithdraw: () => Promise<string | null>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(comment.body);
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (comment.status !== 'OPEN' || !ownToken(comment.id)) return null;
+
+  async function run(action: () => Promise<string | null>, onOk?: () => void) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const failure = await action();
+    setBusy(false);
+    if (failure) setError(failure);
+    else onOk?.();
+  }
+
+  if (editing) {
+    return (
+      <form
+        class="reply-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (body.trim() !== '') run(() => onEdit(body.trim()), () => setEditing(false));
+        }}
+      >
+        <textarea value={body} maxLength={4000} aria-label="A komment szövege" autofocus onInput={(e) => setBody(e.currentTarget.value)} />
+        {error && (
+          <p class="err" role="alert">
+            {error}
+          </p>
+        )}
+        <div class="actions">
+          <button type="button" class="btn small" disabled={busy} onClick={() => setEditing(false)}>
+            Mégse
+          </button>
+          <button type="submit" class="btn small primary" disabled={busy || body.trim() === ''}>
+            {busy ? 'Mentés…' : 'Mentés'}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div class="own">
+      <button type="button" class="btn small" disabled={busy} onClick={() => setEditing(true)}>
+        Szerkesztés
+      </button>
+      {comment.replies.length === 0 && (
+        <button
+          type="button"
+          class="btn small"
+          disabled={busy}
+          onClick={() => (confirm ? run(onWithdraw) : setConfirm(true))}
+        >
+          {confirm ? 'Biztosan visszavonod?' : 'Visszavonás'}
+        </button>
+      )}
+      {error && (
+        <p class="err" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -205,6 +285,8 @@ export function Pins({
   onReply,
   onApprove,
   onReopen,
+  onEdit,
+  onWithdraw,
   openRequest,
 }: {
   comments: WidgetComment[];
@@ -213,6 +295,8 @@ export function Pins({
   /** Hibaüzenettel tér vissza, vagy null-lal, ha sikerült. */
   onReply: (commentId: number, authorName: string, body: string) => Promise<string | null>;
   onApprove: (commentId: number) => Promise<string | null>;
+  onEdit: (commentId: number, body: string) => Promise<string | null>;
+  onWithdraw: (commentId: number) => Promise<string | null>;
   onReopen: (commentId: number, authorName: string, reason: string) => Promise<string | null>;
   /** Kívülről kért megnyitás (a mélylinkből). Az `n` változása újra megnyitja ugyanazt a kommentet is. */
   openRequest: { id: number; n: number } | null;
@@ -256,9 +340,11 @@ export function Pins({
               <div class="pop" role="dialog" style={{ left: popLeft, top: popTop }}>
                 <div class="meta">
                   {c.authorName} · {dateTime(c.createdAt)}
+                  {c.edited && ' · szerkesztve'}
                 </div>
                 <div class="body">{c.body}</div>
                 <div class="status">{STATUS_LABEL[c.status]}</div>
+                <OwnActions comment={c} onEdit={(body) => onEdit(c.id, body)} onWithdraw={() => onWithdraw(c.id)} />
                 <ReviewActions
                   comment={c}
                   defaultName={defaultName}

@@ -1,6 +1,9 @@
 package io.tickoff.domain;
 
 import jakarta.persistence.*;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -74,6 +77,13 @@ public class Comment {
     @Column(name = "customer_approved_at")
     private Instant customerApprovedAt;
 
+    /** A szerkesztési titok SHA-256 hash-e (hex); a titkot magát nem tároljuk. */
+    @Column(name = "edit_token_hash", length = 64)
+    private String editTokenHash;
+
+    @Column(name = "edited_at")
+    private Instant editedAt;
+
     /** A felelős csapattag (tulajdonos vagy tag), vagy null. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
@@ -145,6 +155,41 @@ public class Comment {
         this.customerEmail = null;
         this.notifyToken = null;
     }
+
+    /**
+     * Új szerkesztési titkot ad ki a kommenthez, és visszaadja (csak ekkor látható egyszer: a widget a böngészőben
+     * őrzi). Az adatbázisban csak a hash-e van.
+     */
+    public String issueEditToken() {
+        byte[] bytes = new byte[16];
+        new SecureRandom().nextBytes(bytes);
+        String token = HexFormat.of().formatHex(bytes);
+        this.editTokenHash = sha256(token);
+        return token;
+    }
+
+    /** Egyezik-e a megadott titok a kiadottal (időzítés-biztos összehasonlítás). */
+    public boolean matchesEditToken(String candidate) {
+        if (editTokenHash == null || candidate == null) return false;
+        return MessageDigest.isEqual(editTokenHash.getBytes(StandardCharsets.UTF_8),
+            sha256(candidate).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** A szöveg módosítása az ügyfél által. */
+    public void editBody(String newBody) {
+        this.body = newBody;
+        this.editedAt = Instant.now();
+    }
+
+    private static String sha256(String s) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public Instant getEditedAt() { return editedAt; }
 
     public void setAssignee(User assignee) { this.assignee = assignee; }
     public User getAssignee() { return assignee; }

@@ -5,6 +5,7 @@ import { areaOf, areaRect, elementFor, rectBetween, type Rect } from './area';
 import { Composer, type ComposerValues } from './Composer';
 import { onNavigate } from './navigation';
 import { Overview } from './Overview';
+import { forgetOwn, ownToken, rememberOwn } from './own';
 import { deepLinkTo, pageUrl, readFocusId, stripFocusParam } from './page';
 import { Pins } from './Pins';
 import { captureViewport } from './screenshot';
@@ -371,6 +372,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         }
       }
 
+      rememberOwn(created.id, created.editToken, created.editableUntil);
       // Új komment érvénytelenítheti a kör jóváhagyását: a kör állapotát frissítjük
       api.project().then(setProject).catch(() => undefined);
       let failedFiles = 0;
@@ -401,6 +403,41 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       return null;
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) return 'Ehhez már nem lehet válaszolni (lezárt kör vagy betelt szál).';
+      return sendError(e);
+    }
+  }
+
+  /** A saját komment szövegének módosítása (a szerkesztési határidőn belül). */
+  async function editComment(commentId: number, body: string): Promise<string | null> {
+    const token = ownToken(commentId);
+    if (!token) return 'A szerkesztési idő lejárt.';
+    try {
+      const updated = await api.editComment(commentId, token, body);
+      setAll((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
+      return null;
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 409 || e.status === 403)) {
+        return 'A szerkesztési idő lejárt, vagy a komment már feldolgozás alatt áll.';
+      }
+      return sendError(e);
+    }
+  }
+
+  /** A saját komment visszavonása (törlése), ha még nem válaszoltak rá. */
+  async function withdrawComment(commentId: number): Promise<string | null> {
+    const token = ownToken(commentId);
+    if (!token) return 'A visszavonási idő lejárt.';
+    try {
+      await api.withdrawComment(commentId, token);
+      forgetOwn(commentId);
+      setAll((prev) => prev.filter((c) => c.id !== commentId));
+      api.project().then(setProject).catch(() => undefined);
+      setToast('A visszajelzést visszavontad.');
+      return null;
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 409 || e.status === 403)) {
+        return 'Már nem vonható vissza (lejárt az idő, vagy válaszoltak rá).';
+      }
       return sendError(e);
     }
   }
@@ -466,6 +503,8 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
           defaultName={savedAuthor()}
           onReply={reply}
           onApprove={approveComment}
+          onEdit={editComment}
+          onWithdraw={withdrawComment}
           onReopen={reopenComment}
           openRequest={openRequest}
         />

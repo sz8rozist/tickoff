@@ -248,4 +248,7 @@ export const styles = `
     .item { padding: 12px 8px; }
     .x { padding: 6px 10px; }
   }
+
+  .pop .own { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pop .own .btn.small { margin-top: 8px; }
 `;

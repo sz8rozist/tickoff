@@ -50,6 +50,11 @@ export interface WidgetComment {
   /** Az ügyfél elfogadta a kész kommentet. */
   approved: boolean;
   createdAt: string;
+  /** Az ügyfél módosította a szöveget. */
+  edited: boolean;
+  /** Csak a komment létrehozásának válaszában: a szerkesztéshez/visszavonáshoz szükséges titok és határideje. */
+  editToken?: string | null;
+  editableUntil?: string | null;
   replies: Reply[];
 }
 
@@ -117,6 +122,24 @@ export function createApi({ token, apiBase }: Config) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ authorName }),
       }),
+
+    /** A saját komment szövegének módosítása a határidőn belül (a titkot a komment létrehozásakor kaptuk). */
+    editComment: (commentId: number, editToken: string, body: string) =>
+      json<WidgetComment>(`/comments/${commentId}/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body, editToken }),
+      }),
+
+    /** A saját komment visszavonása (törlése) a határidőn belül, ha még nem válaszoltak rá. */
+    async withdrawComment(commentId: number, editToken: string): Promise<void> {
+      const res = await fetch(`${base}/comments/${commentId}/withdraw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ editToken }),
+      });
+      if (!res.ok) throw new ApiError(res.status);
+    },
 
     createReply: (commentId: number, reply: { authorName: string; body: string }) =>
       json<Reply>(`/comments/${commentId}/replies`, {

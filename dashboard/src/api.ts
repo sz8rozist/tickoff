@@ -133,6 +133,8 @@ export interface Comment {
   createdAt: string;
   /** Az ügyfél elfogadta a kész kommentet. */
   customerApprovedAt: string | null;
+  /** Az ügyfél utólag módosította a szöveget. */
+  editedAt: string | null;
   /** Az ügyfél e-mail-értesítést kért a válaszokról (a címet nem mutatjuk). */
   notifiesCustomer: boolean;
   /** A felelős csapattag, vagy null. */
