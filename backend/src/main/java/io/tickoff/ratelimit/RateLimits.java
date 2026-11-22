@@ -45,6 +45,8 @@ public final class RateLimits {
     private static final Limit INVITE_IP = new Limit("invite-ip", 20, 20);
     // A fiók törlése jelszót kér, ezért ellopott token mellett is korlátozni kell a találgatást.
     private static final Limit DELETE_ACCOUNT_IP = new Limit("delete-account-ip", 5, 5);
+    // A leiratkozó link titka 128 bites, de a találgatást így is korlátozzuk.
+    private static final Limit UNSUBSCRIBE_IP = new Limit("unsubscribe-ip", 10, 10);
 
     private RateLimits() {
     }
@@ -62,12 +64,15 @@ public final class RateLimits {
             Rule.of(HttpMethod.POST, "/api/widget/{token}/comments/{id}/screenshot", writeIp, writeToken),
             Rule.of(HttpMethod.POST, "/api/widget/{token}/comments/{id}/replies", writeIp, writeToken),
             Rule.of(HttpMethod.POST, "/api/widget/{token}/comments", writeIp, writeToken),
+            // Elfogadás, visszanyitás, kör jóváhagyása
+            Rule.of(HttpMethod.POST, "/api/widget/{token}/**", writeIp, writeToken),
             Rule.of(HttpMethod.GET, "/api/widget/{token}/**",
                 new Scoped(Scope.IP, WIDGET_READ_IP), new Scoped(Scope.TOKEN, WIDGET_READ_TOKEN)),
             Rule.of(HttpMethod.POST, "/api/auth/login", new Scoped(Scope.IP, LOGIN_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/register", new Scoped(Scope.IP, REGISTER_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/forgot-password", new Scoped(Scope.IP, FORGOT_PASSWORD_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/reset-password", new Scoped(Scope.IP, RESET_PASSWORD_IP)),
+            Rule.of(HttpMethod.GET, "/api/notifications/unsubscribe/{token}", new Scoped(Scope.IP, UNSUBSCRIBE_IP)),
             Rule.of(HttpMethod.DELETE, "/api/me", new Scoped(Scope.IP, DELETE_ACCOUNT_IP)),
             Rule.of(HttpMethod.POST, "/api/projects/{id}/members", new Scoped(Scope.IP, INVITE_IP))));
     }

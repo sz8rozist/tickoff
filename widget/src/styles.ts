@@ -179,4 +179,45 @@ export const styles = `
   .item .rc { font-weight: 400; color: #6b7094; }
   .item .snip { font-size: 13px; line-height: 1.35; color: #1f2140; overflow-wrap: anywhere; }
   .item .go { color: #9aa0c7; font-size: 20px; }
+
+  .panel .hint { margin: 4px 0 0; font-size: 12px; color: #6b7094; }
+  .panel .hint.bad { color: #b3261e; }
+  .panel input[aria-invalid=true] { border-color: #b3261e; }
+
+  /* Elfogadás / visszanyitás a kész kommentnél */
+  .pop .approved { margin-top: 8px; font-size: 12px; font-weight: 600; color: #0b7a5a; }
+  .pop .review { margin-top: 10px; padding: 10px; border-radius: 10px; background: #e6fcf5; }
+  .pop .review-q { font-size: 12px; font-weight: 600; color: #0b7a5a; margin-bottom: 6px; }
+  .pop .review-btns { display: flex; gap: 6px; }
+  .pop .review .btn.small { margin-top: 0; }
+  .pop .err { margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: #fdecee; color: #b3261e; font-size: 12px; }
+
+  /* Fülek és kör-jóváhagyás a listapanelen */
+  .tabs { display: flex; gap: 4px; padding: 6px 14px 0; }
+  .tabs button {
+    border: 0; background: none; padding: 7px 10px; font-size: 13px; font-weight: 600; color: #6b7094;
+    border-bottom: 2px solid transparent; cursor: pointer;
+  }
+  .tabs button.on { color: #4a52c9; border-bottom-color: #5b64e3; }
+  .item .ok { font-weight: 600; color: #0b7a5a; }
+  .item.static { cursor: default; align-items: flex-start; }
+  .item.static .dot { margin-top: 5px; }
+  .item.static:hover { background: none; }
+  .last-reply { margin-top: 3px; padding-left: 8px; border-left: 2px solid #e3e5f3; font-size: 12px; color: #6b7094; }
+  .round-title { font-size: 13px; font-weight: 700; }
+  .muted-s { font-size: 12px; color: #6b7094; }
+  .empty-s { margin: 2px 8px 8px; font-size: 12px; color: #6b7094; }
+  .history .page-title { flex-wrap: wrap; }
+
+  .approval { padding: 12px 18px 16px; border-top: 1px solid #eceef8; font-size: 13px; }
+  .approval .row { display: flex; gap: 8px; margin-top: 8px; }
+  .approval input[type=text] {
+    flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid #d5d8ec; border-radius: 8px; font-size: 13px;
+  }
+  .approval input:focus { outline: none; border-color: #5b64e3; box-shadow: 0 0 0 3px rgba(91,100,227,.2); }
+  .approval .btn.small { white-space: nowrap; margin-top: 0; }
+  .approval.done { color: #0b7a5a; font-weight: 600; background: #e6fcf5; border-radius: 0 0 16px 16px; }
+  .approval.muted { color: #6b7094; font-size: 12px; }
+  .approval .hint { margin: 0; }
+  .approval .err { margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: #fdecee; color: #b3261e; font-size: 12px; }
 `;

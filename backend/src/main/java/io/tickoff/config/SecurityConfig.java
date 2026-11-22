@@ -37,6 +37,8 @@ public class SecurityConfig {
                 // Hibaoldal: enélkül minden 4xx hiba (pl. 400, 409) 401-re íródna át
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
+                // Leiratkozás az ügyfélnek küldött levélből: a link titka a kulcs
+                .requestMatchers("/api/notifications/unsubscribe/**").permitAll()
                 // Widget végpontok: tokennel védettek, a controller ellenőrzi
                 .requestMatchers("/api/widget/**").permitAll()
                 .anyRequest().authenticated())

@@ -3,6 +3,7 @@ import {
   Alert,
   Anchor,
   Avatar,
+  Badge,
   Button,
   Code,
   Group,
@@ -231,6 +232,16 @@ export function CommentsPanel({
                 </Text>
                 <Group gap="xs">
                   {c.cssSelector && <Code>{c.cssSelector}</Code>}
+                  {c.customerApprovedAt && (
+                    <Badge size="sm" color="teal" variant="light">
+                      ✓ az ügyfél elfogadta
+                    </Badge>
+                  )}
+                  {c.notifiesCustomer && (
+                    <Badge size="sm" color="gray" variant="light" title="Az ügyfél e-mailben értesül a válaszokról és a kész állapotról">
+                      értesítést kér
+                    </Badge>
+                  )}
                   {environment(c) && (
                     <Text size="xs" c="dimmed">
                       {environment(c)}

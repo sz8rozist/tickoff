@@ -29,11 +29,12 @@ import java.util.stream.Collectors;
 public class RoundController {
 
     public record RoundDto(Long id, int number, Round.Status status, Instant createdAt, Instant closedAt,
-                           long commentCount, long openCommentCount) {
+                           long commentCount, long openCommentCount, Instant approvedAt, String approvedBy) {
         static RoundDto of(Round r, RoundCommentCount counts) {
             return new RoundDto(r.getId(), r.getNumber(), r.getStatus(), r.getCreatedAt(), r.getClosedAt(),
                 counts == null ? 0 : counts.getTotal().longValue(),
-                counts == null || counts.getOpenCount() == null ? 0 : counts.getOpenCount().longValue());
+                counts == null || counts.getOpenCount() == null ? 0 : counts.getOpenCount().longValue(),
+                r.getApprovedAt(), r.getApprovedBy());
         }
     }
 

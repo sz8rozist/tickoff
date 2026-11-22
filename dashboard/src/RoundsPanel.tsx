@@ -98,6 +98,11 @@ export function RoundsPanel({ projectId }: { projectId: number }) {
                 {r.commentCount} komment
                 {r.commentCount > 0 && ` · ${r.openCommentCount} nyitott`}
               </Text>
+              {r.approvedAt && (
+                <Badge color="teal" variant="filled" title={`Jóváhagyta: ${r.approvedBy ?? ''}`}>
+                  ✓ az ügyfél jóváhagyta{r.approvedBy ? ` (${r.approvedBy})` : ''}
+                </Badge>
+              )}
             </Group>
             <Group gap={4}>
               <Button size="compact-xs" variant="subtle" onClick={() => toggle(r.id)}>

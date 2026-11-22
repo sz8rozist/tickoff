@@ -99,11 +99,111 @@ function ReplyForm({
   );
 }
 
+/**
+ * A "Kész" kommentnél az ügyfél elfogadhatja a javítást, vagy visszanyithatja (rövid indoklással).
+ * Mindkét művelet hibaüzenettel tér vissza, vagy null-lal, ha sikerült.
+ */
+function ReviewActions({
+  comment,
+  defaultName,
+  onApprove,
+  onReopen,
+}: {
+  comment: WidgetComment;
+  defaultName: string;
+  onApprove: () => Promise<string | null>;
+  onReopen: (authorName: string, reason: string) => Promise<string | null>;
+}) {
+  const [reopening, setReopening] = useState(false);
+  const [name, setName] = useState(defaultName);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (comment.status !== 'DONE') return null;
+
+  if (comment.approved) {
+    return <div class="approved">✓ Elfogadva</div>;
+  }
+
+  async function run(action: () => Promise<string | null>) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const failure = await action();
+    setBusy(false);
+    if (failure) setError(failure);
+  }
+
+  if (reopening) {
+    return (
+      <form
+        class="reply-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim() !== '') run(() => onReopen(name.trim(), reason.trim()));
+        }}
+      >
+        <input
+          type="text"
+          value={name}
+          maxLength={120}
+          placeholder="A neved"
+          aria-label="A neved"
+          onInput={(e) => setName(e.currentTarget.value)}
+        />
+        <textarea
+          value={reason}
+          maxLength={4000}
+          placeholder="Mi nem jó még? (nem kötelező)"
+          aria-label="Indoklás"
+          autofocus
+          onInput={(e) => setReason(e.currentTarget.value)}
+        />
+        {error && (
+          <p class="err" role="alert">
+            {error}
+          </p>
+        )}
+        <div class="actions">
+          <button type="button" class="btn small" disabled={busy} onClick={() => setReopening(false)}>
+            Mégse
+          </button>
+          <button type="submit" class="btn small primary" disabled={busy || name.trim() === ''}>
+            {busy ? 'Küldés…' : 'Visszanyitás'}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div class="review">
+      <div class="review-q">Rendben van így?</div>
+      <div class="review-btns">
+        <button type="button" class="btn small primary" disabled={busy} onClick={() => run(onApprove)}>
+          Elfogadom
+        </button>
+        <button type="button" class="btn small" disabled={busy} onClick={() => setReopening(true)}>
+          Visszanyitom
+        </button>
+      </div>
+      {error && (
+        <p class="err" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function Pins({
   comments,
   inert,
   defaultName,
   onReply,
+  onApprove,
+  onReopen,
   openRequest,
 }: {
   comments: WidgetComment[];
@@ -111,6 +211,8 @@ export function Pins({
   defaultName: string;
   /** Hibaüzenettel tér vissza, vagy null-lal, ha sikerült. */
   onReply: (commentId: number, authorName: string, body: string) => Promise<string | null>;
+  onApprove: (commentId: number) => Promise<string | null>;
+  onReopen: (commentId: number, authorName: string, reason: string) => Promise<string | null>;
   /** Kívülről kért megnyitás (a mélylinkből). Az `n` változása újra megnyitja ugyanazt a kommentet is. */
   openRequest: { id: number; n: number } | null;
 }) {
@@ -152,6 +254,12 @@ export function Pins({
                 </div>
                 <div class="body">{c.body}</div>
                 <div class="status">{STATUS_LABEL[c.status]}</div>
+                <ReviewActions
+                  comment={c}
+                  defaultName={defaultName}
+                  onApprove={() => onApprove(c.id)}
+                  onReopen={(name, reason) => onReopen(c.id, name, reason)}
+                />
 
                 {c.replies.length > 0 && (
                   <div class="thread">

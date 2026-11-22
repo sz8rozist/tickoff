@@ -5,7 +5,24 @@ export type CommentStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
 export interface ProjectInfo {
   name: string;
   siteUrl: string;
-  openRound: { id: number; number: number } | null;
+  openRound: RoundInfo | null;
+}
+
+export interface RoundInfo {
+  id: number;
+  number: number;
+  /** Az ügyfél jóváhagyta a kört (minden komment kész volt). */
+  approved: boolean;
+  approvedBy: string | null;
+}
+
+/** Egy lezárt kör, csak olvasásra. */
+export interface HistoryRound {
+  number: number;
+  closedAt: string;
+  approved: boolean;
+  approvedBy: string | null;
+  comments: WidgetComment[];
 }
 
 export interface Reply {
@@ -27,6 +44,8 @@ export interface WidgetComment {
   posY: number | null;
   status: CommentStatus;
   hasScreenshot: boolean;
+  /** Az ügyfél elfogadta a kész kommentet. */
+  approved: boolean;
   createdAt: string;
   replies: Reply[];
 }
@@ -41,6 +60,8 @@ export interface NewComment {
   posY: number;
   viewportWidth: number;
   viewportHeight: number;
+  /** Opcionális: ide megy az értesítés, ha a csapat válaszol. */
+  customerEmail?: string;
 }
 
 export class ApiError extends Error {
@@ -70,6 +91,26 @@ export function createApi({ token, apiBase }: Config) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(c),
+      }),
+
+    /** A lezárt körök (a legutóbbiak) kommentjei. */
+    history: () => json<HistoryRound[]>('/history'),
+
+    approveComment: (commentId: number) =>
+      json<WidgetComment>(`/comments/${commentId}/approve`, { method: 'POST' }),
+
+    reopenComment: (commentId: number, authorName: string, reason: string) =>
+      json<WidgetComment>(`/comments/${commentId}/reopen`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authorName, reason }),
+      }),
+
+    approveRound: (authorName: string) =>
+      json<RoundInfo>('/round/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authorName }),
       }),
 
     createReply: (commentId: number, reply: { authorName: string; body: string }) =>

@@ -4,6 +4,7 @@ import io.tickoff.domain.Comment;
 import io.tickoff.domain.Project;
 import io.tickoff.domain.ProjectMemberRepository;
 import io.tickoff.domain.Reply;
+import io.tickoff.domain.Round;
 import io.tickoff.domain.User;
 import io.tickoff.domain.UserRepository;
 import io.tickoff.ratelimit.RateLimiter;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -60,6 +62,68 @@ public class NotificationService {
             "Új válasz: " + project.getName(),
             reply.getAuthorName() + " válaszolt " + comment.getAuthorName() + " visszajelzésére a(z) „"
                 + project.getName() + "” projektben (oldal: " + comment.getPageUrl() + "):\n\n" + excerpt(reply.getBody()));
+    }
+
+    /** Az ügyfél újranyitotta a kész kommentet: a csapatnak tudnia kell, hogy dolga van vele. */
+    public void commentReopened(Project project, Comment comment, String by, String reason) {
+        notifyTeam(project,
+            "Újranyitott visszajelzés: " + project.getName(),
+            by + " újranyitotta a kész visszajelzését a(z) „" + project.getName() + "” projektben"
+                + " (oldal: " + comment.getPageUrl() + "):\n\n" + excerpt(comment.getBody())
+                + (reason == null || reason.isBlank() ? "" : "\n\nIndoklás: " + excerpt(reason)));
+    }
+
+    /** Az ügyfél jóváhagyta a kört: minden visszajelzése kész. */
+    public void roundApproved(Project project, Round round, String by) {
+        notifyTeam(project,
+            "Az ügyfél jóváhagyta a kört: " + project.getName(),
+            by + " jóváhagyta a(z) „" + project.getName() + "” projekt " + round.getNumber() + ". körét: "
+                + "minden visszajelzés kész. Lezárhatod a kört.");
+    }
+
+    /** A csapat válaszolt: ha az ügyfél megadta az e-mail-címét, értesítjük. */
+    public void designerReply(Project project, Comment comment, Reply reply) {
+        notifyCustomer(comment, "Válasz a visszajelzésedre: " + project.getName(),
+            reply.getAuthorName() + " (a csapatból) válaszolt a visszajelzésedre a(z) „" + project.getName()
+                + "” projektben:\n\n" + excerpt(reply.getBody()));
+    }
+
+    /** A csapat késznek jelölte a kommentet: az ügyfél megnézheti, elfogadhatja vagy visszanyithatja. */
+    public void commentDone(Project project, Comment comment) {
+        notifyCustomer(comment, "Elkészült a javítás: " + project.getName(),
+            "A csapat késznek jelölte a visszajelzésedet a(z) „" + project.getName() + "” projektben:\n\n"
+                + excerpt(comment.getBody()) + "\n\nMegnézheted az oldalon, ott el is fogadhatod, vagy visszanyithatod.");
+    }
+
+    /**
+     * Levél az ügyfélnek, ha a komment írója megadott e-mail-címet. A levél a kommentre mutató linket és
+     * leiratkozó linket tartalmaz. Címenként ugyanaz a korlát él, mint a csapat tagjainál.
+     */
+    private void notifyCustomer(Comment comment, String subject, String message) {
+        String email = comment.getCustomerEmail();
+        String token = comment.getNotifyToken();
+        if (!mail.isEnabled() || email == null || token == null) return;
+
+        String text = "Szia " + comment.getAuthorName() + "!\n\n" + message
+            + "\n\nMegnyitás az oldalon: " + deepLink(comment.getPageUrl(), comment.getId())
+            + "\n\nEzt a levelet azért kaptad, mert a visszajelzésed beküldésekor megadtad az e-mail-címedet. "
+            + "Ha nem szeretnél több értesítést, itt leiratkozhatsz: "
+            + baseUrl + "/api/notifications/unsubscribe/" + token + "\n";
+
+        afterCommit(() -> {
+            if (limiter.tryAcquire("c" + email.toLowerCase(), PER_RECIPIENT) == 0) {
+                mail.send(email, "[Tickoff] " + subject, text);
+            } else {
+                log.info("Ügyfél-értesítés kihagyva (címenkénti korlát), komment: {}", comment.getId());
+            }
+        });
+    }
+
+    /** Az oldal címe a komment mélylinkjével (a widget ezt a paramétert olvassa ki). */
+    static String deepLink(String pageUrl, Long commentId) {
+        return UriComponentsBuilder.fromUriString(pageUrl)
+            .replaceQueryParam("tickoff-comment", commentId)
+            .build().toUriString();
     }
 
     private void notifyTeam(Project project, String subject, String message) {

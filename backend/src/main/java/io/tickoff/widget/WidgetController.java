@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -33,6 +34,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -48,7 +50,13 @@ public class WidgetController {
     private static final byte[] PNG_MAGIC = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
     private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
 
-    public record RoundInfo(Long id, int number) {
+    /** A korábbi körökből legfeljebb ennyit adunk vissza (a legutóbbiakat). */
+    static final int MAX_HISTORY_ROUNDS = 10;
+
+    public record RoundInfo(Long id, int number, boolean approved, String approvedBy) {
+        static RoundInfo of(Round r) {
+            return new RoundInfo(r.getId(), r.getNumber(), r.getApprovedAt() != null, r.getApprovedBy());
+        }
     }
 
     public record ProjectInfo(String name, String siteUrl, RoundInfo openRound) {
@@ -62,7 +70,19 @@ public class WidgetController {
         @DecimalMin("0") @DecimalMax("1000000") Double posX,
         @DecimalMin("0") @DecimalMax("1000000") Double posY,
         @Min(1) @Max(20000) Integer viewportWidth,
-        @Min(1) @Max(20000) Integer viewportHeight) {
+        @Min(1) @Max(20000) Integer viewportHeight,
+        // Opcionális: ide megy az értesítés, ha a csapat válaszol. Nem kerül vissza a widgetnek.
+        @Email @Size(max = 254) String customerEmail) {
+    }
+
+    public record ReopenRequest(@NotBlank @Size(max = 120) String authorName, @Size(max = 4000) String reason) {
+    }
+
+    public record ApproveRoundRequest(@NotBlank @Size(max = 120) String authorName) {
+    }
+
+    public record HistoryRound(int number, Instant closedAt, boolean approved, String approvedBy,
+                               List<CommentDto> comments) {
     }
 
     public record ReplyRequest(
@@ -72,10 +92,11 @@ public class WidgetController {
 
     public record CommentDto(Long id, String authorName, String body, String pageUrl, String cssSelector,
                              Double posX, Double posY, Comment.Status status, boolean hasScreenshot,
-                             Instant createdAt, List<ReplyDto> replies) {
+                             boolean approved, Instant createdAt, List<ReplyDto> replies) {
         static CommentDto of(Comment c, List<ReplyDto> replies) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
-                c.getPosX(), c.getPosY(), c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), replies);
+                c.getPosX(), c.getPosY(), c.getStatus(), c.getScreenshotPath() != null,
+                c.getCustomerApprovedAt() != null, c.getCreatedAt(), replies);
         }
     }
 
@@ -102,7 +123,7 @@ public class WidgetController {
     @GetMapping("/project")
     public ProjectInfo project(@PathVariable String token, HttpServletRequest request) {
         Project project = authorize(token, request);
-        RoundInfo open = openRound(project).map(r -> new RoundInfo(r.getId(), r.getNumber())).orElse(null);
+        RoundInfo open = openRound(project).map(RoundInfo::of).orElse(null);
         return new ProjectInfo(project.getName(), project.getSiteUrl(), open);
     }
 
@@ -136,11 +157,96 @@ public class WidgetController {
         }
         Comment comment = new Comment(round, req.authorName().trim(), req.body().trim(), req.pageUrl().trim());
         comment.setLocation(blankToNull(req.cssSelector()), req.posX(), req.posY());
+        comment.setCustomerEmail(blankToNull(req.customerEmail()));
+        // Új, még nem kész komment: a kör korábbi jóváhagyása már nem érvényes
+        round.clearApproval();
         // A user agentet a fejlécből vesszük, nem a kliens által küldött törzsből.
         comment.setEnvironment(req.viewportWidth(), req.viewportHeight(), truncate(request.getHeader("User-Agent"), 500));
         Comment saved = comments.save(comment);
         notifications.newComment(project, saved);
         return CommentDto.of(saved, List.of());
+    }
+
+    /** A lezárt körök (legfeljebb a legutóbbi {@value #MAX_HISTORY_ROUNDS}) kommentjei, csak olvasásra. */
+    @GetMapping("/history")
+    @Transactional(readOnly = true)
+    public List<HistoryRound> history(@PathVariable String token, HttpServletRequest request) {
+        Project project = authorize(token, request);
+        List<Round> closed = rounds.findByProjectIdOrderByNumberAsc(project.getId()).stream()
+            .filter(r -> r.getStatus() == Round.Status.CLOSED)
+            .toList();
+        List<Round> recent = closed.subList(Math.max(0, closed.size() - MAX_HISTORY_ROUNDS), closed.size());
+        List<HistoryRound> result = new ArrayList<>();
+        for (int i = recent.size() - 1; i >= 0; i--) { // legújabb elöl
+            Round r = recent.get(i);
+            List<Comment> list = comments.findByRoundIdOrderByCreatedAtAsc(r.getId());
+            Map<Long, List<ReplyDto>> replies = replyService.byComment(list.stream().map(Comment::getId).toList());
+            result.add(new HistoryRound(r.getNumber(), r.getClosedAt(), r.getApprovedAt() != null, r.getApprovedBy(),
+                list.stream().map(c -> CommentDto.of(c, replies.getOrDefault(c.getId(), List.of()))).toList()));
+        }
+        return result;
+    }
+
+    /** Az ügyfél elfogadja a "Kész" kommentet. */
+    @PostMapping("/comments/{commentId}/approve")
+    @Transactional
+    public CommentDto approve(@PathVariable String token, @PathVariable Long commentId, HttpServletRequest request) {
+        Project project = authorize(token, request);
+        Comment comment = openRoundComment(project, commentId);
+        if (comment.getStatus() != Comment.Status.DONE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Csak kész visszajelzést lehet elfogadni");
+        }
+        comment.approveByCustomer();
+        return CommentDto.of(comment, replyService.forComment(comment.getId()));
+    }
+
+    /** Az ügyfél visszanyitja a "Kész" kommentet (pl. mert a javítás nem jó): a szálba bejegyzés kerül. */
+    @PostMapping("/comments/{commentId}/reopen")
+    @Transactional
+    public CommentDto reopen(@PathVariable String token, @PathVariable Long commentId,
+                             @Valid @RequestBody ReopenRequest req, HttpServletRequest request) {
+        Project project = authorize(token, request);
+        Comment comment = openRoundComment(project, commentId);
+        if (comment.getStatus() != Comment.Status.DONE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Csak kész visszajelzést lehet visszanyitni");
+        }
+        replyService.requireRoom(comment.getId());
+        String name = req.authorName().trim();
+        String reason = blankToNull(req.reason());
+        comment.setStatus(Comment.Status.OPEN);
+        replyRepository.save(Reply.byCustomer(comment, name, reason == null ? "Visszanyitva." : "Visszanyitva: " + reason));
+        notifications.commentReopened(project, comment, name, reason);
+        return CommentDto.of(comment, replyService.forComment(comment.getId()));
+    }
+
+    /** Az ügyfél jóváhagyja a nyitott kört: csak akkor, ha van komment, és mind kész. */
+    @PostMapping("/round/approve")
+    @Transactional
+    public RoundInfo approveRound(@PathVariable String token, @Valid @RequestBody ApproveRoundRequest req,
+                                  HttpServletRequest request) {
+        Project project = authorize(token, request);
+        Round open = openRound(project)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Nincs nyitott kör"));
+        List<Comment> list = comments.findByRoundIdOrderByCreatedAtAsc(open.getId());
+        if (list.isEmpty() || list.stream().anyMatch(c -> c.getStatus() != Comment.Status.DONE)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Jóváhagyás előtt minden visszajelzésnek késznek kell lennie");
+        }
+        String name = req.authorName().trim();
+        open.approve(name);
+        notifications.roundApproved(project, open, name);
+        return RoundInfo.of(open);
+    }
+
+    /** A nyitott kör kommentje: 404, ha nincs ilyen a projektben, 409, ha lezárt körhöz tartozik. */
+    private Comment openRoundComment(Project project, Long commentId) {
+        Comment comment = comments.findByIdAndRoundProjectId(commentId, project.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Round open = openRound(project)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Nincs nyitott kör"));
+        if (!comment.getRound().getId().equals(open.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ez a komment egy lezárt körhöz tartozik");
+        }
+        return comment;
     }
 
     /** Válasz egy kommentre az ügyfél nevében. Csak a nyitott kör kommentjeire lehet válaszolni. */

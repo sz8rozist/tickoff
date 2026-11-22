@@ -22,6 +22,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     Optional<Comment> findByIdAndRoundProjectId(Long id, Long projectId);
 
+    Optional<Comment> findByNotifyToken(String notifyToken);
+
     /** A projekt összes kommentje a körrel együtt (exporthoz), kör és időrend szerint. */
     @Query("""
         select c from Comment c join fetch c.round r

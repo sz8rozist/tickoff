@@ -9,6 +9,7 @@ import io.tickoff.domain.Round;
 import io.tickoff.domain.RoundRepository;
 import io.tickoff.domain.User;
 import io.tickoff.domain.UserRepository;
+import io.tickoff.mail.NotificationService;
 import io.tickoff.project.ReplyService.ReplyDto;
 import io.tickoff.widget.ScreenshotStorage;
 import jakarta.validation.Valid;
@@ -65,11 +66,12 @@ public class CommentController {
     public record CommentDto(Long id, String authorName, String body, String pageUrl, String cssSelector,
                              Double posX, Double posY, Integer viewportWidth, Integer viewportHeight,
                              String userAgent, Comment.Status status, boolean hasScreenshot, Instant createdAt,
-                             List<ReplyDto> replies) {
+                             Instant customerApprovedAt, boolean notifiesCustomer, List<ReplyDto> replies) {
         static CommentDto of(Comment c, List<ReplyDto> replies) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
                 c.getPosX(), c.getPosY(), c.getViewportWidth(), c.getViewportHeight(), c.getUserAgent(),
-                c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), replies);
+                c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), c.getCustomerApprovedAt(),
+                c.getNotifyToken() != null, replies);
         }
     }
 
@@ -80,11 +82,13 @@ public class CommentController {
     private final ReplyService replyService;
     private final UserRepository users;
     private final ScreenshotStorage storage;
+    private final NotificationService notifications;
     private final ZoneId exportZone;
 
     public CommentController(ProjectAccess access, RoundRepository rounds, CommentRepository comments,
                              ReplyRepository replyRepository, ReplyService replyService, UserRepository users,
-                             ScreenshotStorage storage, @Value("${tickoff.export-zone:Europe/Budapest}") String zone) {
+                             ScreenshotStorage storage, NotificationService notifications,
+                             @Value("${tickoff.export-zone:Europe/Budapest}") String zone) {
         this.access = access;
         this.rounds = rounds;
         this.comments = comments;
@@ -92,6 +96,7 @@ public class CommentController {
         this.replyService = replyService;
         this.users = users;
         this.storage = storage;
+        this.notifications = notifications;
         this.exportZone = ZoneId.of(zone);
     }
 
@@ -110,8 +115,14 @@ public class CommentController {
     @Transactional
     public CommentDto updateStatus(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
                                    @PathVariable Long commentId, @Valid @RequestBody StatusRequest req) {
-        Comment comment = comment(jwt, projectId, commentId);
+        Project project = owned(jwt, projectId);
+        Comment comment = comments.findByIdAndRoundProjectId(commentId, project.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        boolean becameDone = req.status() == Comment.Status.DONE && comment.getStatus() != Comment.Status.DONE;
         comment.setStatus(req.status());
+        if (becameDone) {
+            notifications.commentDone(project, comment);
+        }
         return CommentDto.of(comment, replyService.forComment(comment.getId()));
     }
 
@@ -121,11 +132,15 @@ public class CommentController {
     @Transactional
     public ReplyDto reply(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
                           @PathVariable Long commentId, @Valid @RequestBody ReplyRequest req) {
-        Comment comment = comment(jwt, projectId, commentId);
+        Project project = owned(jwt, projectId);
+        Comment comment = comments.findByIdAndRoundProjectId(commentId, project.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         replyService.requireRoom(comment.getId());
         User author = users.findById(Long.valueOf(jwt.getSubject()))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-        return ReplyDto.of(replyRepository.save(Reply.byDesigner(comment, author, req.body().trim())));
+        Reply saved = replyRepository.save(Reply.byDesigner(comment, author, req.body().trim()));
+        notifications.designerReply(project, comment, saved);
+        return ReplyDto.of(saved);
     }
 
     @DeleteMapping("/comments/{commentId}/replies/{replyId}")

@@ -83,6 +83,9 @@ export interface Round {
   closedAt: string | null;
   commentCount: number;
   openCommentCount: number;
+  /** Az ügyfél jóváhagyta a kört (minden komment kész volt). */
+  approvedAt: string | null;
+  approvedBy: string | null;
 }
 
 export type CommentStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
@@ -110,6 +113,10 @@ export interface Comment {
   status: CommentStatus;
   hasScreenshot: boolean;
   createdAt: string;
+  /** Az ügyfél elfogadta a kész kommentet. */
+  customerApprovedAt: string | null;
+  /** Az ügyfél e-mail-értesítést kért a válaszokról (a címet nem mutatjuk). */
+  notifiesCustomer: boolean;
   replies: Reply[];
 }
 

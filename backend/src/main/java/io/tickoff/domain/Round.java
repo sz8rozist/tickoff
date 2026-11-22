@@ -30,6 +30,13 @@ public class Round {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    /** Az ügyfél jóváhagyta a kört (minden komment kész volt). Új vagy újranyitott komment érvényteleníti. */
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
+    @Column(name = "approved_by", length = 120)
+    private String approvedBy;
+
     protected Round() {
     }
 
@@ -42,6 +49,19 @@ public class Round {
         this.status = Status.CLOSED;
         this.closedAt = Instant.now();
     }
+
+    public void approve(String by) {
+        this.approvedAt = Instant.now();
+        this.approvedBy = by;
+    }
+
+    public void clearApproval() {
+        this.approvedAt = null;
+        this.approvedBy = null;
+    }
+
+    public Instant getApprovedAt() { return approvedAt; }
+    public String getApprovedBy() { return approvedBy; }
 
     public Long getId() { return id; }
     public Project getProject() { return project; }

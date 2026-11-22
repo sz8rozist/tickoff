@@ -22,7 +22,7 @@
 
 ### Ügyfél (widget)
 
-- **Beágyazás** egyetlen `<script>` címkével, regisztráció és telepítés nélkül; a widget Shadow DOM-ban fut, nem zavarja az oldal stílusait (19,3 KB gzip).
+- **Beágyazás** egyetlen `<script>` címkével, regisztráció és telepítés nélkül; a widget Shadow DOM-ban fut, nem zavarja az oldal stílusait (~23,6 KB gzip).
 - **Elemkiválasztás**: a gomb elindítja a kiválasztást, az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). A widget a kattintást elnyeli, az oldal saját kezelője nem fut le.
 - **Visszajelzés-űrlap**: név (megjegyzi a böngésző) és szöveg, opcionális képernyőkép.
 - **Képernyőkép** a látható nézetről, a kiválasztott elem piros-fehér kerettel kiemelve. Ha nem sikerül elkészíteni, a komment akkor is elmegy, és az ügyfél jelzést kap.
@@ -30,6 +30,11 @@
 - **Single-page alkalmazások**: a widget észleli az útvonalváltást (`pushState`/`replaceState`, böngésző vissza/előre, hash-útvonal), és az új "oldal" kommentjeit tölti be. A félbehagyott kommentelést megszakítja, a komment mindig azzal az oldallal kerül mentésre, amelyiken az ügyfél éppen van.
 - **Megnyitás az oldalon** (a dashboardról): a komment mellett a gomb az ügyfél oldalát nyitja meg, ahol a widget a komment elemére görget, pulzáló kerettel kiemeli, és megnyitja a szálát.
 - **Válasz a kommentre**: a kártyából az ügyfél is válaszolhat (név + szöveg), a csapat válaszai "csapat" jelvénnyel látszanak. Csak a nyitott kör kommentjeire lehet válaszolni.
+- **Összes visszajelzés (Lista)**: a gomb mellett látszó "Lista" panel oldalak szerint csoportosítva mutatja a nyitott kör összes kommentjét állapottal; egy elemre kattintva a widget odaugrik (másik oldalra mélylinkkel tölt át).
+- **Korábbi körök**: a panel második füle a lezárt köröket mutatja (a legutóbbi 10-et), csak olvasásra: kommentek, állapotuk és az utolsó válasz.
+- **Elfogadás és visszanyitás**: a "Kész" kommentnél az ügyfél elfogadhatja a javítást, vagy visszanyithatja rövid indoklással (az indoklás a szálba kerül, és a csapat értesítést kap).
+- **Kör jóváhagyása**: ha a nyitott kör minden kommentje kész, az ügyfél jóváhagyhatja a kört (a csapat levelet kap, a dashboardon "az ügyfél jóváhagyta" jelvény látszik). Új vagy újranyitott komment érvényteleníti a jóváhagyást.
+- **E-mail értesítés az ügyfélnek**: az űrlapon megadható (nem kötelező) e-mail-cím. Ha a csapat válaszol, vagy késznek jelöli a kommentet, az ügyfél levelet kap a kommentre mutató linkkel és leiratkozó linkkel. A címet a widget API sosem adja vissza.
 - Ha nincs nyitott kör, az ügyfél tájékoztató üzenetet kap. Rossz token vagy origin esetén a widget a vendégoldalon nem jelenik meg.
 - Mobilbarát űrlap, a widget minden hibaesetre magyar üzenetet ad (pl. túl sok kérés).
 
@@ -199,9 +204,13 @@ A widgetet tehát azon az origin-en kell beágyazni, amit a projektnél megadtá
 | `GET /api/widget/{token}/comments?pageUrl=` | a nyitott kör kommentjei, opcionálisan egy oldalra szűrve |
 | `POST /api/widget/{token}/comments` | komment mentése a nyitott körbe → `201`; `409`, ha nincs nyitott kör; `400`, ha a `pageUrl` nem a projekt oldaláról való |
 | `POST /api/widget/{token}/comments/{id}/replies` | `{authorName, body}` → `201`: az ügyfél válasza. `409`, ha nincs nyitott kör, ha a komment lezárt körhöz tartozik, vagy ha a szál betelt (200 válasz). A `GET .../comments` válasza a `replies` szálat is tartalmazza |
+| `GET /api/widget/{token}/history` | a lezárt körök (a legutóbbi 10, legújabb elöl) kommentjei szálastul, csak olvasásra |
+| `POST /api/widget/{token}/comments/{id}/approve` | az ügyfél elfogadja a "Kész" kommentet → `200`; `409`, ha nem kész vagy lezárt körhöz tartozik |
+| `POST /api/widget/{token}/comments/{id}/reopen` | `{authorName, reason?}`: a "Kész" komment visszanyitása, a szálba "Visszanyitva: …" bejegyzés kerül, a csapat értesítést kap → `200`; `409` ugyanúgy |
+| `POST /api/widget/{token}/round/approve` | `{authorName}`: a nyitott kör jóváhagyása → `200`; `409`, ha nincs komment vagy van nem kész |
 | `POST /api/widget/{token}/comments/{id}/screenshot` | képernyőkép: nyers `image/png` vagy `image/jpeg` a törzsben, max. 3 MB → `204`; `413` túl nagy, `415` rossz típus, `400` ha a tartalom nem kép (a fájl első bájtjait ellenőrizzük), `409` ha már van képe |
 
-Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, viewportWidth?, viewportHeight?}`. A user agentet a szerver a fejlécből veszi.
+Komment törzse: `{authorName, body, pageUrl, cssSelector?, posX?, posY?, viewportWidth?, viewportHeight?, customerEmail?}`. A user agentet a szerver a fejlécből veszi.
 
 A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `screenshots` kötet), az adatbázisban csak a relatív útvonal.
 
@@ -219,6 +228,8 @@ A backend két célra küld levelet: **jelszó-visszaállítás** és **értesí
 - Sikeres visszaállítás után a fiók **minden korábbi bejelentkezése érvénytelen** (a `PasswordChangedValidator` minden kérésnél ellenőrzi, hogy a token a jelszócsere előtt készült-e). Ez a törölt felhasználók tokenjeire is igaz.
 
 **Értesítések:** a levél a komment mentésének sikeres lezárása után megy el, külön szálon (a widget kérése nem vár az SMTP-szerverre, és annak hibája nem bukatja el), a sor korlátos. Címzettenként legfeljebb 10 levél egyszerre, utána percenként 1, így egy támadó sem tudja a csapat postafiókját és az SMTP-hírnevet elárasztani. A tárgy sortörés-mentesített (a projektnév nem injektálhat levélfejlécet).
+
+**Értesítések az ügyfélnek:** ha az ügyfél megadta az e-mail-címét a komment beküldésekor, a csapat válaszáról és a "Kész" állapotról levelet kap. A levélben a kommentre mutató mélylink és egy leiratkozó link van (`/api/notifications/unsubscribe/{token}`, 128 bites titok, IP-nként korlátozva); a leiratkozás törli a címet. A cím a kommenthez tartozik, nem fiókhoz, és csak a levélküldéshez használjuk. Címenként ugyanaz a korlát él, mint a csapat tagjainál (10 egyszerre, utána percenként 1). Az ügyfél címét nem erősítjük meg, ezért valaki más címét is megadhatja: a levél ilyenkor egy kommentre vonatkozó értesítés, leiratkozó linkkel, és a korlát miatt nem használható elárasztásra.
 
 ## Kérésszám-korlát
 

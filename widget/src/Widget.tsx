@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ApiError, createApi, type ProjectInfo, type WidgetComment } from './api';
+import { ApiError, createApi, type ProjectInfo, type RoundInfo, type WidgetComment } from './api';
 import type { Config } from './config';
 import { Composer, type ComposerValues } from './Composer';
 import { onNavigate } from './navigation';
@@ -34,6 +34,25 @@ function savedAuthor(): string {
 function saveAuthor(name: string) {
   try {
     localStorage.setItem(AUTHOR_KEY, name);
+  } catch {
+    /* privát mód: nem mentjük */
+  }
+}
+
+const EMAIL_KEY = 'tickoff.email';
+
+function savedEmail(): string {
+  try {
+    return localStorage.getItem(EMAIL_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveEmail(email: string) {
+  try {
+    if (email) localStorage.setItem(EMAIL_KEY, email);
+    else localStorage.removeItem(EMAIL_KEY);
   } catch {
     /* privát mód: nem mentjük */
   }
@@ -258,6 +277,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
     setError(null);
     try {
       saveAuthor(values.authorName);
+      saveEmail(values.email);
       const created = await api.createComment({
         authorName: values.authorName,
         body: values.body,
@@ -267,6 +287,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         posY: target.posY,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
+        customerEmail: values.email || undefined,
       });
 
       let shotOk = true;
@@ -283,6 +304,8 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         }
       }
 
+      // Új komment érvénytelenítheti a kör jóváhagyását: a kör állapotát frissítjük
+      api.project().then(setProject).catch(() => undefined);
       setToast(shotOk ? 'Köszönjük, a visszajelzés elküldve.' : 'A visszajelzés elküldve, de a képernyőképet nem sikerült csatolni.');
       setAll(await api.comments().catch(() => all));
       cancel();
@@ -306,6 +329,49 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
     }
   }
 
+  /** Az ügyfél elfogadja a kész kommentet. */
+  async function approveComment(commentId: number): Promise<string | null> {
+    try {
+      const updated = await api.approveComment(commentId);
+      setAll((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
+      return null;
+    } catch (e) {
+      return e instanceof ApiError && e.status === 409
+        ? 'Ez a visszajelzés közben megváltozott, frissítsd az oldalt.'
+        : sendError(e);
+    }
+  }
+
+  /** Az ügyfél visszanyitja a kész kommentet; a kör jóváhagyása ilyenkor megszűnik. */
+  async function reopenComment(commentId: number, authorName: string, reason: string): Promise<string | null> {
+    try {
+      saveAuthor(authorName);
+      const updated = await api.reopenComment(commentId, authorName, reason);
+      setAll((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
+      api.project().then(setProject).catch(() => undefined);
+      return null;
+    } catch (e) {
+      return e instanceof ApiError && e.status === 409
+        ? 'Ez a visszajelzés közben megváltozott, frissítsd az oldalt.'
+        : sendError(e);
+    }
+  }
+
+  /** Az ügyfél jóváhagyja a kört. */
+  async function approveRound(authorName: string): Promise<string | null> {
+    try {
+      saveAuthor(authorName);
+      const round: RoundInfo = await api.approveRound(authorName);
+      setProject((p) => (p ? { ...p, openRound: round } : p));
+      setToast('Köszönjük, a kört jóváhagytad.');
+      return null;
+    } catch (e) {
+      return e instanceof ApiError && e.status === 409
+        ? 'Jóváhagyás előtt minden visszajelzésnek késznek kell lennie.'
+        : sendError(e);
+    }
+  }
+
   if (fatal) return null;
 
   const hoverRect = mode === 'pick' && hover ? hover.getBoundingClientRect() : null;
@@ -323,6 +389,8 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
           inert={mode === 'pick'}
           defaultName={savedAuthor()}
           onReply={reply}
+          onApprove={approveComment}
+          onReopen={reopenComment}
           openRequest={openRequest}
         />
       )}
@@ -337,6 +405,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         <Composer
           selector={target.selector}
           defaultName={savedAuthor()}
+          defaultEmail={savedEmail()}
           busy={busy}
           error={error}
           onSubmit={submit}
@@ -356,7 +425,16 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       )}
 
       {listOpen && mode === 'idle' && (
-        <Overview comments={all} currentPage={page} onGo={goTo} onClose={() => setListOpen(false)} />
+        <Overview
+          comments={all}
+          currentPage={page}
+          round={project?.openRound ?? null}
+          defaultName={savedAuthor()}
+          onGo={goTo}
+          onClose={() => setListOpen(false)}
+          onApproveRound={approveRound}
+          loadHistory={api.history}
+        />
       )}
 
       {toast && (
@@ -367,7 +445,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
 
       {project && (
         <div class="dock">
-          {mode === 'idle' && all.length > 0 && (
+          {mode === 'idle' && (all.length > 0 || project?.openRound) && (
             <button class="fab ghost" onClick={toggleList} aria-expanded={listOpen}>
               Lista
               <span class="count">{all.length}</span>

@@ -1,7 +1,9 @@
 package io.tickoff.domain;
 
 import jakarta.persistence.*;
+import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.HexFormat;
 
 @Entity
 @Table(name = "comments")
@@ -54,6 +56,17 @@ public class Comment {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Az ügyfél e-mail-címe az értesítésekhez (opcionális, a widgetnek nem adjuk vissza). */
+    @Column(name = "customer_email", length = 254)
+    private String customerEmail;
+
+    /** A levélben szereplő leiratkozó link titka. */
+    @Column(name = "notify_token", length = 32)
+    private String notifyToken;
+
+    @Column(name = "customer_approved_at")
+    private Instant customerApprovedAt;
+
     protected Comment() {
     }
 
@@ -77,7 +90,48 @@ public class Comment {
     }
 
     public void setScreenshotPath(String screenshotPath) { this.screenshotPath = screenshotPath; }
-    public void setStatus(Status status) { this.status = status; }
+
+    /**
+     * Státuszváltás. Az ügyfél elfogadása csak az adott "Kész" állapotra szól, ezért változáskor törlődik; ha a komment
+     * már nem kész, a kör jóváhagyása sem érvényes.
+     */
+    public void setStatus(Status status) {
+        if (status != this.status) {
+            this.customerApprovedAt = null;
+            if (status != Status.DONE) {
+                round.clearApproval();
+            }
+        }
+        this.status = status;
+    }
+
+    /** Az ügyfél elfogadja a kész kommentet. */
+    public void approveByCustomer() {
+        this.customerApprovedAt = Instant.now();
+    }
+
+    /** Értesítési cím beállítása; a leiratkozó token ilyenkor jön létre. Üres cím = nincs értesítés. */
+    public void setCustomerEmail(String email) {
+        if (email == null || email.isBlank()) {
+            this.customerEmail = null;
+            this.notifyToken = null;
+            return;
+        }
+        this.customerEmail = email.trim();
+        byte[] bytes = new byte[16];
+        new SecureRandom().nextBytes(bytes);
+        this.notifyToken = HexFormat.of().formatHex(bytes);
+    }
+
+    /** Leiratkozás: a cím és a token is törlődik. */
+    public void unsubscribe() {
+        this.customerEmail = null;
+        this.notifyToken = null;
+    }
+
+    public String getCustomerEmail() { return customerEmail; }
+    public String getNotifyToken() { return notifyToken; }
+    public Instant getCustomerApprovedAt() { return customerApprovedAt; }
 
     public Long getId() { return id; }
     public Round getRound() { return round; }
