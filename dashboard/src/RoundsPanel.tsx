@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Group, Loader, Progress, Stack, Text } from '@mantine/core';
+import { Alert, Badge, Button, Checkbox, Group, Loader, Modal, Progress, Stack, Text } from '@mantine/core';
 import { api, ApiError, type Member, type Round } from './api';
 import { CommentsPanel } from './CommentsPanel';
 import { saveBlob } from './download';
@@ -20,6 +20,8 @@ export function RoundsPanel({ projectId, currentUserId }: { projectId: number; c
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [newRoundOpen, setNewRoundOpen] = useState(false);
+  const [carryOver, setCarryOver] = useState(true);
 
   const reload = () => api.rounds.list(projectId).then(setRounds);
 
@@ -83,6 +85,9 @@ export function RoundsPanel({ projectId, currentUserId }: { projectId: number; c
   }
 
   const open = rounds.find((r) => r.status === 'OPEN');
+  // Az utolsó (lezárt) kör még nem kész kommentjei: ezeket lehet átvinni az új körbe
+  const last = rounds[rounds.length - 1];
+  const unresolved = last && last.status === 'CLOSED' ? last.openCommentCount : 0;
 
   return (
     <Stack gap="sm">
@@ -149,7 +154,11 @@ export function RoundsPanel({ projectId, currentUserId }: { projectId: number; c
       ))}
       {!open && (
         <div>
-          <Button size="xs" disabled={busy} onClick={() => run(() => api.rounds.open(projectId))}>
+          <Button
+            size="xs"
+            disabled={busy}
+            onClick={() => (unresolved > 0 ? setNewRoundOpen(true) : run(() => api.rounds.open(projectId)))}
+          >
             Új kör nyitása
           </Button>
         </div>
@@ -159,6 +168,34 @@ export function RoundsPanel({ projectId, currentUserId }: { projectId: number; c
           {error}
         </Alert>
       )}
+
+      <Modal opened={newRoundOpen} onClose={() => setNewRoundOpen(false)} title="Új kör nyitása" centered>
+        <Stack>
+          <Text size="sm">
+            Az előző körben {unresolved} komment még nincs kész. A widget csak a nyitott kör kommentjeit mutatja, ezért ha
+            nem viszed át őket, az ügyfélnek újra be kell küldenie, ami még aktuális.
+          </Text>
+          <Checkbox
+            checked={carryOver}
+            onChange={(e) => setCarryOver(e.currentTarget.checked)}
+            label={`A nem kész kommentek átvitele az új körbe (${unresolved} db)`}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setNewRoundOpen(false)}>
+              Mégse
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setNewRoundOpen(false);
+                void run(() => api.rounds.open(projectId, carryOver));
+              }}
+            >
+              Kör nyitása
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

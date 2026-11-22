@@ -223,8 +223,9 @@ export const api = {
   },
   rounds: {
     list: (projectId: number) => request<Round[]>(`/api/projects/${projectId}/rounds`),
-    open: (projectId: number) =>
-      request<Round>(`/api/projects/${projectId}/rounds`, { method: 'POST' }),
+    /** Új kör; `carryOver`: az előző kör nem kész kommentjei átkerülnek az újba. */
+    open: (projectId: number, carryOver = false) =>
+      request<Round>(`/api/projects/${projectId}/rounds?carryOver=${carryOver}`, { method: 'POST' }),
     close: (projectId: number, roundId: number) =>
       request<Round>(`/api/projects/${projectId}/rounds/${roundId}/close`, { method: 'POST' }),
   },

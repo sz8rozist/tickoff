@@ -11,7 +11,7 @@
 - **Fiók**: regisztráció és belépés e-mail + jelszóval (JWT, bcrypt), a munkamenet oldalfrissítés után is megmarad. A nyilvános regisztráció éles üzemben kikapcsolható. A fiók a jelszó megadásával véglegesen törölhető (a saját projektekkel együtt). **Elfelejtett jelszó**: e-mailben kapott, egy óráig érvényes, egyszer használható linkkel új jelszó adható meg, és ilyenkor a fiók minden korábbi bejelentkezése megszűnik.
 - **E-mail értesítés**: a csapat (tulajdonos és tagok) levelet kap az ügyfelektől érkező új kommentről és válaszról. Felhasználónként ki- és bekapcsolható a fejlécben lévő kapcsolóval.
 - **Projektek**: létrehozás, szerkesztés, törlés (a körök, kommentek és képernyőképek is törlődnek). Minden projekthez tartozik egy megosztó token a widgethez, egy kattintással másolható, és szükség esetén **újragenerálható** (ha illetéktelenhez került; a régi token azonnal érvénytelen).
-- **Javítási körök**: új kör nyitása és lezárása. Egyszerre egy nyitott kör van, új kört csak az előző lezárása után lehet nyitni. A köröknél látszik az összes és a nyitott kommentek száma.
+- **Javítási körök**: új kör nyitása és lezárása. Új körnél a **nem kész kommentek átvihetők** az új körbe (alapból be van jelölve), így az ügyfélnek nem kell újra beküldenie a még meg nem oldottakat; az átvitt komment az új kör kommentje lesz (a lezárt kör előzményéből kikerül), a kész kommentek a régi körben maradnak. Egyszerre egy nyitott kör van, új kört csak az előző lezárása után lehet nyitni. A köröknél látszik az összes és a nyitott kommentek száma.
 - **Kommentek**: körönként listázva, **oldalanként csoportosítva**. Mindegyiknél látszik a szerző, az idő, a szöveg, az elem CSS-selectora, a viewport mérete és a böngésző/rendszer. Státusz: nyitott, folyamatban, kész.
 - **Szűrés és keresés**: a kommentek szűrhetők státuszra és felelősre ("Hozzám rendelt", "Gazdátlan"), és kereshetők szövegben (szerző, komment, válaszok, oldal, felelős neve; ékezet- és kisbetű-független). Szűrés közben látszik az "X / Y komment" számláló.
 - **Felelős**: minden komment egy csapattagra (tulajdonos vagy tag) bízható. Aki másra bíz egy kommentet, annak az illető e-mail értesítést kap (ha nem kapcsolta ki). Ha valaki kilép vagy eltávolítják, a rá bízott kommentek felelős nélkül maradnak. A CSV-exportban külön oszlop.
@@ -175,7 +175,7 @@ Egy projektnek egyszerre legfeljebb egy nyitott köre van. Új kört csak az el�
 | Végpont | Leírás |
 |---|---|
 | `GET /api/projects/{id}/rounds` | a projekt körei sorszám szerint |
-| `POST /api/projects/{id}/rounds` | új kör nyitása → `201`; `409`, ha van nyitott kör |
+| `POST /api/projects/{id}/rounds?carryOver=` | új kör nyitása → `201`; `409`, ha van nyitott kör. `carryOver=true`: az előző kör nem kész (nyitott, folyamatban lévő) kommentjei átkerülnek az új körbe |
 | `POST /api/projects/{id}/rounds/{roundId}/close` | kör lezárása → `200`; `409`, ha már le van zárva |
 
 ## Kommentek (designer oldal)

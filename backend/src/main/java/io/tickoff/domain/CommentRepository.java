@@ -27,6 +27,15 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @EntityGraph(attributePaths = "assignee")
     Optional<Comment> findByIdAndRoundProjectId(Long id, Long projectId);
 
+    /**
+     * Az új körbe viszi az előző kör nem kész (nyitott és folyamatban lévő) kommentjeit, hogy az ügyfélnek ne kelljen
+     * újra beküldenie őket. A "kész" kommentek az előző körben maradnak.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Comment c set c.round.id = :toRoundId where c.round.id = :fromRoundId "
+        + "and c.status <> io.tickoff.domain.Comment.Status.DONE")
+    int moveUnresolved(@Param("fromRoundId") Long fromRoundId, @Param("toRoundId") Long toRoundId);
+
     /** Ha valaki kilép a projektből vagy eltávolítják, a rá bízott kommentek felelős nélkül maradnak. */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

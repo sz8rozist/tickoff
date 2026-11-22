@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -57,11 +58,16 @@ public class RoundController {
             .toList();
     }
 
-    /** Új kört csak akkor lehet nyitni, ha az előző le van zárva: egyszerre egy nyitott kör van. */
+    /**
+     * Új kört csak akkor lehet nyitni, ha az előző le van zárva: egyszerre egy nyitott kör van. A {@code carryOver}
+     * megadásával az előző kör nem kész kommentjei átkerülnek az új körbe (a widget csak a nyitott kör kommentjeit
+     * mutatja, így az ügyfélnek nem kell újra beküldenie a még meg nem oldottakat).
+     */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
-    public RoundDto open(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId) {
+    public RoundDto open(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
+                         @RequestParam(defaultValue = "false") boolean carryOver) {
         Project project = owned(jwt, projectId);
         Round latest = rounds.findTopByProjectIdOrderByNumberDesc(project.getId()).orElse(null);
         if (latest != null && latest.getStatus() == Round.Status.OPEN) {
@@ -69,7 +75,11 @@ public class RoundController {
         }
         int number = latest == null ? 1 : latest.getNumber() + 1;
         try {
-            return RoundDto.of(rounds.saveAndFlush(new Round(project, number)), null);
+            Round created = rounds.saveAndFlush(new Round(project, number));
+            if (carryOver && latest != null) {
+                comments.moveUnresolved(latest.getId(), created.getId());
+            }
+            return RoundDto.of(created, counts(project).get(created.getId()));
         } catch (DataIntegrityViolationException e) {
             // Párhuzamos kérés ugyanazzal a sorszámmal: az egyedi index (project_id, number) elkapja.
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A kör időközben létrejött");
