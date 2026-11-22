@@ -32,6 +32,7 @@ class AssigneeNotificationTest {
         mail = mock(MailService.class);
         when(mail.isEnabled()).thenReturn(true);
         service = new NotificationService(mock(UserRepository.class), mock(ProjectMemberRepository.class), mail,
+            mock(io.tickoff.webhook.WebhookService.class),
             "https://app.example.com");
         project = new Project(mock(User.class), "Kávézó", "https://cafe.example.com");
         comment = new Comment(new Round(project, 1), "Anna", "A gomb kicsi", "https://cafe.example.com/");

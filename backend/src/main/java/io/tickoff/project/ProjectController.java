@@ -6,6 +6,9 @@ import io.tickoff.domain.Round;
 import io.tickoff.domain.RoundRepository;
 import io.tickoff.domain.User;
 import io.tickoff.domain.UserRepository;
+import io.tickoff.webhook.WebhookSender;
+import io.tickoff.webhook.WebhookService;
+import io.tickoff.webhook.WebhookUrls;
 import io.tickoff.widget.ScreenshotStorage;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
@@ -37,11 +41,17 @@ public class ProjectController {
         @NotBlank @Size(max = 500) @Pattern(regexp = "^https?://\\S+$", message = "http(s) URL kell") String siteUrl) {
     }
 
+    /** {@code url == null} vagy üres: a webhook kikapcsolása. */
+    public record WebhookRequest(@Size(max = 500) String url) {
+    }
+
+    /** A webhook adatai (cím, titok) csak a tulajdonosnak látszanak: a cím gyakran titkot tartalmaz. */
     public record ProjectDto(Long id, String name, String siteUrl, String shareToken, Instant createdAt,
-                             ProjectAccess.Role role, String ownerName) {
+                             ProjectAccess.Role role, String ownerName, String webhookUrl, String webhookSecret) {
         static ProjectDto of(Project p, ProjectAccess.Role role, String ownerName) {
+            boolean owner = role == ProjectAccess.Role.OWNER;
             return new ProjectDto(p.getId(), p.getName(), p.getSiteUrl(), p.getShareToken(), p.getCreatedAt(),
-                role, ownerName);
+                role, ownerName, owner ? p.getWebhookUrl() : null, owner ? p.getWebhookSecret() : null);
         }
     }
 
@@ -50,14 +60,19 @@ public class ProjectController {
     private final UserRepository users;
     private final ProjectAccess access;
     private final ScreenshotStorage storage;
+    private final WebhookService webhooks;
+    private final WebhookSender webhookSender;
 
     public ProjectController(ProjectRepository projects, RoundRepository rounds, UserRepository users,
-                             ProjectAccess access, ScreenshotStorage storage) {
+                             ProjectAccess access, ScreenshotStorage storage, WebhookService webhooks,
+                             WebhookSender webhookSender) {
         this.projects = projects;
         this.rounds = rounds;
         this.users = users;
         this.access = access;
         this.storage = storage;
+        this.webhooks = webhooks;
+        this.webhookSender = webhookSender;
     }
 
     /** A felhasználó saját és a hozzá meghívott projektjei, újabb elöl. */
@@ -105,6 +120,37 @@ public class ProjectController {
         Project project = access.owner(id, userId(jwt));
         project.regenerateShareToken();
         return dto(project, userId(jwt));
+    }
+
+    /**
+     * A webhook beállítása vagy kikapcsolása (csak a tulajdonos). A cím csak nyilvános https-cím lehet (SSRF ellen,
+     * lásd {@link WebhookUrls}); érvénytelen címre 400.
+     */
+    @PutMapping("/{id}/webhook")
+    @Transactional
+    public ProjectDto setWebhook(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                 @Valid @RequestBody WebhookRequest req) {
+        Project project = access.owner(id, userId(jwt));
+        String url = req.url() == null || req.url().isBlank() ? null : req.url().trim();
+        if (url != null) {
+            try {
+                WebhookUrls.validate(url, webhookSender.allowPrivate());
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            }
+        }
+        project.setWebhook(url);
+        return dto(project, userId(jwt));
+    }
+
+    /** Teszt-üzenet a beállított webhookra (csak a tulajdonos); az eredményt azonnal visszaadja. */
+    @PostMapping("/{id}/webhook/test")
+    public WebhookSender.Result testWebhook(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        Project project = access.owner(id, userId(jwt));
+        if (project.getWebhookUrl() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Nincs beállított webhook");
+        }
+        return webhooks.sendTest(project);
     }
 
     /** A projekt törlése (csak a tulajdonos): a tagok számára is megszűnik. */

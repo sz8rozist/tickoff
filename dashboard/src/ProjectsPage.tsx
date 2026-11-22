@@ -24,6 +24,7 @@ import { api, ApiError, type Project } from './api';
 import { saveBlob } from './download';
 import { MembersPanel } from './MembersPanel';
 import { RoundsPanel } from './RoundsPanel';
+import { WebhookModal } from './WebhookModal';
 
 function describe(e: unknown): string {
   if (e instanceof ApiError) {
@@ -127,6 +128,9 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [regenerateBusy, setRegenerateBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // A webhook-ablak a bezáródó animáció alatt is a projektet mutatja
+  const [webhookFor, setWebhookFor] = useState<Project | null>(null);
+  const [webhookOpen, setWebhookOpen] = useState(false);
 
   useEffect(() => {
     api.projects.list().then(setProjects).catch(() => setLoadError(true));
@@ -261,6 +265,14 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                       >
                         Új token generálása
                       </Menu.Item>
+                      <Menu.Item
+                        onClick={() => {
+                          setWebhookFor(p);
+                          setWebhookOpen(true);
+                        }}
+                      >
+                        Webhook (Slack, Discord){p.webhookUrl ? ' ✓' : ''}
+                      </Menu.Item>
                       <Menu.Divider />
                       <Menu.Item
                         color="red"
@@ -330,6 +342,13 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
           )}
         </Card>
       ))}
+
+      <WebhookModal
+        project={projects?.find((x) => x.id === webhookFor?.id) ?? webhookFor}
+        opened={webhookOpen}
+        onClose={() => setWebhookOpen(false)}
+        onChanged={(updated) => setProjects((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null)}
+      />
 
       <Modal opened={regenerateOpen} onClose={() => setRegenerateOpen(false)} title="Új megosztó token" centered>
         <Stack>

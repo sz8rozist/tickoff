@@ -45,6 +45,9 @@ tickoff:
   registration:
     # Nyilvános regisztráció. Élesben a saját fiók létrehozása után érdemes kikapcsolni (TICKOFF_REGISTRATION_ENABLED=false).
     enabled: ${TICKOFF_REGISTRATION_ENABLED:true}
+  webhook:
+    # Engedélyezi a privát/loopback webhook-címeket és a sima http-t. CSAK fejlesztéshez: élesben SSRF-kockázat.
+    allow-private: ${TICKOFF_WEBHOOK_ALLOW_PRIVATE:false}
   rate-limit:
     # Kérésszám-korlát a widget és az auth végpontokon (lásd io.tickoff.ratelimit.RateLimits)
     enabled: ${TICKOFF_RATE_LIMIT_ENABLED:true}

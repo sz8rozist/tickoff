@@ -66,6 +66,15 @@ export interface Project {
   /** A bejelentkezett felhasználó szerepe a projektben: a tulajdonos mindent, a tag csak a visszajelzéseket kezelheti */
   role: ProjectRole;
   ownerName: string;
+  /** Csak a tulajdonosnak jön vissza (a cím gyakran titkot tartalmaz). */
+  webhookUrl: string | null;
+  webhookSecret: string | null;
+}
+
+export interface WebhookTestResult {
+  ok: boolean;
+  status: number;
+  error: string | null;
 }
 
 export interface Member {
@@ -166,6 +175,11 @@ export const api = {
     update: (id: number, input: ProjectInput) =>
       request<Project>(`/api/projects/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
     remove: (id: number) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+    /** Webhook beállítása; `null` kikapcsolja. Érvénytelen (pl. belső hálózati) címre 400. */
+    setWebhook: (id: number, url: string | null) =>
+      request<Project>(`/api/projects/${id}/webhook`, { method: 'PUT', body: JSON.stringify({ url }) }),
+    /** Teszt-üzenet a beállított webhookra; az eredményt azonnal visszaadja. */
+    testWebhook: (id: number) => request<WebhookTestResult>(`/api/projects/${id}/webhook/test`, { method: 'POST' }),
     /** Új megosztó token: a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak. */
     regenerateToken: (id: number) => request<Project>(`/api/projects/${id}/share-token`, { method: 'POST' }),
   },

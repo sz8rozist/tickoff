@@ -33,6 +33,20 @@ public class AsyncConfig {
         return executor;
     }
 
+    /** A webhook-kézbesítéshez: ugyanilyen korlátos sor, a lassú fogadó ne tudja kimeríteni a szálakat. */
+    @Bean("webhookExecutor")
+    Executor webhookExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("webhook-");
+        executor.setRejectedExecutionHandler((task, pool) -> log.warn("A webhook-sor megtelt, egy esemény elmaradt."));
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(15);
+        return executor;
+    }
+
     /** Az idő forrása; tesztben cserélhető. */
     @Bean
     Clock clock() {

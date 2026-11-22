@@ -35,6 +35,14 @@ public class Project {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Ide küldjük a projekt eseményeit (Slack, Discord, saját fogadó), vagy null. */
+    @Column(name = "webhook_url", length = 500)
+    private String webhookUrl;
+
+    /** A webhook-kérések HMAC-aláírásának titka. */
+    @Column(name = "webhook_secret", length = 32)
+    private String webhookSecret;
+
     protected Project() {
     }
 
@@ -66,6 +74,21 @@ public class Project {
         this.siteUrl = siteUrl;
     }
 
+    /** Webhook beállítása; üres cím kikapcsolja. A titok az első beállításkor jön létre, és megmarad. */
+    public void setWebhook(String url) {
+        if (url == null || url.isBlank()) {
+            this.webhookUrl = null;
+            this.webhookSecret = null;
+            return;
+        }
+        this.webhookUrl = url.trim();
+        if (this.webhookSecret == null) {
+            byte[] bytes = new byte[16];
+            RANDOM.nextBytes(bytes);
+            this.webhookSecret = HexFormat.of().formatHex(bytes);
+        }
+    }
+
     private static String generateToken() {
         byte[] bytes = new byte[24];
         RANDOM.nextBytes(bytes);
@@ -78,4 +101,6 @@ public class Project {
     public String getSiteUrl() { return siteUrl; }
     public String getShareToken() { return shareToken; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getWebhookUrl() { return webhookUrl; }
+    public String getWebhookSecret() { return webhookSecret; }
 }

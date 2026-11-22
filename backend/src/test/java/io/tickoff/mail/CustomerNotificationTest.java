@@ -34,6 +34,7 @@ class CustomerNotificationTest {
         mail = mock(MailService.class);
         when(mail.isEnabled()).thenReturn(true);
         service = new NotificationService(mock(UserRepository.class), mock(ProjectMemberRepository.class), mail,
+            mock(io.tickoff.webhook.WebhookService.class),
             "https://app.example.com/");
 
         User owner = mock(User.class);

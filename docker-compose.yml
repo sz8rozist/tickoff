@@ -44,6 +44,8 @@ services:
       DASHBOARD_ORIGIN: http://localhost:5173
       TICKOFF_STORAGE_DIR: /data/screenshots
       SMTP_HOST: mailpit
+      # Fejlesztéshez: a webhook helyi fogadóra is mehet (élesben ez ki van kapcsolva)
+      TICKOFF_WEBHOOK_ALLOW_PRIVATE: "true"
       SMTP_PORT: "1025"
     ports:
       - "8080:8080"

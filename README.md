@@ -15,6 +15,7 @@
 - **Kommentek**: körönként listázva, **oldalanként csoportosítva**. Mindegyiknél látszik a szerző, az idő, a szöveg, az elem CSS-selectora, a viewport mérete és a böngésző/rendszer. Státusz: nyitott, folyamatban, kész.
 - **Szűrés és keresés**: a kommentek szűrhetők státuszra és felelősre ("Hozzám rendelt", "Gazdátlan"), és kereshetők szövegben (szerző, komment, válaszok, oldal, felelős neve; ékezet- és kisbetű-független). Szűrés közben látszik az "X / Y komment" számláló.
 - **Felelős**: minden komment egy csapattagra (tulajdonos vagy tag) bízható. Aki másra bíz egy kommentet, annak az illető e-mail értesítést kap (ha nem kapcsolta ki). Ha valaki kilép vagy eltávolítják, a rá bízott kommentek felelős nélkül maradnak. A CSV-exportban külön oszlop.
+- **Webhook (Slack, Discord, saját fogadó)**: a tulajdonos a projekt menüjében megadhat egy webhook-címet; ide érkezik az új visszajelzés, az ügyfél válasza, az újranyitás és a kör jóváhagyása. A tartalom Slack és Discord bejövő webhookjával közvetlenül működik (`text` és `content` mező), saját fogadónak strukturált JSON (`event`, `project`, `comment`, `round`) és `X-Tickoff-Signature: sha256=…` HMAC-aláírás jár. A "Teszt küldése" gomb azonnal kipróbálja. A cím és a titok csak a tulajdonosnak látszik.
 - **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
 - **Kommentszálak**: a designer válaszolhat a kommentekre (a válasz a widgetben is megjelenik, "csapat" jelvénnyel), és törölheti a válaszokat (két kattintással, véletlen törlés ellen). Az ügyfél válaszai is itt jelennek meg.
 - **Komment törlése** (a képernyőképével és a válaszaival együtt) megerősítéssel.
@@ -186,6 +187,8 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 | `POST /api/projects/{id}/comments/{commentId}/replies` | `{body (max. 4000)}` → `201`: válasz a designer nevében (lezárt kör kommentjére is). Egy kommenthez legfeljebb 200 válasz fűzhető, utána `409` |
 | `DELETE /api/projects/{id}/comments/{commentId}/replies/{replyId}` | `204` |
 | `PATCH /api/projects/{id}/comments/{commentId}` | `{status: OPEN \| IN_PROGRESS \| DONE}`; érvénytelen értékre `400` |
+| `PUT /api/projects/{id}/webhook` | `{url}`: webhook beállítása (csak a tulajdonos), üres/`null` kikapcsolja; `400`, ha a cím nem nyilvános https-cím |
+| `POST /api/projects/{id}/webhook/test` | teszt-üzenet a webhookra → `{ok, status, error}`; `409`, ha nincs beállítva; IP-nként 5/perc |
 | `PUT /api/projects/{id}/comments/{commentId}/assignee` | `{userId}`: felelős kijelölése, `null` törli. `400`, ha a felhasználó nem a projekt csapatának tagja |
 | `GET /api/projects/{id}/comments/{commentId}/attachments/{attachmentId}` | a melléklet képe; `404`, ha nincs. A komment listaelemében az `attachments` tömb tartalmazza az azonosítókat |
 | `GET /api/projects/{id}/comments/{commentId}/screenshot` | a képernyőkép (PNG/JPEG); `404`, ha nincs |
@@ -236,6 +239,12 @@ A backend két célra küld levelet: **jelszó-visszaállítás** és **értesí
 **Értesítések:** a levél a komment mentésének sikeres lezárása után megy el, külön szálon (a widget kérése nem vár az SMTP-szerverre, és annak hibája nem bukatja el), a sor korlátos. Címzettenként legfeljebb 10 levél egyszerre, utána percenként 1, így egy támadó sem tudja a csapat postafiókját és az SMTP-hírnevet elárasztani. A tárgy sortörés-mentesített (a projektnév nem injektálhat levélfejlécet).
 
 **Értesítések az ügyfélnek:** ha az ügyfél megadta az e-mail-címét a komment beküldésekor, a csapat válaszáról és a "Kész" állapotról levelet kap. A levélben a kommentre mutató mélylink és egy leiratkozó link van (`/api/notifications/unsubscribe/{token}`, 128 bites titok, IP-nként korlátozva); a leiratkozás törli a címet. A cím a kommenthez tartozik, nem fiókhoz, és csak a levélküldéshez használjuk. Címenként ugyanaz a korlát él, mint a csapat tagjainál (10 egyszerre, utána percenként 1). Az ügyfél címét nem erősítjük meg, ezért valaki más címét is megadhatja: a levél ilyenkor egy kommentre vonatkozó értesítés, leiratkozó linkkel, és a korlát miatt nem használható elárasztásra.
+
+## Webhook
+
+Események: `comment.created`, `reply.created` (ügyfél-válasz), `comment.reopened`, `round.approved`, `test`. A kérés `POST`, `Content-Type: application/json`, fejlécei: `X-Tickoff-Event`, `X-Tickoff-Signature` (`sha256=` + a nyers törzs HMAC-SHA256-ja a projekt titkával), `User-Agent: Tickoff-Webhook`. A küldés a mentés után, külön szálon történik, **újrapróbálkozás nincs** (legjobb szándékú értesítés), a hibákat csak naplózzuk (a címet nem: abban titok lehet).
+
+**Biztonság (SSRF):** a szerver a felhasználó által megadott címre küld kérést, ezért a cím csak **nyilvános https-cím** lehet, nem tartalmazhat felhasználónevet, és a név minden feloldott címe nyilvános kell legyen (nem loopback, privát, link-local, CGNAT, többesküldéses, IPv6 egyedi helyi). Az ellenőrzés mentéskor és minden küldés előtt újra lefut, a küldő nem követ átirányítást, a kapcsolat és a válasz ideje korlátos, a válasz törzsét nem olvassuk. Fejlesztéshez a `TICKOFF_WEBHOOK_ALLOW_PRIVATE=true` engedélyezi a helyi http-címeket (a dev `docker-compose.yml`-ben be van kapcsolva, élesben nem szabad). Ismert korlát: a feloldás és a kapcsolódás között a DNS elméletileg megváltozhat (DNS-rebinding), ezt a küldés előtti újraellenőrzés csökkenti, de nem zárja ki teljesen; magasabb biztonsági igénynél kimenő proxy mögé érdemes tenni.
 
 ## Kérésszám-korlát
 

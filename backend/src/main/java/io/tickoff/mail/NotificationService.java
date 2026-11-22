@@ -9,6 +9,7 @@ import io.tickoff.domain.User;
 import io.tickoff.domain.UserRepository;
 import io.tickoff.ratelimit.RateLimiter;
 import io.tickoff.ratelimit.RateLimiter.Limit;
+import io.tickoff.webhook.WebhookService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,18 +40,23 @@ public class NotificationService {
     private final UserRepository users;
     private final ProjectMemberRepository members;
     private final MailService mail;
+    private final WebhookService webhooks;
     private final RateLimiter limiter = new RateLimiter(10_000);
     private final String baseUrl;
 
     public NotificationService(UserRepository users, ProjectMemberRepository members, MailService mail,
-                               @Value("${tickoff.dashboard-origin}") String baseUrl) {
+                               WebhookService webhooks, @Value("${tickoff.dashboard-origin}") String baseUrl) {
         this.users = users;
         this.members = members;
         this.mail = mail;
+        this.webhooks = webhooks;
         this.baseUrl = baseUrl.replaceAll("/+$", "");
     }
 
     public void newComment(Project project, Comment comment) {
+        webhooks.publish(project, WebhookService.COMMENT_CREATED,
+            "[" + project.getName() + "] Új visszajelzés " + comment.getAuthorName() + " tollából (" + comment.getPageUrl()
+                + "):\n" + excerpt(comment.getBody()), comment, null);
         notifyTeam(project,
             "Új visszajelzés: " + project.getName(),
             comment.getAuthorName() + " új visszajelzést írt a(z) „" + project.getName() + "” projektben"
@@ -58,6 +64,9 @@ public class NotificationService {
     }
 
     public void customerReply(Project project, Comment comment, Reply reply) {
+        webhooks.publish(project, WebhookService.REPLY_CREATED,
+            "[" + project.getName() + "] " + reply.getAuthorName() + " válaszolt (" + comment.getPageUrl() + "):\n"
+                + excerpt(reply.getBody()), comment, null);
         notifyTeam(project,
             "Új válasz: " + project.getName(),
             reply.getAuthorName() + " válaszolt " + comment.getAuthorName() + " visszajelzésére a(z) „"
@@ -83,6 +92,10 @@ public class NotificationService {
 
     /** Az ügyfél újranyitotta a kész kommentet: a csapatnak tudnia kell, hogy dolga van vele. */
     public void commentReopened(Project project, Comment comment, String by, String reason) {
+        webhooks.publish(project, WebhookService.COMMENT_REOPENED,
+            "[" + project.getName() + "] " + by + " újranyitotta a kész visszajelzést (" + comment.getPageUrl() + "):\n"
+                + excerpt(comment.getBody()) + (reason == null || reason.isBlank() ? "" : "\nIndoklás: " + excerpt(reason)),
+            comment, null);
         notifyTeam(project,
             "Újranyitott visszajelzés: " + project.getName(),
             by + " újranyitotta a kész visszajelzését a(z) „" + project.getName() + "” projektben"
@@ -92,6 +105,9 @@ public class NotificationService {
 
     /** Az ügyfél jóváhagyta a kört: minden visszajelzése kész. */
     public void roundApproved(Project project, Round round, String by) {
+        webhooks.publish(project, WebhookService.ROUND_APPROVED,
+            "[" + project.getName() + "] " + by + " jóváhagyta a " + round.getNumber() + ". kört: minden visszajelzés kész.",
+            null, round);
         notifyTeam(project,
             "Az ügyfél jóváhagyta a kört: " + project.getName(),
             by + " jóváhagyta a(z) „" + project.getName() + "” projekt " + round.getNumber() + ". körét: "
