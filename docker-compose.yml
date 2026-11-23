@@ -48,6 +48,8 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8025:8025"
+      # SMTP a helyben futó alkalmazásnak (web/), a konténeren kívülről
+      - "127.0.0.1:1025:1025"
 
   backend:
     build: ./backend
