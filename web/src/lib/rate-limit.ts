@@ -60,8 +60,15 @@ export const LIMITS = {
   resendVerification: { name: 'resend-verification-ip', burst: 5, perMinute: 5 },
   deleteAccount: { name: 'delete-account-ip', burst: 5, perMinute: 5 },
   invite: { name: 'invite-ip', burst: 20, perMinute: 20 },
+  /** Címzettenként legfeljebb 10 levél egyszerre, utána percenként 1 (inbox- és SMTP-hírnév védelem). */
+  notifyRecipient: { name: 'notify-recipient', burst: 10, perMinute: 1 },
   login2fa: { name: 'login-2fa-ip', burst: 10, perMinute: 10 },
 } satisfies Record<string, Limit>;
+
+/** Nem dobó változat: igaz, ha a kérés mehet (a háttérben küldött értesítésekhez, ahol a túllépés csak kihagyást jelent). */
+export function allow(key: string, limit: Limit): boolean {
+  return shared.tryAcquire(key, limit) === 0;
+}
 
 /** IP-alapú korlát egy végponton: túllépésnél 429 és `Retry-After`. */
 export function limitByIp(req: NextRequest, limit: Limit): void {

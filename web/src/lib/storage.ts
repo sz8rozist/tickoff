@@ -27,3 +27,13 @@ export async function deleteProjectFiles(projectId: number): Promise<void> {
     console.warn('[storage] A projekt fájljai nem törölhetők teljesen:', projectId, String(e));
   }
 }
+
+/** Egy fájl törlése. Ha nincs ilyen, nem hiba; a hibát naplózzuk, de nem dobjuk tovább (a törlés fő része már megtörtént). */
+export async function deleteStored(relative: string | null): Promise<void> {
+  if (!relative) return;
+  try {
+    await rm(resolveStored(relative), { force: true });
+  } catch (e) {
+    console.warn('[storage] A fájl nem törölhető:', relative, String(e));
+  }
+}
