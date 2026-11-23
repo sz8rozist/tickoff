@@ -23,6 +23,8 @@
 - **Szűrés és keresés**: a kommentek szűrhetők státuszra és felelősre ("Hozzám rendelt", "Gazdátlan"), és kereshetők szövegben (szerző, komment, válaszok, oldal, felelős neve; ékezet- és kisbetű-független). Szűrés közben látszik az "X / Y komment" számláló.
 - **Felelős**: minden komment egy csapattagra (tulajdonos vagy tag) bízható. Aki másra bíz egy kommentet, annak az illető e-mail értesítést kap (ha nem kapcsolta ki). Ha valaki kilép vagy eltávolítják, a rá bízott kommentek felelős nélkül maradnak. A CSV-exportban külön oszlop.
 - **A widget megjelenése**: a tulajdonos a projekt menüjében beállíthatja a widget márkaszínét (a gomb és a kiemelések színe) és a gombok oldalát (jobb vagy bal alul), élő előnézettel. A túl világos színt a szerver elutasítja (a gombokon fehér szöveg van, legalább 3:1 kontraszt kell). A beállítás a widget indulásakor töltődik be, nincs szükség új beágyazásra.
+- **Archiválás**: a lezárt projekt archiválható (a tulajdonos a projekt menüjében): eltűnik a listából és az összesítőből (egy kapcsolóval megjeleníthető), a widgetje leáll (az ügyfél nem lát és nem küld semmit), az adatok megmaradnak, és bármikor visszaállítható.
+- **Téma**: a fiók menüből automatikus (a rendszer beállítását követi), világos vagy sötét téma választható.
 - **Webhook (Slack, Discord, saját fogadó)**: a tulajdonos a projekt menüjében megadhat egy webhook-címet; ide érkezik az új visszajelzés, az ügyfél válasza, az újranyitás és a kör jóváhagyása. A tartalom Slack és Discord bejövő webhookjával közvetlenül működik (`text` és `content` mező), saját fogadónak strukturált JSON (`event`, `project`, `comment`, `round`) és `X-Tickoff-Signature: sha256=…` HMAC-aláírás jár. A "Teszt küldése" gomb azonnal kipróbálja. A cím és a titok csak a tulajdonosnak látszik.
 - **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
 - **Kommentszálak**: a designer válaszolhat a kommentekre (a válasz a widgetben is megjelenik, "csapat" jelvénnyel), és törölheti a válaszokat (két kattintással, véletlen törlés ellen). Az ügyfél válaszai is itt jelennek meg.
@@ -201,6 +203,7 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 | `POST /api/projects/{id}/members/invites` | `{email}` → `201`: meghívó még nem megerősítetten regisztrált kollégának (levelet kap). `503`, ha nincs e-mail-küldés beállítva; `409`, ha már meghívták / tag, vagy 20 függő meghívó van; IP-nként 20/perc |
 | `DELETE /api/projects/{id}/members/invites/{inviteId}` | `204`: a meghívó visszavonása |
 | `PUT /api/projects/{id}/widget-appearance` | `{color: "#rrggbb" \| null, position: RIGHT \| LEFT}`: a widget megjelenése (csak a tulajdonos); `400` érvénytelen vagy túl világos színre |
+| `PUT /api/projects/{id}/archive` | `{archived: true \| false}`: archiválás / visszaállítás (csak a tulajdonos). Archivált projektnél a widget végpontjai `404`-et adnak |
 | `PUT /api/projects/{id}/webhook` | `{url}`: webhook beállítása (csak a tulajdonos), üres/`null` kikapcsolja; `400`, ha a cím nem nyilvános https-cím |
 | `POST /api/projects/{id}/webhook/test` | teszt-üzenet a webhookra → `{ok, status, error}`; `409`, ha nincs beállítva; IP-nként 5/perc |
 | `PUT /api/projects/{id}/comments/{commentId}/assignee` | `{userId}`: felelős kijelölése, `null` törli. `400`, ha a felhasználó nem a projekt csapatának tagja |

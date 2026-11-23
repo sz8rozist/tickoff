@@ -424,6 +424,8 @@ public class WidgetController {
     /** Token alapján megkeresi a projektet, és ellenőrzi a böngésző által küldött origin-t. */
     private Project authorize(String token, HttpServletRequest request) {
         Project project = projects.findByShareToken(token)
+            // Archivált projektnél a widget leáll: úgy viselkedik, mintha a token nem létezne
+            .filter(p -> p.getArchivedAt() == null)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         String origin = request.getHeader("Origin");
         // Böngészőből minden cross-origin kéréshez jön Origin. Ha van, egyeznie kell a projekt oldalával.

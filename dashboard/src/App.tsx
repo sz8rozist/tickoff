@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Avatar, Box, Button, Center, Container, Group, Loader, Menu, Switch, Text, UnstyledButton } from '@mantine/core';
+import { Alert, Avatar, Box, Button, Center, Container, Group, Loader, Menu, Switch, Text, UnstyledButton, useMantineColorScheme } from '@mantine/core';
 import { api, ApiError, getToken, type User } from './api';
 import { AuthForm } from './AuthForm';
 import { AuthShell } from './AuthShell';
@@ -39,6 +39,7 @@ export function App() {
   const [verifyResult, setVerifyResult] = useState<'ok' | 'fail' | null>(null);
   const [resent, setResent] = useState(false);
   const [path, navigate] = usePath();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
   // Ha van mentett token, először megnézzük, érvényes-e.
   const [loading, setLoading] = useState<boolean>(() => getToken() !== null);
 
@@ -194,6 +195,20 @@ export function App() {
                     error={notifyError ? 'A beállítás mentése nem sikerült' : undefined}
                   />
                 </Menu.Item>
+                <Menu.Divider />
+                <Menu.Label>Téma</Menu.Label>
+                {(
+                  [
+                    ['auto', 'Automatikus'],
+                    ['light', 'Világos'],
+                    ['dark', 'Sötét'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Menu.Item key={value} closeMenuOnClick={false} onClick={() => setColorScheme(value)}>
+                    {colorScheme === value ? '✓ ' : '\u2003'}
+                    {label}
+                  </Menu.Item>
+                ))}
                 <Menu.Divider />
                 <Menu.Item onClick={logout}>Kilépés</Menu.Item>
                 <Menu.Item color="red" onClick={() => setDeleteAccountOpen(true)}>

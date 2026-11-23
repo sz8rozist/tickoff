@@ -83,6 +83,8 @@ export interface Project {
   /** A widget megjelenése: márkaszín (#rrggbb vagy null) és a gombok oldala. */
   widgetColor: string | null;
   widgetPosition: 'RIGHT' | 'LEFT';
+  /** Mikor archiválták (null: aktív). Archivált projektnél a widget nem működik. */
+  archivedAt: string | null;
 }
 
 export interface ProjectStats {
@@ -213,6 +215,9 @@ export const api = {
     /** Webhook beállítása; `null` kikapcsolja. Érvénytelen (pl. belső hálózati) címre 400. */
     setWebhook: (id: number, url: string | null) =>
       request<Project>(`/api/projects/${id}/webhook`, { method: 'PUT', body: JSON.stringify({ url }) }),
+    /** Archiválás / visszaállítás (csak a tulajdonos). */
+    setArchived: (id: number, archived: boolean) =>
+      request<Project>(`/api/projects/${id}/archive`, { method: 'PUT', body: JSON.stringify({ archived }) }),
     /** A widget márkaszíne és oldala (csak a tulajdonos); túl világos színre 400. */
     setWidgetAppearance: (id: number, color: string | null, position: 'RIGHT' | 'LEFT') =>
       request<Project>(`/api/projects/${id}/widget-appearance`, {

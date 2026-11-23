@@ -14,6 +14,7 @@ import {
   Paper,
   SimpleGrid,
   Stack,
+  Switch,
   Tabs,
   Text,
   TextInput,
@@ -220,6 +221,9 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
   const [webhookOpen, setWebhookOpen] = useState(false);
   const [appearanceFor, setAppearanceFor] = useState<Project | null>(null);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const archivedCount = projects?.filter((p) => p.archivedAt !== null).length ?? 0;
 
   useEffect(() => {
     api.projects.list().then(setProjects).catch(() => setLoadError(true));
@@ -234,6 +238,16 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
     const updated = await api.projects.update(id, { name, siteUrl });
     setProjects((prev) => prev?.map((p) => (p.id === id ? updated : p)) ?? null);
     setEditingId(null);
+  }
+
+  async function toggleArchive(p: Project) {
+    setActionError(null);
+    try {
+      const updated = await api.projects.setArchived(p.id, p.archivedAt === null);
+      setProjects((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null);
+    } catch (e) {
+      setActionError(describe(e));
+    }
   }
 
   async function confirmRegenerate() {
@@ -304,7 +318,14 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
           A projektek betöltése nem sikerült.
         </Alert>
       )}
-      {projects && projects.length > 0 && <Overview projects={projects} />}
+      {projects && projects.length > 0 && <Overview projects={projects.filter((p) => p.archivedAt === null)} />}
+      {archivedCount > 0 && (
+        <Switch
+          checked={showArchived}
+          onChange={(e) => setShowArchived(e.currentTarget.checked)}
+          label={`Archivált projektek mutatása (${archivedCount})`}
+        />
+      )}
       {projects && projects.length === 0 && (
         <Paper withBorder p="xl" style={{ borderStyle: 'dashed' }}>
           <Text c="dimmed" ta="center">
@@ -313,8 +334,10 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
         </Paper>
       )}
 
-      {projects?.map((p) => (
-        <Card key={p.id} withBorder padding="lg">
+      {projects
+        ?.filter((p) => showArchived || p.archivedAt === null)
+        .map((p) => (
+        <Card key={p.id} withBorder padding="lg" style={p.archivedAt ? { opacity: 0.7 } : undefined}>
           {editingId === p.id ? (
             <ProjectForm
               initial={p}
@@ -330,9 +353,16 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                     {(p.name.trim()[0] ?? '?').toUpperCase()}
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <Title order={3} lineClamp={1}>
-                      {p.name}
-                    </Title>
+                    <Group gap="xs" wrap="nowrap">
+                      <Title order={3} lineClamp={1}>
+                        {p.name}
+                      </Title>
+                      {p.archivedAt && (
+                        <Badge color="gray" variant="light">
+                          archivált
+                        </Badge>
+                      )}
+                    </Group>
                     <Anchor href={p.siteUrl} target="_blank" rel="noopener noreferrer" size="sm" c="dimmed">
                       {p.siteUrl}
                     </Anchor>
@@ -354,6 +384,9 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                         }}
                       >
                         Új token generálása
+                      </Menu.Item>
+                      <Menu.Item onClick={() => void toggleArchive(p)}>
+                        {p.archivedAt ? 'Visszaállítás az aktívak közé' : 'Archiválás'}
                       </Menu.Item>
                       <Menu.Item
                         onClick={() => {

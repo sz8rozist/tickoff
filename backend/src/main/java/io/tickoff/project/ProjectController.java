@@ -52,6 +52,9 @@ public class ProjectController {
     }
 
     /** A widget megjelenése: {@code color} #rrggbb (vagy null: alapértelmezett), {@code position} RIGHT vagy LEFT. */
+    public record ArchiveRequest(@jakarta.validation.constraints.NotNull Boolean archived) {
+    }
+
     public record WidgetAppearanceRequest(
         @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "#rrggbb szín kell") String color,
         @NotBlank @Pattern(regexp = "^(RIGHT|LEFT)$") String position) {
@@ -65,12 +68,13 @@ public class ProjectController {
     /** A webhook adatai (cím, titok) csak a tulajdonosnak látszanak: a cím gyakran titkot tartalmaz. */
     public record ProjectDto(Long id, String name, String siteUrl, String shareToken, Instant createdAt,
                              ProjectAccess.Role role, String ownerName, String webhookUrl, String webhookSecret,
-                             ProjectStats stats, String widgetColor, String widgetPosition) {
+                             ProjectStats stats, String widgetColor, String widgetPosition,
+                             Instant archivedAt) {
         static ProjectDto of(Project p, ProjectAccess.Role role, String ownerName, ProjectStats stats) {
             boolean owner = role == ProjectAccess.Role.OWNER;
             return new ProjectDto(p.getId(), p.getName(), p.getSiteUrl(), p.getShareToken(), p.getCreatedAt(),
                 role, ownerName, owner ? p.getWebhookUrl() : null, owner ? p.getWebhookSecret() : null, stats,
-                p.getWidgetColor(), p.getWidgetPosition());
+                p.getWidgetColor(), p.getWidgetPosition(), p.getArchivedAt());
         }
     }
 
@@ -194,6 +198,19 @@ public class ProjectController {
         }
         double luminance = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
         return 1.05 / (luminance + 0.05) >= 3.0;
+    }
+
+    /**
+     * Projekt archiválása vagy visszaállítása (csak a tulajdonos). Archivált projektnél a widget leáll (az ügyfél nem
+     * lát és nem küld semmit), a lista alapból elrejti, az adatok megmaradnak.
+     */
+    @PutMapping("/{id}/archive")
+    @Transactional
+    public ProjectDto archive(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                              @Valid @RequestBody ArchiveRequest req) {
+        Project project = access.owner(id, userId(jwt));
+        project.setArchived(req.archived());
+        return dto(project, userId(jwt));
     }
 
     /** Teszt-üzenet a beállított webhookra (csak a tulajdonos); az eredményt azonnal visszaadja. */

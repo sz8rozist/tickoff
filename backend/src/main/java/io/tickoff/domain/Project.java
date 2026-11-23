@@ -35,6 +35,10 @@ public class Project {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Mikor archiválták (null: aktív). Archivált projektnél a widget nem működik. */
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
     /** A widget márkaszíne (#rrggbb), vagy null: az alapértelmezett. */
     @Column(name = "widget_color", length = 7)
     private String widgetColor;
@@ -81,6 +85,12 @@ public class Project {
         this.name = name;
         this.siteUrl = siteUrl;
     }
+
+    public void setArchived(boolean archived) {
+        this.archivedAt = archived ? Instant.now() : null;
+    }
+
+    public Instant getArchivedAt() { return archivedAt; }
 
     public void setWidgetAppearance(String color, String position) {
         this.widgetColor = color;
