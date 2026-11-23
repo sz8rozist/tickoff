@@ -5,6 +5,7 @@ import {
   Avatar,
   Badge,
   Button,
+  Checkbox,
   Code,
   Group,
   Image,
@@ -24,6 +25,16 @@ const STATUS_OPTIONS = [
   { value: 'IN_PROGRESS', label: 'Folyamatban' },
   { value: 'DONE', label: 'Kész' },
 ];
+
+const SORT_OPTIONS = [
+  { value: 'OLDEST', label: 'Legrégebbi elöl' },
+  { value: 'NEWEST', label: 'Legújabb elöl' },
+  { value: 'STATUS', label: 'Státusz szerint' },
+  { value: 'REPLIES', label: 'Legtöbb válasz elöl' },
+];
+
+/** A "teendő" sorrendje: előbb a nyitott, aztán a folyamatban lévő, végül a kész. */
+const STATUS_RANK: Record<CommentStatus, number> = { OPEN: 0, IN_PROGRESS: 1, DONE: 2 };
 
 const STATUS_FILTER = [{ value: 'ALL', label: 'Mind' }, ...STATUS_OPTIONS];
 
@@ -110,6 +121,10 @@ export function CommentsPanel({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [gallery, setGallery] = useState<{ comment: Comment; urls: string[]; failed: boolean } | null>(null);
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState('OLDEST');
+  // A tömeges művelethez kijelölt kommentek
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState('ALL');
 
@@ -153,6 +168,35 @@ export function CommentsPanel({
     } finally {
       setBusyId(null);
     }
+  }
+
+  function toggleSelected(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  /** Egy művelet a kijelölt kommentek mindegyikén; a sikeres eredmények bekerülnek a listába, a hibákról összesítést adunk. */
+  async function bulk(action: (c: Comment) => Promise<Comment>, failureMessage: string) {
+    const targets = (comments ?? []).filter((c) => selected.has(c.id));
+    if (targets.length === 0) return;
+    setError(null);
+    setBulkBusy(true);
+    const results = await Promise.allSettled(targets.map(action));
+    const updated = new Map<number, Comment>();
+    let failed = 0;
+    results.forEach((r) => {
+      if (r.status === 'fulfilled') updated.set(r.value.id, r.value);
+      else failed++;
+    });
+    setComments((prev) => prev?.map((x) => updated.get(x.id) ?? x) ?? null);
+    // A sikeresen módosítottak kikerülnek a kijelölésből, a hibásak megmaradnak az újrapróbáláshoz
+    setSelected((prev) => new Set([...prev].filter((id) => !updated.has(id))));
+    if (failed > 0) setError(`${failureMessage} (${failed} komment)`);
+    onChanged();
+    setBulkBusy(false);
   }
 
   async function assign(c: Comment, userId: number | null) {
@@ -235,6 +279,19 @@ export function CommentsPanel({
     );
     return haystack.includes(needle);
   });
+  visible.sort((a, b) => {
+    switch (sort) {
+      case 'NEWEST':
+        return b.createdAt.localeCompare(a.createdAt);
+      case 'STATUS':
+        return STATUS_RANK[a.status] - STATUS_RANK[b.status] || a.createdAt.localeCompare(b.createdAt);
+      case 'REPLIES':
+        return b.replies.length - a.replies.length || a.createdAt.localeCompare(b.createdAt);
+      default:
+        return a.createdAt.localeCompare(b.createdAt);
+    }
+  });
+  const selectedCount = comments.filter((c) => selected.has(c.id)).length;
   const filtering = statusFilter !== 'ALL' || assigneeFilter !== 'ALL' || needle !== '';
 
   // Oldalanként csoportosítjuk: "a második oldalon az a gomb" típusú visszajelzések így egy helyen vannak.
@@ -253,6 +310,15 @@ export function CommentsPanel({
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
           style={{ flex: '1 1 180px' }}
+        />
+        <Select
+          size="xs"
+          w={170}
+          aria-label="Rendezés"
+          allowDeselect={false}
+          data={SORT_OPTIONS}
+          value={sort}
+          onChange={(v) => setSort(v ?? 'OLDEST')}
         />
         <SegmentedControl size="xs" data={STATUS_FILTER} value={statusFilter} onChange={setStatusFilter} aria-label="Szűrés státuszra" />
         <SegmentedControl size="xs" data={ASSIGNEE_FILTER} value={assigneeFilter} onChange={setAssigneeFilter} aria-label="Szűrés felelősre" />
@@ -273,6 +339,55 @@ export function CommentsPanel({
           >
             Szűrők törlése
           </Button>
+        </Group>
+      )}
+      {visible.length > 0 && (
+        <Group gap="xs" align="center">
+          <Checkbox
+            size="xs"
+            label={selectedCount > 0 ? `${selectedCount} kijelölve` : 'Kijelölés'}
+            checked={selectedCount > 0 && visible.every((c) => selected.has(c.id))}
+            indeterminate={selectedCount > 0 && !visible.every((c) => selected.has(c.id))}
+            onChange={(e) =>
+              setSelected(e.currentTarget.checked ? new Set([...selected, ...visible.map((c) => c.id)]) : new Set())
+            }
+          />
+          {selectedCount > 0 && (
+            <>
+              <Text size="xs" c="dimmed">
+                Státusz:
+              </Text>
+              {STATUS_OPTIONS.map((o) => (
+                <Button
+                  key={o.value}
+                  size="compact-xs"
+                  variant="light"
+                  disabled={bulkBusy}
+                  onClick={() =>
+                    void bulk((c) => api.comments.setStatus(projectId, c.id, o.value as CommentStatus), 'A státusz módosítása nem sikerült')
+                  }
+                >
+                  {o.label}
+                </Button>
+              ))}
+              <Select
+                size="xs"
+                w={180}
+                placeholder="Felelős kijelölése…"
+                aria-label="Felelős a kijelölteknek"
+                clearable
+                disabled={bulkBusy}
+                data={team.map((m) => ({ value: String(m.userId), label: m.userId === currentUserId ? `${m.name} (te)` : m.name }))}
+                value={null}
+                onChange={(v) =>
+                  v !== null && void bulk((c) => api.comments.assign(projectId, c.id, Number(v)), 'A felelős kijelölése nem sikerült')
+                }
+              />
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setSelected(new Set())}>
+                Kijelölés törlése
+              </Button>
+            </>
+          )}
         </Group>
       )}
       {visible.length === 0 && (
@@ -307,6 +422,12 @@ export function CommentsPanel({
               <Stack gap={8}>
                 <Group justify="space-between" align="flex-start" wrap="wrap">
                   <Group gap="xs" wrap="nowrap">
+                    <Checkbox
+                      size="xs"
+                      aria-label={`Kijelölés: ${c.authorName} kommentje`}
+                      checked={selected.has(c.id)}
+                      onChange={() => toggleSelected(c.id)}
+                    />
                     <Avatar size={28} radius="xl" color="gray" variant="light">
                       {(c.authorName.trim()[0] ?? '?').toUpperCase()}
                     </Avatar>
