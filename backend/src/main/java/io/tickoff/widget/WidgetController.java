@@ -59,9 +59,9 @@ public class WidgetController {
     /** A korábbi körökből legfeljebb ennyit adunk vissza (a legutóbbiakat). */
     static final int MAX_HISTORY_ROUNDS = 10;
 
-    public record RoundInfo(Long id, int number, boolean approved, String approvedBy) {
+    public record RoundInfo(Long id, int number, boolean approved, String approvedBy, java.time.LocalDate dueDate) {
         static RoundInfo of(Round r) {
-            return new RoundInfo(r.getId(), r.getNumber(), r.getApprovedAt() != null, r.getApprovedBy());
+            return new RoundInfo(r.getId(), r.getNumber(), r.getApprovedAt() != null, r.getApprovedBy(), r.getDueDate());
         }
     }
 

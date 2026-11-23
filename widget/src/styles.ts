@@ -251,4 +251,7 @@ export const styles = `
 
   .pop .own { display: flex; flex-wrap: wrap; gap: 6px; }
   .pop .own .btn.small { margin-top: 8px; }
+
+  .due { margin: 8px 18px 0; padding: 6px 10px; border-radius: 8px; background: #fff4e6; color: #a84300; font-size: 12px; font-weight: 600; }
+  .due.late { background: #fdecee; color: #b3261e; }
 `;

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -30,12 +31,13 @@ import java.util.stream.Collectors;
 public class RoundController {
 
     public record RoundDto(Long id, int number, Round.Status status, Instant createdAt, Instant closedAt,
-                           long commentCount, long openCommentCount, Instant approvedAt, String approvedBy) {
+                           long commentCount, long openCommentCount, Instant approvedAt, String approvedBy,
+                           LocalDate dueDate) {
         static RoundDto of(Round r, RoundCommentCount counts) {
             return new RoundDto(r.getId(), r.getNumber(), r.getStatus(), r.getCreatedAt(), r.getClosedAt(),
                 counts == null ? 0 : counts.getTotal().longValue(),
                 counts == null || counts.getOpenCount() == null ? 0 : counts.getOpenCount().longValue(),
-                r.getApprovedAt(), r.getApprovedBy());
+                r.getApprovedAt(), r.getApprovedBy(), r.getDueDate());
         }
     }
 
@@ -84,6 +86,30 @@ public class RoundController {
             // Párhuzamos kérés ugyanazzal a sorszámmal: az egyedi index (project_id, number) elkapja.
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A kör időközben létrejött");
         }
+    }
+
+    public record DueDateRequest(LocalDate dueDate) {
+    }
+
+    /**
+     * A nyitott kör határidejének beállítása vagy törlése ({@code dueDate: null}). Tájékoztató jellegű: az ügyfél a
+     * widgetben látja, de a lejárta nem zárja le a kört. Egy napnál régebbi dátum nem adható meg.
+     */
+    @org.springframework.web.bind.annotation.PutMapping("/{roundId}/due-date")
+    @Transactional
+    public RoundDto setDueDate(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
+                               @PathVariable Long roundId, @org.springframework.web.bind.annotation.RequestBody DueDateRequest req) {
+        Project project = owned(jwt, projectId);
+        Round round = rounds.findByIdAndProjectId(roundId, project.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (round.getStatus() == Round.Status.CLOSED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Lezárt körnek nincs határideje");
+        }
+        if (req.dueDate() != null && req.dueDate().isBefore(LocalDate.now().minusDays(1))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A határidő nem lehet a múltban");
+        }
+        round.setDueDate(req.dueDate());
+        return RoundDto.of(round, counts(project).get(round.getId()));
     }
 
     @PostMapping("/{roundId}/close")

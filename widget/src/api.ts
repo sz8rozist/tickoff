@@ -14,6 +14,8 @@ export interface RoundInfo {
   /** Az ügyfél jóváhagyta a kört (minden komment kész volt). */
   approved: boolean;
   approvedBy: string | null;
+  /** Tájékoztató határidő (ÉÉÉÉ-HH-NN), vagy null. */
+  dueDate: string | null;
 }
 
 /** Egy lezárt kör, csak olvasásra. */

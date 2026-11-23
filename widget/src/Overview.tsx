@@ -11,6 +11,16 @@ const LABEL: Record<CommentStatus, string> = {
 const snippet = (s: string) => (s.length > 90 ? s.slice(0, 90).trimEnd() + '…' : s);
 const date = (iso: string) => new Date(iso).toLocaleDateString('hu-HU');
 
+/** A határidő feliratra: dátum és hátralévő idő. A nap végéig érvényes (a helyi idő szerint). */
+function dueLabel(dueDate: string): { text: string; overdue: boolean } {
+  const end = new Date(dueDate + 'T23:59:59');
+  const days = Math.ceil((end.getTime() - Date.now()) / 86_400_000);
+  const when = new Date(dueDate + 'T12:00:00').toLocaleDateString('hu-HU');
+  if (days < 0) return { text: `Határidő: ${when} (lejárt)`, overdue: true };
+  if (days === 0) return { text: `Határidő: ${when} (ma)`, overdue: false };
+  return { text: `Határidő: ${when} (még ${days} nap)`, overdue: false };
+}
+
 type Tab = 'current' | 'history';
 
 /**
@@ -66,6 +76,10 @@ export function Overview({
           Korábbi körök
         </button>
       </div>
+
+      {tab === 'current' && round?.dueDate && (
+        <div class={`due${dueLabel(round.dueDate).overdue ? ' late' : ''}`}>{dueLabel(round.dueDate).text}</div>
+      )}
 
       {tab === 'current' ? (
         <Current

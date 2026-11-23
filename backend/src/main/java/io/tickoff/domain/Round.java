@@ -2,6 +2,7 @@ package io.tickoff.domain;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "rounds")
@@ -37,6 +38,10 @@ public class Round {
     @Column(name = "approved_by", length = 120)
     private String approvedBy;
 
+    /** Tájékoztató határidő az ügyfélnek (a lejárta nem zárja le a kört). */
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
     protected Round() {
     }
 
@@ -59,6 +64,9 @@ public class Round {
         this.approvedAt = null;
         this.approvedBy = null;
     }
+
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+    public LocalDate getDueDate() { return dueDate; }
 
     public Instant getApprovedAt() { return approvedAt; }
     public String getApprovedBy() { return approvedBy; }

@@ -114,6 +114,8 @@ export interface Round {
   /** Az ügyfél jóváhagyta a kört (minden komment kész volt). */
   approvedAt: string | null;
   approvedBy: string | null;
+  /** Tájékoztató határidő (ÉÉÉÉ-HH-NN), vagy null. */
+  dueDate: string | null;
 }
 
 export type CommentStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
@@ -237,6 +239,12 @@ export const api = {
     /** Új kör; `carryOver`: az előző kör nem kész kommentjei átkerülnek az újba. */
     open: (projectId: number, carryOver = false) =>
       request<Round>(`/api/projects/${projectId}/rounds?carryOver=${carryOver}`, { method: 'POST' }),
+    /** A nyitott kör határideje (ÉÉÉÉ-HH-NN); `null` törli. */
+    setDueDate: (projectId: number, roundId: number, dueDate: string | null) =>
+      request<Round>(`/api/projects/${projectId}/rounds/${roundId}/due-date`, {
+        method: 'PUT',
+        body: JSON.stringify({ dueDate }),
+      }),
     close: (projectId: number, roundId: number) =>
       request<Round>(`/api/projects/${projectId}/rounds/${roundId}/close`, { method: 'POST' }),
   },

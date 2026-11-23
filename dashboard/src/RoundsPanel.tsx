@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Checkbox, Group, Loader, Modal, Progress, Stack, Text } from '@mantine/core';
+import { Alert, Badge, Button, Checkbox, Group, Loader, Modal, Progress, Stack, Text, TextInput } from '@mantine/core';
 import { api, ApiError, type Member, type Round } from './api';
 import { CommentsPanel } from './CommentsPanel';
 import { saveBlob } from './download';
@@ -144,6 +144,30 @@ export function RoundsPanel({
               )}
             </Group>
           </Group>
+          {r.status === 'OPEN' && (
+            <Group gap="xs" mt="xs">
+              <TextInput
+                type="date"
+                size="xs"
+                label="Határidő"
+                value={r.dueDate ?? ''}
+                disabled={busy}
+                onChange={(e) => {
+                  const v = e.currentTarget.value;
+                  void run(() => api.rounds.setDueDate(projectId, r.id, v === '' ? null : v));
+                }}
+                style={{ maxWidth: 170 }}
+              />
+              {r.dueDate && new Date(r.dueDate + 'T23:59:59') < new Date() && (
+                <Badge color="red" variant="light" mt={18}>
+                  lejárt
+                </Badge>
+              )}
+              <Text size="xs" c="dimmed" mt={18}>
+                Az ügyfél a widgetben látja. Tájékoztató: a lejárta nem zárja le a kört.
+              </Text>
+            </Group>
+          )}
           {r.commentCount > 0 && (
             <Progress
               mt="xs"

@@ -17,6 +17,7 @@
 - **E-mail értesítés**: a csapat (tulajdonos és tagok) levelet kap az ügyfelektől érkező új kommentről és válaszról. Felhasználónként ki- és bekapcsolható a fejlécben lévő kapcsolóval.
 - **Projektek**: létrehozás, szerkesztés, törlés (a körök, kommentek és képernyőképek is törlődnek). Minden projekthez tartozik egy megosztó token a widgethez, egy kattintással másolható, és szükség esetén **újragenerálható** (ha illetéktelenhez került; a régi token azonnal érvénytelen).
 - **Áttekintés**: a projektlista tetején összesítő (nyitott, folyamatban lévő visszajelzések, lezárásra váró jóváhagyott körök), minden projektkártyán pedig a nyitott kör állapota egy sorban (nyitott / folyamatban / kész, és hogy az ügyfél jóváhagyta-e). Az összesítők két lekérdezéssel készülnek, nem projektenként, és a kommentek állapotváltásakor frissülnek.
+- **Kör határideje**: a nyitott körhöz opcionális határidő adható; az ügyfél a Lista panelen látja a hátralévő időt (lejártkor pirossal). Tájékoztató jellegű, a lejárta nem zárja le a kört.
 - **Javítási körök**: új kör nyitása és lezárása. Új körnél a **nem kész kommentek átvihetők** az új körbe (alapból be van jelölve), így az ügyfélnek nem kell újra beküldenie a még meg nem oldottakat; az átvitt komment az új kör kommentje lesz (a lezárt kör előzményéből kikerül), a kész kommentek a régi körben maradnak. Egyszerre egy nyitott kör van, új kört csak az előző lezárása után lehet nyitni. A köröknél látszik az összes és a nyitott kommentek száma.
 - **Kommentek**: körönként listázva, **oldalanként csoportosítva**. Mindegyiknél látszik a szerző, az idő, a szöveg, az elem CSS-selectora, a viewport mérete és a böngésző/rendszer. Státusz: nyitott, folyamatban, kész.
 - **Szűrés és keresés**: a kommentek szűrhetők státuszra és felelősre ("Hozzám rendelt", "Gazdátlan"), és kereshetők szövegben (szerző, komment, válaszok, oldal, felelős neve; ékezet- és kisbetű-független). Szűrés közben látszik az "X / Y komment" számláló.
@@ -181,6 +182,7 @@ Egy projektnek egyszerre legfeljebb egy nyitott köre van. Új kört csak az el�
 | Végpont | Leírás |
 |---|---|
 | `GET /api/projects/{id}/rounds` | a projekt körei sorszám szerint |
+| `PUT /api/projects/{id}/rounds/{roundId}/due-date` | `{dueDate: "ÉÉÉÉ-HH-NN" \| null}`: a nyitott kör határideje; `400`, ha egy napnál régebbi, `409` lezárt körre |
 | `POST /api/projects/{id}/rounds?carryOver=` | új kör nyitása → `201`; `409`, ha van nyitott kör. `carryOver=true`: az előző kör nem kész (nyitott, folyamatban lévő) kommentjei átkerülnek az új körbe |
 | `POST /api/projects/{id}/rounds/{roundId}/close` | kör lezárása → `200`; `409`, ha már le van zárva |
 
