@@ -1,8 +1,11 @@
+import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   // Önálló kimenet: a Docker-kép csak a futáshoz kellő fájlokat tartalmazza
   output: 'standalone',
+  // A repó gyökerében is van package-lock (workspace): a követés gyökerét rögzítjük, hogy a standalone kimenet lapos maradjon
+  outputFileTracingRoot: path.resolve(__dirname),
   poweredByHeader: false,
   reactStrictMode: true,
   async headers() {

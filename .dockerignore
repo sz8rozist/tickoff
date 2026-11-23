@@ -11,3 +11,7 @@ backups
 .env
 *.log
 backend
+**/.next
+web/dist-migrate
+web/data
+web/public/widget

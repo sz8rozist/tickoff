@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "build:widget": "npm run build --prefix ../widget && node scripts/copy-widget.mjs"
+    "build:widget": "npm run build --prefix ../widget && node scripts/copy-widget.mjs",
+    "build:migrate": "esbuild src/db/migrate.ts --bundle --platform=node --target=node22 --outfile=dist-migrate/migrate.cjs && npm run build:import",
+    "build:import": "esbuild scripts/import-from-java.ts --bundle --platform=node --target=node22 --outfile=dist-migrate/import.cjs"
   },
   "dependencies": {
     "@mantine/core": "^9.8.2",
@@ -33,6 +35,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "^0.28.2",
     "postcss": "^8.5.33",
     "postcss-preset-mantine": "^1.18.0",
     "postcss-simple-vars": "^7.0.1",

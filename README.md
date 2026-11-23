@@ -4,6 +4,8 @@
 
 Ügyfél-visszajelzések kezelése weboldal-projektekben, javítási körökre (rounds) bontva. Az ügyfél regisztráció nélkül, közvetlenül a lapon kommentel egy beágyazott widgeten keresztül (rákattint egy elemre, leírja, mit változtatna); a designer egy helyen látja a visszajelzéseket körönként, oldalanként csoportosítva, státusszal és képernyőképpel.
 
+> **Két változat van.** A `backend/` + `dashboard/` a régi (Java + Vite) változat; a `web/` az új, egységes Next.js változat ugyanazzal az API-val és funkciókkal, lásd [A Next.js változat](#a-nextjs-változat-web) és az átállási leírást. Új fejlesztés a `web/` mappába kerül.
+
 ## Funkciók
 
 ### Bemutató oldal és belépés
@@ -330,6 +332,85 @@ A kulcsok száma korlátos (LRU, 50 000), így véletlen tokenekkel sem lehet el
 - **Proxy mögött** a korlát az alkalmazás által látott távoli címre épül. Ha a szerver egy reverse proxy mögött fut, minden kliens ugyanazzal az IP-vel látszik, és közös vödörbe kerül. A `prod` profil ezt kezeli: `server.forward-headers-strategy=native`, így a backend a **belső hálózati** (privát címtartományú) proxy `X-Forwarded-For` fejlécéből olvassa a kliens-IP-t, bármi mástól érkezőt figyelmen kívül hagy. A mellékelt Caddy a kapott kérések fejlécét felülírja, tehát a kliens által hamisított `X-Forwarded-For` hatástalan. Ha saját proxyt használsz, ami nem privát címtartományban van, add meg a címét: `server.tomcat.remoteip.internal-proxies`.
 - **Egy példányra** működik. Több példányos telepítésnél minden példánynak saját vödrei vannak, ezért a hatékony korlát a példányszám-szorosa; pontos korláthoz közös tároló (pl. Redis) kell.
 - Az egységtesztek (`RateLimiterTest`, `RateLimitFilterTest`) adatbázis nélkül futnak: `./mvnw test -Dtest='RateLimiterTest,RateLimitFilterTest'` (ezen a gépen Dockerben, lásd az Ismert problémát).
+
+## A Next.js változat (`web/`)
+
+A Tickoff új, egységes változata: **egyetlen Next.js alkalmazás** (felület, API és a widget kiszolgálása), **MySQL**-lel (Drizzle ORM), Node szerverként futtatva Dockerben. A Java backend és a Vite-s dashboard (lásd fent) a régi változat; az új változat ugyanazt az API-szerződést követi, minden funkciója megvan, és az adataik átvihetők (lásd az átállási szakaszt).
+
+| Mappa / fájl | Tartalom |
+|---|---|
+| `web/src/app/api/` | Az API végpontjai (route handlerek): auth, fiók, projektek, tagok, körök, kommentek, widget API, nyilvános `/api/v1` |
+| `web/src/lib/` | Az üzleti logika: hozzáférés, JWT, jelszavak, TOTP, e-mail, webhook (SSRF-védelemmel), összefoglaló, riport, CSV, kérésszám-korlát |
+| `web/src/db/` | Drizzle séma ([schema.ts](web/src/db/schema.ts)), kapcsolat, migrációk futtatója; a migrációk a `web/drizzle/` mappában |
+| `web/src/ui/` | A felület (landing, belépés, dashboard) React + Mantine, kliens oldalon renderelve |
+| `web/src/proxy.ts` | Szigorú, kérésenként nonce-os Content-Security-Policy (production) |
+| `web/src/instrumentation.ts` | Induláskor elindítja az ütemezőt (összefoglaló e-mailek reggel 8-kor) |
+| `web/Dockerfile`, `docker-compose.next.yml`, `deploy/Caddyfile.next`, `.env.next.example` | Production stack: MySQL, az alkalmazás, Caddy (automatikus HTTPS) |
+| `web/scripts/import-from-java.ts` | Egyszeri adatátvitel a régi (Java) változat adatbázisából |
+
+### Fejlesztés
+
+```bash
+docker compose up -d mysql-web mailpit    # MySQL (3308) és a levelezés-csapda (http://127.0.0.1:8025, SMTP: 127.0.0.1:1025)
+cd web
+cp .env.example .env.local                # DATABASE_URL, SMTP_HOST=127.0.0.1 stb.
+npm install
+npm run db:migrate                        # az adatbázis-séma létrehozása
+npm run build:widget                      # a widget lefordítása és a /widget/tickoff-widget.js alá másolása
+npm run dev                               # http://localhost:3000
+```
+
+Ellenőrzés: `npm run typecheck`, `npm run build`. Séma-módosítás után: `npm run db:generate` (új migráció a `drizzle/` mappába), majd `npm run db:migrate`.
+
+A widget kipróbálásához a projekt oldalának címe az legyen, ahol a widgetet kipróbálod (pl. egy `web/public/` alatti tesztoldal: `http://localhost:3000`), mert a CORS és az origin-ellenőrzés ehhez köti a kéréseket.
+
+### Beállítások (környezeti változók)
+
+| Változó | Jelentés |
+|---|---|
+| `DATABASE_URL` | MySQL kapcsolat (`mysql://user:jelszó@host:3306/tickoff`) |
+| `TICKOFF_JWT_SECRET` | A tokenek aláírása, legalább 32 karakter; production módban a fejlesztői alapérték nem használható |
+| `DASHBOARD_ORIGIN` | A nyilvános cím (a levelekben szereplő linkekhez) |
+| `TICKOFF_STORAGE_DIR` | A képernyőképek és mellékletek helye (Dockerben kötet) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_STARTTLS`, `TICKOFF_MAIL_FROM` | E-mail; `SMTP_HOST` nélkül nem megy levél |
+| `TICKOFF_REGISTRATION_ENABLED` | Nyilvános regisztráció (alapból `true`) |
+| `TICKOFF_EXPORT_ZONE` | Időzóna az exportokhoz és az összefoglaló időzítéséhez (alapból `Europe/Budapest`) |
+| `TICKOFF_RATE_LIMIT_ENABLED` | A kérésszám-korlát (alapból be van kapcsolva) |
+| `TICKOFF_WEBHOOK_ALLOW_PRIVATE` | **Csak fejlesztéshez**: helyi (privát) webhook-címek engedélyezése; élesben ne állítsd be |
+
+### Production
+
+```bash
+cp .env.next.example .env.next            # töltsd ki (domain, jelszavak, JWT-titok, SMTP)
+docker compose -f docker-compose.next.yml --env-file .env.next up -d --build
+```
+
+Az alkalmazás indításkor lefuttatja a függő adatbázis-migrációkat, aztán elindul. Az adatbázis és az alkalmazás nem ad ki portot, kívülről csak a Caddy éri el (HTTPS, tanúsítvány a Let's Encrypttől). A CSP-t az alkalmazás állítja be nonce-szal. Mentés: `scripts/backup-next.sh` (adatbázis-dump + képek, ugyanúgy időzíthető, mint a régi).
+
+**Amit tudni kell:** a kérésszám-korlát és az ütemező folyamaton belüli, ezért az alkalmazásból egyetlen példány fusson (több példányhoz közös tároló és külső ütemező kellene). A felület kliens oldalon renderelődik, így a landing keresőoptimalizálása korlátozott.
+
+### Átállás a Java változatról
+
+Az átállás előtt a régi stack érintetlen marad, így bármikor vissza lehet térni rá. Az új stack a régivel egy gépen is futhat (más projektnévvel), de a 80/443-as portot egyszerre csak az egyik használhatja.
+
+1. **Mentés a régiről:** `scripts/backup.sh` (adatbázis-dump + képek). Ettől a ponttól ne legyen új írás a régi rendszerben (állítsd le a Java backendet, vagy időzítsd az átállást egy csendes időszakra).
+2. **Új stack induló állapota:** töltsd ki a `.env.next`-et; **a `TICKOFF_JWT_SECRET` legyen ugyanaz, mint a réginél**, akkor a bejelentkezett munkamenetek is megmaradnak (a jelszavak, a kétlépcsős belépés és minden token formátuma azonos). Indítsd az adatbázist és az alkalmazást (a migráció lefut, az adatbázis üres): `docker compose -f docker-compose.next.yml --env-file .env.next up -d mysql app`.
+3. **A régi adatbázis betöltése egy ideiglenes adatbázisba** az új MySQL-ben:
+   ```bash
+   docker compose -f docker-compose.next.yml --env-file .env.next exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "create database tickoff_java"'
+   gunzip -c backups/db-ÉÉÉÉHHNN-ÓÓPPMM.sql.gz | docker compose -f docker-compose.next.yml --env-file .env.next exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" tickoff_java'
+   ```
+4. **Az adatok átvitele** (a cél üres kell legyen, különben megáll; a forrás nem módosul):
+   ```bash
+   docker compose -f docker-compose.next.yml --env-file .env.next run --rm -e SOURCE_DATABASE_URL="mysql://root:ROOT_JELSZÓ@mysql:3306/tickoff_java" app node import.cjs
+   ```
+   A script táblánként kiírja a sorszámokat, és megáll, ha az átvitel után bármelyik nem egyezik.
+5. **A képek másolása** (ugyanaz a könyvtárszerkezet és ugyanaz a felhasználó, 10001):
+   ```bash
+   docker run --rm -v tickoff-prod_screenshots:/from:ro -v tickoff-next_screenshots:/to alpine sh -c 'cp -a /from/. /to/'
+   ```
+6. **Ellenőrzés, majd átállás:** próbálj belépni, nézd át a projekteket és a képeket, a widget egy próbaoldalon. Ha rendben van, állítsd le a régi stacket (`docker compose -f docker-compose.prod.yml down`, az adatok a köteteken megmaradnak), és indítsd a Caddyt az új stackben (`up -d`). A beágyazott widgeteket nem kell módosítani: a megosztó tokenek és a widget címe (`/widget/tickoff-widget.js`) változatlan.
+7. **Visszalépés:** ha gond van, állítsd le az újat, és indítsd a régit (`docker compose -f docker-compose.prod.yml up -d`). Az új stackben közben keletkezett adat nem kerül vissza a régibe.
 
 ## Üzemeltetés (production)
 

@@ -1,0 +1,34 @@
+# Production bejárat a Next.js változathoz: automatikus HTTPS (Let's Encrypt) és reverse proxy az alkalmazás elé.
+# A címet a TICKOFF_SITE_ADDRESS adja meg (pl. app.pelda.hu).
+# Helyi próbához: TICKOFF_SITE_ADDRESS=http://localhost (ilyenkor nincs HTTPS és nincs tanúsítvány).
+# A Content-Security-Policy-t az alkalmazás (src/proxy.ts) állítja be kérésenként új nonce-szal, itt nem kell.
+
+{
+	# Nem tesszük ki a Caddy admin API-ját
+	admin off
+	# A Let's Encrypt ide küld értesítést a tanúsítvány lejárata előtt
+	email {$TICKOFF_ACME_EMAIL}
+}
+
+{$TICKOFF_SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# A legnagyobb kérés a 3 MB-os kép
+	request_body {
+		max_size 4MB
+	}
+
+	# Az alkalmazás a valódi kliens-IP-t az X-Forwarded-For fejlécből veszi (kérésszám-korlát): ezt a Caddy tölti ki
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-For {remote_host}
+		health_uri /api/health
+		health_interval 15s
+	}
+}
