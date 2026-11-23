@@ -5,7 +5,7 @@ import { recordActivity } from '@/lib/activity';
 import { conflict, json, parseBody } from '@/lib/http';
 import { roundApprovedMail } from '@/lib/team-notifications';
 import { publishWebhook, WebhookEvents } from '@/lib/webhooks';
-import { openRound, roundInfo, widgetPreflight, widgetRoute } from '@/lib/widget';
+import { openRound, roundInfoFull, widgetPreflight, widgetRoute } from '@/lib/widget';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,7 @@ export const POST = widgetRoute('write', async ({ req, project }) => {
   await recordActivity(project.id, 'CUSTOMER', body.authorName, 'round.approved', null, `Jóváhagyta a ${round.number}. kört`);
   void publishWebhook(project, WebhookEvents.roundApproved,
     `[${project.name}] ${body.authorName} jóváhagyta a ${round.number}. kört: minden visszajelzés kész.`, null, approved);
-  return json(roundInfo(approved));
+  return json(await roundInfoFull(approved));
 });
 
 export const OPTIONS = widgetPreflight;

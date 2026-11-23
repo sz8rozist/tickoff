@@ -15,7 +15,7 @@ const MAX_PENDING_INVITES = 20;
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const inviteDto = (i: { id: number; email: string; createdAt: Date }) => ({ id: i.id, email: i.email, createdAt: i.createdAt });
+const inviteDto = (i: { id: number; email: string; role: string; createdAt: Date }) => ({ id: i.id, email: i.email, role: i.role === 'VIEWER' ? 'VIEWER' : 'MEMBER', createdAt: i.createdAt });
 
 /** A függő meghívók (csak a tulajdonos látja). */
 export const GET = api<Ctx>(async (req, { params }) => {
@@ -25,7 +25,7 @@ export const GET = api<Ctx>(async (req, { params }) => {
   return json(rows.map(inviteDto));
 });
 
-const Body = z.object({ email: z.email().max(255) });
+const Body = z.object({ email: z.email().max(255), role: z.enum(['MEMBER', 'VIEWER']).optional() });
 
 /**
  * Meghívó még nem (megerősítetten) regisztrált kollégának: levelet kap, és ha ezzel a címmel regisztrál és megerősíti,
@@ -51,7 +51,7 @@ export const POST = api<Ctx>(async (req, { params }) => {
 
   let inviteId: number;
   try {
-    const [result] = await db.insert(schema.projectInvites).values({ projectId: project.id, email, invitedBy: user.id });
+    const [result] = await db.insert(schema.projectInvites).values({ projectId: project.id, email, invitedBy: user.id, role: body.role ?? 'MEMBER' });
     inviteId = result.insertId;
   } catch (e) {
     if (isDuplicateKey(e)) throw conflict('Őt már meghívtad, vagy már tagja a projektnek');

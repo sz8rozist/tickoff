@@ -110,6 +110,12 @@ export function FeedbackPage({ currentUserId, onGoProjects }: { currentUserId: n
             <Tabs.Tab value="activity">{t('Tevékenység')}</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="rounds" pt="md">
+            {p.role === 'VIEWER' && (
+              <Alert color="gray" mb="sm">
+                {t('Megtekintő szerepkörrel látod a visszajelzéseket, de nem módosíthatod őket.')}
+              </Alert>
+            )}
+            <fieldset disabled={p.role === 'VIEWER'} className="plain-fieldset">
             <RoundsPanel
               projectId={p.id}
               currentUserId={currentUserId}
@@ -120,6 +126,7 @@ export function FeedbackPage({ currentUserId, onGoProjects }: { currentUserId: n
                   .catch(() => undefined)
               }
             />
+            </fieldset>
           </Tabs.Panel>
           <Tabs.Panel value="activity" pt="md">
             <ActivityPanel projectId={p.id} />

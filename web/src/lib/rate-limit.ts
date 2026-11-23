@@ -64,6 +64,9 @@ export const LIMITS = {
   notifyRecipient: { name: 'notify-recipient', burst: 10, perMinute: 1 },
   // Widget: durva IP-korlát minden kérésre; írás (komment, kép, válasz stb.); olvasás (projekt, kommentek)
   widgetCoarse: { name: 'widget-coarse-ip', burst: 200, perMinute: 300 },
+  // A widget jelszavának találgatása ellen: IP-nként és tokenenként is szigorú
+  widgetUnlockIp: { name: 'widget-unlock-ip', burst: 8, perMinute: 6 },
+  widgetUnlockToken: { name: 'widget-unlock-token', burst: 20, perMinute: 6 },
   widgetWriteIp: { name: 'widget-write-ip', burst: 20, perMinute: 20 },
   widgetWriteToken: { name: 'widget-write-token', burst: 120, perMinute: 120 },
   widgetReadIp: { name: 'widget-read-ip', burst: 60, perMinute: 120 },

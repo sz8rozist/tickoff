@@ -38,7 +38,7 @@ export const GET = api<{ params: Promise<{ id: string }> }>(async (req, { params
     .where(eq(schema.rounds.projectId, project.id))
     .orderBy(asc(schema.rounds.number), asc(schema.comments.createdAt), asc(schema.comments.id));
   const exported = rows.filter((r) => roundFilter === null || r.comment.roundId === roundFilter);
-  const replies = await repliesByComment(exported.map((r) => r.comment.id));
+  const replies = await repliesByComment(exported.map((r) => r.comment.id), true);
 
   const fmt = formatter();
   const csv = new CsvWriter().row([
@@ -56,7 +56,7 @@ export const GET = api<{ params: Promise<{ id: string }> }>(async (req, { params
       c.userAgent ?? '',
       fmt.format(c.createdAt),
       // A szál egy cellában, időrendben: "Név (csapat): szöveg" sorokban
-      (replies.get(c.id) ?? []).map((r) => `${r.authorName}${r.authorType === 'DESIGNER' ? ' (csapat)' : ''}: ${r.body}`).join('\n'),
+      (replies.get(c.id) ?? []).map((r) => `${r.authorName}${r.authorType === 'DESIGNER' ? (r.internal ? ' (belső)' : ' (csapat)') : ''}: ${r.body}`).join('\n'),
       assignee ?? '',
       c.priority,
       c.labels.split(',').filter(Boolean).join(', '),

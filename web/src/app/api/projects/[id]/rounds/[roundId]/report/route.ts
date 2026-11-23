@@ -24,7 +24,7 @@ export const GET = api<{ params: Promise<{ id: string; roundId: string }> }>(asy
     .leftJoin(schema.users, eq(schema.users.id, schema.comments.assigneeId))
     .where(eq(schema.comments.roundId, round.id))
     .orderBy(asc(schema.comments.createdAt), asc(schema.comments.id));
-  const replies = await repliesByComment(rows.map((r) => r.comment.id));
+  const replies = await repliesByComment(rows.map((r) => r.comment.id), internal);
   const html = renderReport(
     project,
     round,

@@ -37,6 +37,7 @@ export function Overview({
   onGo,
   onClose,
   onApproveRound,
+  onApprovePage,
   loadHistory,
 }: {
   comments: WidgetComment[];
@@ -47,6 +48,8 @@ export function Overview({
   onClose: () => void;
   /** Hibaüzenettel tér vissza, vagy null-lal, ha sikerült. */
   onApproveRound: (authorName: string) => Promise<string | null>;
+  /** Egy oldal jóváhagyása; hibaüzenettel tér vissza, vagy null-lal, ha sikerült. */
+  onApprovePage: (authorName: string, pageUrl: string) => Promise<string | null>;
   loadHistory: () => Promise<HistoryRound[]>;
 }) {
   const [tab, setTab] = useState<Tab>('current');
@@ -90,6 +93,7 @@ export function Overview({
           defaultName={defaultName}
           onGo={onGo}
           onApproveRound={onApproveRound}
+          onApprovePage={onApprovePage}
         />
       ) : (
         <History history={history} failed={historyFailed} />
@@ -109,6 +113,7 @@ function Current({
   defaultName,
   onGo,
   onApproveRound,
+  onApprovePage,
 }: {
   comments: WidgetComment[];
   currentPage: string;
@@ -116,6 +121,7 @@ function Current({
   defaultName: string;
   onGo: (c: WidgetComment) => void;
   onApproveRound: (authorName: string) => Promise<string | null>;
+  onApprovePage: (authorName: string, pageUrl: string) => Promise<string | null>;
 }) {
   const count = (s: CommentStatus) => comments.filter((c) => c.status === s).length;
   const allDone = comments.length > 0 && comments.every((c) => c.status === 'DONE');
@@ -165,12 +171,76 @@ function Current({
                 </span>
               </button>
             ))}
+            <PageApproval url={url} items={items} round={round} defaultName={defaultName} onApprove={onApprovePage} />
           </section>
         ))}
       </div>
 
       <RoundApproval round={round} allDone={allDone} defaultName={defaultName} onApprove={onApproveRound} />
     </>
+  );
+}
+
+/** Egy oldal jóváhagyása: akkor kínáljuk fel, ha az oldal minden visszajelzése kész, és a kör még nincs jóváhagyva. */
+function PageApproval({
+  url,
+  items,
+  round,
+  defaultName,
+  onApprove,
+}: {
+  url: string;
+  items: WidgetComment[];
+  round: RoundInfo | null;
+  defaultName: string;
+  onApprove: (authorName: string, pageUrl: string) => Promise<string | null>;
+}) {
+  const [name, setName] = useState(defaultName);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!round || round.approved) return null;
+  const approved = round.approvedPages?.find((p) => p.pageUrl === url);
+  if (approved) {
+    return (
+      <div class="approval done small" role="status">
+        ✓ {t('Oldal jóváhagyva')}: {approved.approvedBy}
+      </div>
+    );
+  }
+  if (items.length === 0 || items.some((c) => c.status !== 'DONE')) return null;
+
+  async function submit(e: Event) {
+    e.preventDefault();
+    if (name.trim() === '' || busy) return;
+    setBusy(true);
+    setError(null);
+    const failure = await onApprove(name.trim(), url);
+    setBusy(false);
+    if (failure) setError(failure);
+  }
+
+  return (
+    <form class="approval small" onSubmit={submit}>
+      <div class="row">
+        <input
+          type="text"
+          value={name}
+          maxLength={120}
+          placeholder={t('A neved')}
+          aria-label={t('A neved')}
+          onInput={(e) => setName(e.currentTarget.value)}
+        />
+        <button type="submit" class="btn small" disabled={busy || name.trim() === ''}>
+          {busy ? t('Küldés…') : t('Oldal jóváhagyása')}
+        </button>
+      </div>
+      {error && (
+        <p class="err" role="alert">
+          {error}
+        </p>
+      )}
+    </form>
   );
 }
 

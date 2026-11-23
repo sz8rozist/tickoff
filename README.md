@@ -39,6 +39,11 @@
 - **Kommentszálak**: a designer válaszolhat a kommentekre (a válasz a widgetben is megjelenik, "csapat" jelvénnyel), és törölheti a válaszokat (két kattintással, véletlen törlés ellen). Az ügyfél válaszai is itt jelennek meg.
 - **Komment törlése** (a képernyőképével és a válaszaival együtt) megerősítéssel.
 - **Csapatmunka**: a tulajdonos meghívhatja a kollégáit e-mail-cím alapján. Ha a címhez van **megerősített** fiók, azonnal tag lesz; ha még nincs (vagy nincs megerősítve), **függő meghívó** és levél megy, és a regisztráció + e-mail-megerősítés után a kolléga automatikusan csatlakozik (a függő meghívók a Tagok fülön látszanak és visszavonhatók, projektenként legfeljebb 20). A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), de a projekt beállításait, a tokent és a tagokat nem; kiléphetnek a projektből. A tulajdonos a projektet **átadhatja** egy tagnak (a régi tulajdonos tag marad). A projektlistán megjelölve látszik, melyik projektben vagy tag, és ki a tulajdonosa.
+- **Megtekintő szerepkör**: a meghívásnál a kolléga **tag** (kezelheti a visszajelzéseket) vagy **megtekintő** (mindent lát, de semmit nem módosíthat; csak a saját kilépése engedett) lehet. A megtekintő módosító kérésére a szerver 403-at ad, a felületen a kezelőelemek le vannak tiltva. A szerepkör a függő meghívóban is megmarad, és a regisztráció + megerősítés után lép életbe.
+- **Belső megjegyzések és @említések**: a szálba a csapat **belső megjegyzést** is írhat, amelyet az ügyfél sehol nem lát (widget, nyilvános API, ügyfél-riport, értesítések), és nem kap róla levelet. A válaszban `@Teljes Név` megemlíti a csapattagot, aki e-mail értesítést kap (ha nem kapcsolta ki); a beszúrást gombok segítik. A belső riport és az export tartalmazza a belső megjegyzéseket, jelölve.
+- **Hibajegy-követő (GitHub, Linear, Jira, bármi)**: a tulajdonos a projekt menüjében megad egy https URL-sablont a {title}, {body}, {url} helyőrzőkkel (pl. GitHubnál `https://github.com/szervezet/repo/issues/new?title={title}&body={body}`). A kommenteken megjelenik a **Hibajegy létrehozása** gomb, amely az előtöltött új-hibajegy oldalt nyitja meg. Nincs tárolt kulcs és nincs kimenő kérés: a böngésző nyitja meg a kitöltött címet.
+- **Összefoglaló az ügyfélnek a kör lezárásakor**: a kör lezárásakor minden megerősített e-mail-címre egyetlen levél megy az ügyfél saját visszajelzéseiről (mi lett kész, mi nem). A leiratkozás az ügyfél minden visszajelzésére érvényes a projektben.
+- **Widget jelszó**: a tulajdonos jelszóval védheti a widgetet. Védett projektnél az ügyfélnek előbb meg kell adnia a jelszót (12 órás hozzáférési tokent kap), addig a widget semmit nem mutat belőle, és minden widget-végpont 401-et ad. A jelszó csak hash-ként tárolódik; csere vagy törlés érvényteleníti a kiadott tokeneket. A találgatást IP- és tokenkorlát fékezi.
 - **Export CSV-be**: egy kör vagy a teljes projekt kommentjei, magyar Excelben helyesen megnyíló formátumban (ékezetek, pontosvessző).
 - **Nyelv**: a felület magyarul és angolul is használható (Beállítások, vagy a belépő oldal jobb felső sarkában). A választás a fiókhoz mentődik, így minden eszközön ugyanaz; a fiók **e-mailjei** is ezen a nyelven mennek (új visszajelzés, válasz, újranyitás, jóváhagyás, felelős kijelölése, összefoglaló, megerősítő és jelszó-visszaállító levél). Regisztrációkor a belépő oldalon éppen kiválasztott nyelv lesz a fiók nyelve. A szövegek magyar forrásszöveggel vannak a kódban (`t('…')`), az angol szótár a `web/src/ui/i18n-en.ts`; ami nincs lefordítva, magyarul marad. A bemutató oldal (landing) egyelőre csak magyar.
 - Világos és sötét téma.
@@ -58,6 +63,7 @@
 - **Összes visszajelzés (Lista)**: a gomb mellett látszó "Lista" panel oldalak szerint csoportosítva mutatja a nyitott kör összes kommentjét állapottal; egy elemre kattintva a widget odaugrik (másik oldalra mélylinkkel tölt át).
 - **Korábbi körök**: a panel második füle a lezárt köröket mutatja (a legutóbbi 10-et), csak olvasásra: kommentek, állapotuk és az utolsó válasz.
 - **Elfogadás és visszanyitás**: a "Kész" kommentnél az ügyfél elfogadhatja a javítást, vagy visszanyithatja rövid indoklással (az indoklás a szálba kerül, és a csapat értesítést kap).
+- **Oldal jóváhagyása**: ha egy oldal minden visszajelzése kész, az ügyfél az oldalt külön is jóváhagyhatja a Lista panelen, a teljes kör előtt. Új komment az oldalon vagy egy nem kész státusz érvényteleníti az oldal jóváhagyását; a dashboard az oldal fejlécén jelzi.
 - **Kör jóváhagyása**: ha a nyitott kör minden kommentje kész, az ügyfél jóváhagyhatja a kört (a csapat levelet kap, a dashboardon "az ügyfél jóváhagyta" jelvény látszik). Új vagy újranyitott komment érvényteleníti a jóváhagyást.
 - **E-mail értesítés az ügyfélnek**: az űrlapon megadható (nem kötelező) e-mail-cím. Ha a csapat válaszol, vagy késznek jelöli a kommentet, az ügyfél levelet kap a kommentre mutató linkkel és leiratkozó linkkel. A címet a widget API sosem adja vissza.
 - Ha nincs nyitott kör, az ügyfél tájékoztató üzenetet kap. Rossz token vagy origin esetén a widget a vendégoldalon nem jelenik meg.
@@ -194,7 +200,7 @@ Aki nem tulajdonos és nem tag, annak a projekt nem létezik: minden végpont `4
 | Végpont | Leírás |
 |---|---|
 | `GET /api/projects/{id}/members` | a tulajdonos (elöl) és a tagok: `{userId, name, email, role}`; a projekt minden tagja látja |
-| `POST /api/projects/{id}/members` | `{email}` → `201`: meghívás **megerősített fiókra** (e-mail alapján, kis- és nagybetűre érzéketlenül). `404`, ha nincs ilyen megerősített fiók (ilyenkor a kliens a lenti függő meghívót küldi), `409`, ha már tag vagy ő a tulajdonos. Csak tulajdonos; IP-nként 20/perc, mert a válaszból a fiókok létezése kideríthető |
+| `POST /api/projects/{id}/members` | `{email, role?: MEMBER \| VIEWER}` → `201`: meghívás **megerősített fiókra** (e-mail alapján, kis- és nagybetűre érzéketlenül). `404`, ha nincs ilyen megerősített fiók (ilyenkor a kliens a lenti függő meghívót küldi), `409`, ha már tag vagy ő a tulajdonos. Csak tulajdonos; IP-nként 20/perc, mert a válaszból a fiókok létezése kideríthető |
 | `POST /api/projects/{id}/members/{userId}/transfer-ownership` | `200` + a tagok frissített listája: a projekt átadása egy **meglévő tagnak** (csak tulajdonos). Az új tulajdonos mindent megkap, a régi tag marad (a visszajelzéseket tovább kezelheti, de a beállításokat már nem). `409`, ha a célpont nem tag. A visszaadást csak az új tulajdonos kezdeményezheti |
 | `DELETE /api/projects/{id}/members/{userId}` | `204`: a tulajdonos bárkit eltávolíthat, a tag csak saját magát (kilépés). A tulajdonos nem távolítható el (`409`), ha nincs rá szükség, a projektet kell törölni |
 
@@ -218,7 +224,10 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 | Végpont | Leírás |
 |---|---|
 | `GET /api/projects/{id}/rounds/{roundId}/comments` | a kör kommentjei, minden mezővel (selector, viewport, user agent, státusz) és a `replies` szállal (időrendben) |
-| `POST /api/projects/{id}/comments/{commentId}/replies` | `{body (max. 4000)}` → `201`: válasz a designer nevében (lezárt kör kommentjére is). Egy kommenthez legfeljebb 200 válasz fűzhető, utána `409` |
+| `PUT /api/projects/{id}/tracker` | `{url}`: hibajegy-követő sablon (csak a tulajdonos), üres/`null` kikapcsolja; `400`, ha nem https, vagy hiányzik a `{title}` |
+| `PUT /api/projects/{id}/widget-access` | `{password (4–72) \| null}`: a widget jelszavas védelme (csak a tulajdonos) |
+| `GET /api/projects/{id}/rounds/{roundId}/page-approvals` | az ügyfél által oldalanként jóváhagyott oldalak |
+| `POST /api/projects/{id}/comments/{commentId}/replies` | `{body (max. 4000), internal?: boolean}` → `201`: válasz a designer nevében (lezárt kör kommentjére is). Egy kommenthez legfeljebb 200 válasz fűzhető, utána `409` |
 | `DELETE /api/projects/{id}/comments/{commentId}/replies/{replyId}` | `204` |
 | `PATCH /api/projects/{id}/comments/{commentId}` | `{status: OPEN \| IN_PROGRESS \| DONE}`; érvénytelen értékre `400` |
 | `GET /api/projects/{id}/members/invites` | a függő meghívók (csak a tulajdonos) |
@@ -277,6 +286,8 @@ A widgetet tehát azon az origin-en kell beágyazni, amit a projektnél megadtá
 | `GET /api/widget/{token}/history` | a lezárt körök (a legutóbbi 10, legújabb elöl) kommentjei szálastul, csak olvasásra |
 | `POST /api/widget/{token}/comments/{id}/approve` | az ügyfél elfogadja a "Kész" kommentet → `200`; `409`, ha nem kész vagy lezárt körhöz tartozik |
 | `POST /api/widget/{token}/comments/{id}/reopen` | `{authorName, reason?}`: a "Kész" komment visszanyitása, a szálba "Visszanyitva: …" bejegyzés kerül, a csapat értesítést kap → `200`; `409` ugyanúgy |
+| `POST /api/widget/{token}/page/approve` | `{authorName, pageUrl}`: egy oldal jóváhagyása a nyitott körben → `200` (a kör adata az `approvedPages` listával); `409`, ha az oldalnak nincs kommentje vagy van nem kész |
+| `POST /api/widget/{token}/unlock` | `{password}`: jelszóval védett widget feloldása → `{accessToken}`; `403` hibás jelszóra, `429` találgatásra. A token az `X-Tickoff-Access` fejlécben megy a többi kérésre; a `GET /project` védett, fel nem oldott projektnél `locked: true`-val csak a megjelenés adatait adja |
 | `POST /api/widget/{token}/round/approve` | `{authorName}`: a nyitott kör jóváhagyása → `200`; `409`, ha nincs komment vagy van nem kész |
 | `POST /api/widget/{token}/comments/{id}/screenshot` | képernyőkép: nyers `image/png` vagy `image/jpeg` a törzsben, max. 3 MB → `204`; `413` túl nagy, `415` rossz típus, `400` ha a tartalom nem kép (a fájl első bájtjait ellenőrizzük), `409` ha már van képe |
 

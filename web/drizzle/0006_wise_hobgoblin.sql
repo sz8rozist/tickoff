@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `tracker_url` varchar(500);

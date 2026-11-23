@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { db, schema } from '@/db';
 import { api } from '@/lib/http';
@@ -33,7 +33,7 @@ export const GET = api<{ params: Promise<{ token: string }> }>(async (req: NextR
   let lang: 'hu' | 'en' = 'hu';
   if (token.length === 32) {
     const [found] = await db
-      .select({ id: schema.comments.id, lang: schema.projects.widgetLang })
+      .select({ id: schema.comments.id, lang: schema.projects.widgetLang, projectId: schema.projects.id, email: schema.comments.customerEmail })
       .from(schema.comments)
       .innerJoin(schema.rounds, eq(schema.rounds.id, schema.comments.roundId))
       .innerJoin(schema.projects, eq(schema.projects.id, schema.rounds.projectId))
@@ -42,6 +42,16 @@ export const GET = api<{ params: Promise<{ token: string }> }>(async (req: NextR
     if (found) {
       lang = found.lang === 'en' ? 'en' : 'hu';
       await db.update(schema.comments).set({ customerEmail: null, notifyToken: null }).where(eq(schema.comments.id, found.id));
+      // Ugyanez a cím a projekt többi kommentjén is: a leiratkozás az ügyfélre vonatkozik a projektben, nem egy kommentre
+      if (found.email) {
+        const roundIds = (await db.select({ id: schema.rounds.id }).from(schema.rounds).where(eq(schema.rounds.projectId, found.projectId))).map((r) => r.id);
+        if (roundIds.length > 0) {
+          await db
+            .update(schema.comments)
+            .set({ customerEmail: null, notifyToken: null })
+            .where(and(inArray(schema.comments.roundId, roundIds), eq(schema.comments.customerEmail, found.email)));
+        }
+      }
     }
   }
   return new Response(PAGE(lang), {

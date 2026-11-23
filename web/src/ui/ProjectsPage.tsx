@@ -20,7 +20,9 @@ import { useForm } from '@mantine/form';
 import { api, ApiError, type Project } from './api';
 import { fold, useDashboard } from './DashboardContext';
 import { saveBlob } from './download';
+import { TrackerModal } from './TrackerModal';
 import { WebhookModal } from './WebhookModal';
+import { WidgetAccessModal } from './WidgetAccessModal';
 import { WidgetAppearanceModal } from './WidgetAppearanceModal';
 import { t } from './i18n';
 
@@ -233,6 +235,10 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
   // A webhook-ablak a bezáródó animáció alatt is a projektet mutatja
   const [webhookFor, setWebhookFor] = useState<Project | null>(null);
   const [webhookOpen, setWebhookOpen] = useState(false);
+  const [accessFor, setAccessFor] = useState<Project | null>(null);
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [trackerFor, setTrackerFor] = useState<Project | null>(null);
+  const [trackerOpen, setTrackerOpen] = useState(false);
   const [appearanceFor, setAppearanceFor] = useState<Project | null>(null);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -423,6 +429,24 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
                         >
                           {t('Webhook (Slack, Discord)')}{p.webhookUrl ? ' ✓' : ''}
                         </Menu.Item>
+                        <Menu.Item
+                          onClick={() => {
+                            setAccessFor(p);
+                            setAccessOpen(true);
+                          }}
+                        >
+                          {t('Widget jelszó')}
+                          {p.widgetProtected ? ' ✓' : ''}
+                        </Menu.Item>
+                        <Menu.Item
+                          onClick={() => {
+                            setTrackerFor(p);
+                            setTrackerOpen(true);
+                          }}
+                        >
+                          {t('Hibajegy-követő')}
+                          {p.trackerUrl ? ' ✓' : ''}
+                        </Menu.Item>
                         <Menu.Divider />
                         <Menu.Item
                           color="red"
@@ -436,7 +460,7 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
                     </Menu>
                   ) : (
                     <Badge variant="light" color="gray" size="sm" title={t('Tulajdonos: {ownerName}', { ownerName: p.ownerName })}>
-                      {t('meghívott tag')}</Badge>
+                      {p.role === 'VIEWER' ? t('megtekintő') : t('meghívott tag')}</Badge>
                   )}
                 </Group>
                 <StatChips stats={p.stats} />
@@ -477,6 +501,20 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
         project={projects?.find((x) => x.id === appearanceFor?.id) ?? appearanceFor}
         opened={appearanceOpen}
         onClose={() => setAppearanceOpen(false)}
+        onChanged={(updated) => setProjects((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null)}
+      />
+
+      <WidgetAccessModal
+        project={projects?.find((x) => x.id === accessFor?.id) ?? accessFor}
+        opened={accessOpen}
+        onClose={() => setAccessOpen(false)}
+        onChanged={(updated) => setProjects((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null)}
+      />
+
+      <TrackerModal
+        project={projects?.find((x) => x.id === trackerFor?.id) ?? trackerFor}
+        opened={trackerOpen}
+        onClose={() => setTrackerOpen(false)}
         onChanged={(updated) => setProjects((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null)}
       />
 

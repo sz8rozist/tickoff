@@ -7,6 +7,8 @@ import { clientIp, conflict, errorResponse, forbidden, HttpError, notFound } fro
 import { LIMITS, limitByIp, limitByKey, type Limit } from './rate-limit';
 import { rateLimitEnabled } from './env';
 import { safeEqual, sha256 } from './crypto';
+import { listPageApprovals } from './page-approvals';
+import { requireWidgetAccess, WIDGET_ACCESS_HEADER } from './widget-access';
 
 /** Ennyi ideig szerkesztheti vagy vonhatja vissza az ügyfél a saját kommentjét (a létrehozástól számítva). */
 export const EDIT_WINDOW_MS = 10 * 60 * 1000;
@@ -55,7 +57,7 @@ function corsHeaders(req: NextRequest, project: Project): Record<string, string>
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': `Content-Type, ${WIDGET_ACCESS_HEADER}`,
     'Access-Control-Max-Age': '3600',
     Vary: 'Origin',
   };
@@ -79,6 +81,8 @@ interface WidgetArgs<P> {
 export function widgetRoute<P extends WidgetCtx>(
   kind: 'read' | 'write',
   handler: (args: WidgetArgs<P>) => Promise<Response>,
+  /** `open`: jelszóval védett projektnél is elérhető (a projekt-infó és a feloldás maga). */
+  opts: { open?: boolean } = {},
 ): (req: NextRequest, ctx: { params: Promise<P> }) => Promise<Response> {
   return async (req, ctx) => {
     let project: Project | null = null;
@@ -90,6 +94,7 @@ export function widgetRoute<P extends WidgetCtx>(
       const [ipLimit, tokenLimit]: Limit[] = kind === 'write' ? [LIMITS.widgetWriteIp, LIMITS.widgetWriteToken] : [LIMITS.widgetReadIp, LIMITS.widgetReadToken];
       limitByIp(req, ipLimit);
       limitByKey(params.token, tokenLimit);
+      if (!opts.open) await requireWidgetAccess(req, project);
       return withCors(await handler({ req, project, params }), req, project);
     } catch (e) {
       const res = errorResponse(e);
@@ -143,7 +148,7 @@ export async function ownComment(project: Project, commentId: number, editToken:
 /** A widget által látott komment-ábrázolás (az ügyfél e-mailje, a belső besorolás és a felelős nélkül). */
 export function widgetCommentDto(
   c: Comment,
-  replies: { id: number; authorName: string; authorType: string; body: string; createdAt: Date }[],
+  replies: { id: number; authorName: string; authorType: string; body: string; internal?: boolean; createdAt: Date }[],
 ) {
   return {
     id: c.id,
@@ -162,12 +167,18 @@ export function widgetCommentDto(
     edited: c.editedAt !== null,
     editToken: null as string | null,
     editableUntil: null as Date | null,
-    replies,
+    // Biztonsági öv: a belső megjegyzés az ügyfél felé semmilyen úton nem kerülhet ki
+    replies: replies.filter((r) => !r.internal).map(({ internal: _internal, ...rest }) => rest),
   };
 }
 
-export function roundInfo(r: Round) {
-  return { id: r.id, number: r.number, approved: r.approvedAt !== null, approvedBy: r.approvedBy, dueDate: r.dueDate };
+export function roundInfo(r: Round, approvedPages: { pageUrl: string; approvedBy: string }[] = []) {
+  return { id: r.id, number: r.number, approved: r.approvedAt !== null, approvedBy: r.approvedBy, dueDate: r.dueDate, approvedPages };
+}
+
+/** A kör widget-ábrázolása az oldalankénti jóváhagyásokkal együtt. */
+export async function roundInfoFull(r: Round) {
+  return roundInfo(r, await listPageApprovals(r.id));
 }
 
 /**

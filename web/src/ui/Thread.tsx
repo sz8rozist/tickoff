@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { Alert, Badge, Box, Button, Group, Stack, Text, Textarea } from '@mantine/core';
-import { ApiError, type Reply } from './api';
+import { Alert, Badge, Box, Button, Checkbox, Group, Stack, Text, Textarea } from '@mantine/core';
+import { ApiError, type Member, type Reply } from './api';
 import { locale, t } from './i18n';
 
 const dateTime = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
@@ -14,15 +14,21 @@ function errorMessage(e: unknown): string {
 /** A komment válaszai időrendben, alatta a válasz-űrlap. */
 export function Thread({
   replies,
+  team,
+  currentUserId,
   onAdd,
   onRemove,
 }: {
   replies: Reply[];
-  onAdd: (body: string) => Promise<void>;
+  /** A csapat tagjai az @említéshez. */
+  team: Member[];
+  currentUserId: number;
+  onAdd: (body: string, internal: boolean) => Promise<void>;
   onRemove: (replyId: number) => Promise<void>;
 }) {
   const [writing, setWriting] = useState(false);
   const [body, setBody] = useState('');
+  const [internal, setInternal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Törlésnél második kattintás kell: elkerüli a véletlen törlést megerősítő ablak nélkül
@@ -34,8 +40,9 @@ export function Thread({
     setError(null);
     setBusy(true);
     try {
-      await onAdd(body.trim());
+      await onAdd(body.trim(), internal);
       setBody('');
+      setInternal(false);
       setWriting(false);
     } catch (err) {
       setError(errorMessage(err));
@@ -63,14 +70,18 @@ export function Thread({
       {replies.length > 0 && (
         <Stack gap={8} pl="sm" className="thread">
           {replies.map((r) => (
-            <Box key={r.id}>
+            <Box key={r.id} className={r.internal ? 'note-internal' : undefined}>
               <Group gap={6} align="center">
                 <Text size="xs" fw={600}>
                   {r.authorName}
                 </Text>
-                {r.authorType === 'DESIGNER' && (
+                {r.authorType === 'DESIGNER' && !r.internal && (
                   <Badge size="xs" variant="light">
                     {t('csapat')}</Badge>
+                )}
+                {r.internal && (
+                  <Badge size="xs" variant="light" color="yellow">
+                    {t('belső megjegyzés')}</Badge>
                 )}
                 <Text size="xs" c="dimmed">
                   {dateTime(r.createdAt)}
@@ -116,6 +127,32 @@ export function Thread({
               data-autofocus
               autoFocus
             />
+            {team.length > 1 && (
+              <Group gap={4}>
+                <Text size="xs" c="dimmed">
+                  {t('Említés:')}
+                </Text>
+                {team
+                  .filter((m) => m.userId !== currentUserId)
+                  .map((m) => (
+                    <Button
+                      key={m.userId}
+                      type="button"
+                      size="compact-xs"
+                      variant="subtle"
+                      onClick={() => setBody((b) => `${b}${b === '' || b.endsWith(' ') ? '' : ' '}@${m.name} `)}
+                    >
+                      @{m.name}
+                    </Button>
+                  ))}
+              </Group>
+            )}
+            <Checkbox
+              size="xs"
+              checked={internal}
+              onChange={(e) => setInternal(e.currentTarget.checked)}
+              label={t('Belső megjegyzés (az ügyfél nem látja, és nem kap róla értesítést)')}
+            />
             {error && (
               <Alert color="red" role="alert">
                 {error}
@@ -123,7 +160,7 @@ export function Thread({
             )}
             <Group gap="xs">
               <Button type="submit" size="xs" loading={busy} disabled={body.trim() === ''}>
-                {t('Válasz küldése')}</Button>
+                {internal ? t('Megjegyzés mentése') : t('Válasz küldése')}</Button>
               <Button
                 size="xs"
                 variant="default"

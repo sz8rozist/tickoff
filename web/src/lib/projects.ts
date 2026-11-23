@@ -1,6 +1,6 @@
 import { and, count, desc, eq, inArray, or } from 'drizzle-orm';
 import { db, schema } from '@/db';
-import type { Project, Role } from './access';
+import { roleIn, type Project, type Role } from './access';
 
 export interface ProjectStats {
   roundNumber: number | null;
@@ -59,6 +59,8 @@ export function projectDto(p: Project, role: Role, ownerName: string, stats?: Pr
     widgetPosition: p.widgetPosition,
     archivedAt: p.archivedAt,
     widgetLang: p.widgetLang,
+    trackerUrl: p.trackerUrl,
+    widgetProtected: p.widgetPasswordHash !== null,
   };
 }
 
@@ -66,16 +68,17 @@ export function projectDto(p: Project, role: Role, ownerName: string, stats?: Pr
 export async function loadProjectDto(project: Project, userId: number) {
   const [owner] = await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, project.ownerId)).limit(1);
   const stats = (await statsFor([project.id])).get(project.id);
-  return projectDto(project, project.ownerId === userId ? 'OWNER' : 'MEMBER', owner?.name ?? '', stats);
+  return projectDto(project, (await roleIn(project, userId)) ?? 'MEMBER', owner?.name ?? '', stats);
 }
 
 /** A felhasználó saját és a hozzá meghívott projektjei, újabb elöl. */
 export async function accessibleProjects(userId: number) {
   const memberOf = db.select({ id: schema.projectMembers.projectId }).from(schema.projectMembers).where(eq(schema.projectMembers.userId, userId));
   return db
-    .select({ project: schema.projects, ownerName: schema.users.name })
+    .select({ project: schema.projects, ownerName: schema.users.name, memberRole: schema.projectMembers.role })
     .from(schema.projects)
     .innerJoin(schema.users, eq(schema.users.id, schema.projects.ownerId))
+    .leftJoin(schema.projectMembers, and(eq(schema.projectMembers.projectId, schema.projects.id), eq(schema.projectMembers.userId, userId)))
     .where(or(eq(schema.projects.ownerId, userId), inArray(schema.projects.id, memberOf)))
     .orderBy(desc(schema.projects.createdAt), desc(schema.projects.id));
 }

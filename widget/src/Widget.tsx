@@ -5,6 +5,7 @@ import type { Config } from './config';
 import { areaOf, areaRect, elementFor, rectBetween, type Rect } from './area';
 import { Composer, type ComposerValues } from './Composer';
 import { onNavigate } from './navigation';
+import { Lock } from './Lock';
 import { Overview } from './Overview';
 import { forgetOwn, ownToken, rememberOwn } from './own';
 import { deepLinkTo, pageUrl, readFocusId, stripFocusParam } from './page';
@@ -146,7 +147,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
   }, [page]);
 
   useEffect(() => {
-    if (!project) return;
+    if (!project || project.locked) return;
     let cancelled = false;
     api
       .comments()
@@ -475,6 +476,33 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
     }
   }
 
+  /** Jelszóval védett widget feloldása; siker esetén újratölti a projekt-infót (és vele a kommenteket). */
+  async function unlock(password: string): Promise<'ok' | 'wrong' | 'limited' | 'error'> {
+    try {
+      await api.unlock(password);
+      setProject(await api.project());
+      return 'ok';
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403) return 'wrong';
+      if (e instanceof ApiError && e.status === 429) return 'limited';
+      return 'error';
+    }
+  }
+
+  /** Az ügyfél jóváhagyja egy oldal visszajelzéseit. */
+  async function approvePage(authorName: string, pageUrl: string): Promise<string | null> {
+    try {
+      saveAuthor(authorName);
+      const round: RoundInfo = await api.approvePage(authorName, pageUrl);
+      setProject((p) => (p ? { ...p, openRound: round } : p));
+      return null;
+    } catch (e) {
+      return e instanceof ApiError && e.status === 409
+        ? t('Az oldal jóváhagyása előtt minden visszajelzésének késznek kell lennie.')
+        : sendError(e);
+    }
+  }
+
   /** Az ügyfél jóváhagyja a kört. */
   async function approveRound(authorName: string): Promise<string | null> {
     try {
@@ -502,7 +530,9 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       <style>{styles}</style>
       <style>{themeCss(project?.color ?? null, project?.position ?? null)}</style>
 
-      {project && (
+      {project?.locked && <Lock onUnlock={unlock} />}
+
+      {project && !project.locked && (
         <Pins
           comments={comments}
           inert={mode === 'pick'}
@@ -559,6 +589,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
           onGo={goTo}
           onClose={() => setListOpen(false)}
           onApproveRound={approveRound}
+          onApprovePage={approvePage}
           loadHistory={api.history}
         />
       )}
@@ -569,7 +600,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         </div>
       )}
 
-      {project && (
+      {project && !project.locked && (
         <div class="dock">
           {mode === 'idle' && (all.length > 0 || project?.openRound) && (
             <button class="fab ghost" onClick={toggleList} aria-expanded={listOpen}>

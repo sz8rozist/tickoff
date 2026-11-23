@@ -17,7 +17,7 @@ export const DELETE = api<{ params: Promise<{ id: string; userId: string }> }>(a
   const targetId = idParam(p.userId);
   const { project, role } = await requireMember(projectId, user.id);
 
-  if (role === 'MEMBER' && targetId !== user.id) throw forbidden('Mást csak a projekt tulajdonosa távolíthat el');
+  if (role !== 'OWNER' && targetId !== user.id) throw forbidden('Mást csak a projekt tulajdonosa távolíthat el');
   if (targetId === project.ownerId) throw conflict('A tulajdonos nem távolítható el. Ha nincs rá szükség, töröld a projektet.');
 
   const [member] = await db

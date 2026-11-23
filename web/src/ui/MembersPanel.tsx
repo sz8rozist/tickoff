@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Alert, Badge, Button, Group, Loader, Modal, Stack, Text, TextInput } from '@mantine/core';
-import { api, ApiError, type Invite, type Member, type ProjectRole } from './api';
+import { Alert, Badge, Button, Group, Loader, Modal, Stack, Text, TextInput, Select } from '@mantine/core';
+import { api, ApiError, type Invite, type InviteRole, type Member, type ProjectRole } from './api';
 import { t } from './i18n';
 
 function inviteError(e: unknown): string {
@@ -45,6 +45,7 @@ export function MembersPanel({
   const [transferTarget, setTransferTarget] = useState<Member | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const isOwner = role === 'OWNER';
+  const [inviteRole, setInviteRole] = useState<InviteRole>('MEMBER');
 
   useEffect(() => {
     api.members.list(projectId).then(setMembers).catch(() => setError(t('A tagok betöltése nem sikerült.')));
@@ -62,14 +63,14 @@ export function MembersPanel({
     setNotice(null);
     setBusy(true);
     try {
-      const member = await api.members.add(projectId, email.trim());
+      const member = await api.members.add(projectId, email.trim(), inviteRole);
       setMembers((prev) => [...(prev ?? []), member]);
       setEmail('');
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         // Nincs megerősített fiók ezzel a címmel: függő meghívót küldünk, ami a regisztráció és megerősítés után lép életbe
         try {
-          const created = await api.members.invite(projectId, email.trim());
+          const created = await api.members.invite(projectId, email.trim(), inviteRole);
           setPending((prev) => [...prev, created]);
           setEmail('');
           setNotice(t('Még nincs megerősített fiókja, ezért meghívó levelet küldtünk. Ha regisztrál és megerősíti a címét, automatikusan csatlakozik.'));
@@ -161,9 +162,9 @@ export function MembersPanel({
             {m.email}
           </Text>
           <Badge size="xs" variant="light" color={m.role === 'OWNER' ? 'blue' : 'gray'}>
-            {m.role === 'OWNER' ? 'tulajdonos' : 'tag'}
+            {m.role === 'OWNER' ? t('tulajdonos') : m.role === 'VIEWER' ? t('megtekintő') : t('tag')}
           </Badge>
-          {isOwner && m.role === 'MEMBER' && (
+          {isOwner && m.role !== 'OWNER' && (
             <>
               <Button
                 size="compact-xs"
@@ -191,6 +192,11 @@ export function MembersPanel({
               <Text size="sm">{i.email}</Text>
               <Badge size="xs" variant="light" color="yellow">
                 {t('vár a regisztrációra')}</Badge>
+              {i.role === 'VIEWER' && (
+                <Badge size="xs" variant="light" color="gray">
+                  {t('megtekintő')}
+                </Badge>
+              )}
               <Button size="compact-xs" variant="subtle" color="red" onClick={() => cancelInvite(i)}>
                 {t('Visszavonás')}</Button>
             </Group>
@@ -210,11 +216,23 @@ export function MembersPanel({
               w={240}
               type="email"
             />
+            <Select
+              size="xs"
+              w={150}
+              aria-label={t('Szerepkör')}
+              allowDeselect={false}
+              data={[
+                { value: 'MEMBER', label: t('Tag') },
+                { value: 'VIEWER', label: t('Megtekintő') },
+              ]}
+              value={inviteRole}
+              onChange={(v) => setInviteRole(v === 'VIEWER' ? 'VIEWER' : 'MEMBER')}
+            />
             <Button type="submit" size="xs" loading={busy} disabled={email.trim() === ''}>
               {t('Meghívás')}</Button>
           </Group>
           <Text size="xs" c="dimmed" mt={4}>
-            {t('A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), a projekt beállításait nem. Ha a kollégának még nincs fiókja, meghívó levelet kap, és a regisztráció után automatikusan csatlakozik.')}</Text>
+            {t('A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), a projekt beállításait nem. A megtekintők mindent láthatnak, de semmit nem módosíthatnak. Ha a kollégának még nincs fiókja, meghívó levelet kap, és a regisztráció után automatikusan csatlakozik.')}</Text>
         </form>
       ) : (
         <div>

@@ -75,7 +75,7 @@ export const styles = `
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .panel label { display: block; margin: 10px 0 5px; font-size: 12px; font-weight: 600; color: #334155; }
-  .panel input[type=text], .panel textarea {
+  .panel input[type=text], .panel input[type=password], .panel textarea {
     width: 100%; padding: 9px 12px; border: 1px solid #d5d8ec; border-radius: 10px;
     font-size: 14px; color: #111827; background: #fff;
     transition: border-color .12s ease, box-shadow .12s ease;
@@ -218,6 +218,8 @@ export const styles = `
   }
   .approval input:focus { outline: none; border-color: var(--b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--b) 20%, transparent); }
   .approval .btn.small { white-space: nowrap; margin-top: 0; }
+  .approval.small { padding: 4px 4px 8px; border-top: 0; font-size: 12px; }
+  .approval.small .row { margin-top: 4px; }
   .approval.done { color: #0b7a5a; font-weight: 600; background: #e6fcf5; border-radius: 0 0 16px 16px; }
   .approval.muted { color: #6b7094; font-size: 12px; }
   .approval .hint { margin: 0; }

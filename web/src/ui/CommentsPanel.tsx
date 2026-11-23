@@ -22,6 +22,7 @@ import {
 import { api, type Comment, type CommentStatus, type Member, type Priority } from './api';
 import { fold, useDashboard } from './DashboardContext';
 import { Thread } from './Thread';
+import { fillTracker } from './tracker';
 import { locale, t } from './i18n';
 
 const STATUS_OPTIONS = () => [
@@ -133,7 +134,8 @@ export function CommentsPanel({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [gallery, setGallery] = useState<{ comment: Comment; urls: string[]; failed: boolean } | null>(null);
   // A keresés a felső sávból jön (minden nézetben ugyanaz a mező)
-  const { query, setQuery } = useDashboard();
+  const { query, setQuery, selected: activeProject } = useDashboard();
+  const trackerUrl = activeProject?.trackerUrl ?? null;
   const [view, setViewState] = useState<'cards' | 'table'>(() => {
     try {
       return window.localStorage.getItem('tickoff.commentView') === 'table' ? 'table' : 'cards';
@@ -142,6 +144,8 @@ export function CommentsPanel({
     }
   });
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  // Az ügyfél által oldalanként jóváhagyott oldalak (URL → jóváhagyó neve)
+  const [approvedPages, setApprovedPages] = useState<Map<string, string>>(new Map());
   const [detailId, setDetailId] = useState<number | null>(null);
   const [sort, setSort] = useState('OLDEST');
   const [labelFilter, setLabelFilter] = useState<string | null>(null);
@@ -163,6 +167,14 @@ export function CommentsPanel({
   useEffect(() => {
     api.comments.list(projectId, roundId).then(setComments).catch(() => setError(t('A kommentek betöltése nem sikerült.')));
   }, [projectId, roundId]);
+
+  // Az oldal-jóváhagyások a kommentek változásával frissülnek (egy nem kész státusz érvényteleníti az oldal jóváhagyását)
+  useEffect(() => {
+    api.comments
+      .pageApprovals(projectId, roundId)
+      .then((list) => setApprovedPages(new Map(list.map((a) => [a.pageUrl, a.approvedBy]))))
+      .catch(() => undefined);
+  }, [projectId, roundId, comments]);
 
   // A képernyőkép object URL-jét felszabadítjuk, amikor lecserélődik vagy bezáródik.
   useEffect(() => {
@@ -257,8 +269,8 @@ export function CommentsPanel({
     }
   }
 
-  async function addReply(c: Comment, body: string) {
-    const reply = await api.comments.reply(projectId, c.id, body);
+  async function addReply(c: Comment, body: string, internal: boolean) {
+    const reply = await api.comments.reply(projectId, c.id, body, internal);
     setComments((prev) => prev?.map((x) => (x.id === c.id ? { ...x, replies: [...x.replies, reply] } : x)) ?? null);
   }
 
@@ -460,6 +472,18 @@ export function CommentsPanel({
                       {t('Mellékletek (')}{c.attachments.length})
                     </Button>
                   )}
+                  {trackerUrl && (
+                    <Button
+                      component="a"
+                      href={fillTracker(trackerUrl, c, deepLink(c.pageUrl, c.id))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="compact-xs"
+                      variant="light"
+                    >
+                      {t('Hibajegy létrehozása')}
+                    </Button>
+                  )}
                   {roundOpen && deepLink(c.pageUrl, c.id) && (
                     <Button
                       component="a"
@@ -484,7 +508,9 @@ export function CommentsPanel({
                 </Group>
                 <Thread
                   replies={c.replies}
-                  onAdd={(body) => addReply(c, body)}
+                  team={team}
+                  currentUserId={currentUserId}
+                  onAdd={(body, internal) => addReply(c, body, internal)}
                   onRemove={(replyId) => removeReply(c, replyId)}
                 />
               </Stack>
@@ -700,6 +726,11 @@ export function CommentsPanel({
             </Anchor>
             <Text size="xs" c="dimmed">
               {items.length} {t('komment')}</Text>
+            {approvedPages.has(url) && (
+              <Badge size="sm" variant="light" color="green">
+                {t('✓ az ügyfél jóváhagyta az oldalt: {name}', { name: approvedPages.get(url) ?? '' })}
+              </Badge>
+            )}
           </Group>
           {items.map((c) => (
             <div key={c.id}>{renderCard(c)}</div>

@@ -29,6 +29,41 @@
       "when": 1795441845896,
       "tag": "0003_classy_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1795443181611,
+      "tag": "0004_easy_hiroim",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1795443308984,
+      "tag": "0005_sharp_bloodstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1795443391656,
+      "tag": "0006_wise_hobgoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1795443486928,
+      "tag": "0007_messy_thundra",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1795443659875,
+      "tag": "0008_loose_junta",
+      "breakpoints": true
     }
   ]
 }

@@ -18,7 +18,7 @@ export const GET = api<Ctx>(async (req, { params }) => {
   return json(await listMembers(project));
 });
 
-const AddBody = z.object({ email: z.email().max(255) });
+const AddBody = z.object({ email: z.email().max(255), role: z.enum(['MEMBER', 'VIEWER']).optional() });
 
 /**
  * Tag meghívása e-mail-cím alapján (csak a tulajdonos). Csak megerősített fiók adható hozzá közvetlenül: egy meg nem
@@ -37,11 +37,11 @@ export const POST = api<Ctx>(async (req, { params }) => {
   if (await isTeamMember(project, target.id)) throw conflict('Ő már tagja a projektnek');
 
   try {
-    await db.insert(schema.projectMembers).values({ projectId: project.id, userId: target.id });
+    await db.insert(schema.projectMembers).values({ projectId: project.id, userId: target.id, role: body.role ?? 'MEMBER' });
   } catch (e) {
     // Párhuzamos meghívás ugyanarra a felhasználóra: az egyedi index elkapja.
     if (isDuplicateKey(e)) throw conflict('Ő már tagja a projektnek');
     throw e;
   }
-  return json({ userId: target.id, name: target.name, email: target.email, role: 'MEMBER' }, 201);
+  return json({ userId: target.id, name: target.name, email: target.email, role: body.role ?? 'MEMBER' }, 201);
 });

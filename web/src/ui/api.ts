@@ -25,6 +25,7 @@ interface LoginResponse {
 export interface Invite {
   id: number;
   email: string;
+  role: InviteRole;
   createdAt: string;
 }
 
@@ -77,7 +78,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export type ProjectRole = 'OWNER' | 'MEMBER';
+export type ProjectRole = 'OWNER' | 'MEMBER' | 'VIEWER';
+/** A meghívható szerepkörök: a tag kezelheti a visszajelzéseket, a megtekintő csak olvashat. */
+export type InviteRole = 'MEMBER' | 'VIEWER';
 
 export interface Project {
   id: number;
@@ -100,6 +103,10 @@ export interface Project {
   archivedAt: string | null;
   /** A widget és az ügyfélnek küldött levelek nyelve. */
   widgetLang: 'hu' | 'en';
+  /** Hibajegy-követő URL-sablon; null, ha nincs beállítva. */
+  trackerUrl: string | null;
+  /** A widget jelszóval védett-e (a jelszó nem olvasható vissza). */
+  widgetProtected: boolean;
 }
 
 export interface ProjectStats {
@@ -156,6 +163,8 @@ export interface Reply {
   /** DESIGNER: bejelentkezett felhasználó, CUSTOMER: a widgeten át válaszoló ügyfél */
   authorType: 'DESIGNER' | 'CUSTOMER';
   body: string;
+  /** Belső megjegyzés: csak a csapat látja. */
+  internal: boolean;
   createdAt: string;
 }
 
@@ -284,6 +293,12 @@ export const api = {
     /** Webhook beállítása; `null` kikapcsolja. Érvénytelen (pl. belső hálózati) címre 400. */
     setWebhook: (id: number, url: string | null) =>
       request<Project>(`/api/projects/${id}/webhook`, { method: 'PUT', body: JSON.stringify({ url }) }),
+    /** A widget jelszavas védelme (csak a tulajdonos): jelszóval bekapcsol, null kikapcsol. */
+    setWidgetPassword: (id: number, password: string | null) =>
+      request<Project>(`/api/projects/${id}/widget-access`, { method: 'PUT', body: JSON.stringify({ password }) }),
+    /** Hibajegy-követő URL-sablon beállítása (csak a tulajdonos); üres/null kikapcsolja. */
+    setTracker: (id: number, url: string | null) =>
+      request<Project>(`/api/projects/${id}/tracker`, { method: 'PUT', body: JSON.stringify({ url }) }),
     /** Archiválás / visszaállítás (csak a tulajdonos). */
     setArchived: (id: number, archived: boolean) =>
       request<Project>(`/api/projects/${id}/archive`, { method: 'PUT', body: JSON.stringify({ archived }) }),
@@ -302,13 +317,13 @@ export const api = {
   members: {
     list: (projectId: number) => request<Member[]>(`/api/projects/${projectId}/members`),
     /** Meghívás e-mail-cím alapján (csak a tulajdonos); a címhez már létező fióknak kell tartoznia. */
-    add: (projectId: number, email: string) =>
-      request<Member>(`/api/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ email }) }),
+    add: (projectId: number, email: string, role: InviteRole = 'MEMBER') =>
+      request<Member>(`/api/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ email, role }) }),
     /** Függő meghívók (csak a tulajdonos). */
     invites: (projectId: number) => request<Invite[]>(`/api/projects/${projectId}/members/invites`),
     /** Meghívó még nem megerősítetten regisztrált kollégának: levelet kap, a regisztráció és megerősítés után tag lesz. */
-    invite: (projectId: number, email: string) =>
-      request<Invite>(`/api/projects/${projectId}/members/invites`, { method: 'POST', body: JSON.stringify({ email }) }),
+    invite: (projectId: number, email: string, role: InviteRole = 'MEMBER') =>
+      request<Invite>(`/api/projects/${projectId}/members/invites`, { method: 'POST', body: JSON.stringify({ email, role }) }),
     cancelInvite: (projectId: number, inviteId: number) =>
       request<void>(`/api/projects/${projectId}/members/invites/${inviteId}`, { method: 'DELETE' }),
     /** A projekt átadása egy tagnak (csak a tulajdonos): az új tulajdonos mindent megkap, a régi tag marad. */
@@ -348,11 +363,14 @@ export const api = {
       }),
     remove: (projectId: number, commentId: number) =>
       request<void>(`/api/projects/${projectId}/comments/${commentId}`, { method: 'DELETE' }),
-    reply: (projectId: number, commentId: number, body: string) =>
+    reply: (projectId: number, commentId: number, body: string, internal = false) =>
       request<Reply>(`/api/projects/${projectId}/comments/${commentId}/replies`, {
         method: 'POST',
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, internal }),
       }),
+    /** A kör oldalankénti jóváhagyásai (az ügyfél jóváhagyta az oldal minden visszajelzését). */
+    pageApprovals: (projectId: number, roundId: number) =>
+      request<{ pageUrl: string; approvedBy: string }[]>(`/api/projects/${projectId}/rounds/${roundId}/page-approvals`),
     /** Felelős kijelölése; `null` törli. Csak a projekt csapatának tagja lehet felelős. */
     assign: (projectId: number, commentId: number, userId: number | null) =>
       request<Comment>(`/api/projects/${projectId}/comments/${commentId}/assignee`, {

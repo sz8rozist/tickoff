@@ -73,7 +73,7 @@ export async function verifyEmail(rawToken: string): Promise<boolean> {
 /** A megerősített címre szóló meghívók beváltása: a felhasználó tagja lesz a projekteknek. */
 async function acceptInvites(tx: Tx, userId: number, email: string): Promise<void> {
   const invites = await tx
-    .select({ id: schema.projectInvites.id, projectId: schema.projectInvites.projectId, ownerId: schema.projects.ownerId })
+    .select({ id: schema.projectInvites.id, projectId: schema.projectInvites.projectId, role: schema.projectInvites.role, ownerId: schema.projects.ownerId })
     .from(schema.projectInvites)
     .innerJoin(schema.projects, eq(schema.projects.id, schema.projectInvites.projectId))
     .where(eq(schema.projectInvites.email, email));
@@ -84,7 +84,7 @@ async function acceptInvites(tx: Tx, userId: number, email: string): Promise<voi
         .from(schema.projectMembers)
         .where(and(eq(schema.projectMembers.projectId, invite.projectId), eq(schema.projectMembers.userId, userId)))
         .limit(1);
-      if (!existing) await tx.insert(schema.projectMembers).values({ projectId: invite.projectId, userId });
+      if (!existing) await tx.insert(schema.projectMembers).values({ projectId: invite.projectId, userId, role: invite.role });
     }
     await tx.delete(schema.projectInvites).where(eq(schema.projectInvites.id, invite.id));
   }

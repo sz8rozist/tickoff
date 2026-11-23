@@ -1,0 +1,1 @@
+ALTER TABLE `replies` ADD `internal` boolean DEFAULT false NOT NULL;

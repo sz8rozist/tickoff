@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { db, schema } from '@/db';
 import { idParam, requireMember, requireOwner } from './access';
+import { forbidden } from './http';
 import { requireUser } from './auth/session';
 import { notFound } from './http';
 import type { Round } from './comments';
@@ -10,6 +11,8 @@ import type { Round } from './comments';
 export async function teamContext(req: NextRequest, projectIdParam: string) {
   const user = await requireUser(req);
   const { project, role } = await requireMember(idParam(projectIdParam), user.id);
+  // A megtekintő csak olvashat: minden módosító kérés (nem GET/HEAD) 403
+  if (role === 'VIEWER' && req.method !== 'GET' && req.method !== 'HEAD') throw forbidden('Megtekintő szerepkörrel nem módosíthatsz');
   return { user, project, role };
 }
 

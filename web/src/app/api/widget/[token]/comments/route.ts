@@ -77,6 +77,8 @@ export const POST = widgetRoute('write', async ({ req, project }) => {
     });
     // Új, még nem kész komment: a kör korábbi jóváhagyása már nem érvényes
     await tx.update(schema.rounds).set({ approvedAt: null, approvedBy: null }).where(eq(schema.rounds.id, round.id));
+    // Az oldal korábbi jóváhagyása is érvényét veszti: új visszajelzés érkezett rá
+    await tx.delete(schema.pageApprovals).where(and(eq(schema.pageApprovals.roundId, round.id), eq(schema.pageApprovals.pageHash, sha256(body.pageUrl))));
     return result.insertId;
   });
 

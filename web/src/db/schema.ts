@@ -72,6 +72,10 @@ export const projects = mysqlTable('projects', {
   widgetPosition: varchar('widget_position', { length: 5 }).notNull().default('RIGHT'),
   /** hu vagy en. */
   widgetLang: varchar('widget_lang', { length: 2 }).notNull().default('hu'),
+  /** Hibajegy-követő URL-sablon ({title}, {body}, {url}): a komment mellett a "Hibajegy létrehozása" gomb ezt nyitja meg. */
+  trackerUrl: varchar('tracker_url', { length: 500 }),
+  /** A widget jelszavának bcrypt hash-e; null: nincs védelem. Jelszó nélkül a widget semmit nem ad ki az ügyfélnek. */
+  widgetPasswordHash: varchar('widget_password_hash', { length: 100 }),
   archivedAt: ts('archived_at'),
 });
 
@@ -81,6 +85,8 @@ export const projectMembers = mysqlTable(
     id: id(),
     projectId: int('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
     userId: int('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    /** MEMBER (kezelheti a visszajelzéseket) vagy VIEWER (csak megtekinthet). */
+    role: varchar('role', { length: 10 }).notNull().default('MEMBER'),
     createdAt: ts('created_at').notNull().$defaultFn(() => new Date()),
   },
   (t) => [uniqueIndex('uk_project_members').on(t.projectId, t.userId)],
@@ -93,6 +99,8 @@ export const projectInvites = mysqlTable(
     projectId: int('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
     email: varchar('email', { length: 255 }).notNull(),
     invitedBy: int('invited_by').references(() => users.id, { onDelete: 'set null' }),
+    /** A meghívott szerepe, amikor csatlakozik: MEMBER vagy VIEWER. */
+    role: varchar('role', { length: 10 }).notNull().default('MEMBER'),
     createdAt: ts('created_at').notNull().$defaultFn(() => new Date()),
   },
   (t) => [uniqueIndex('uk_project_invites').on(t.projectId, t.email), index('idx_project_invites_email').on(t.email)],
@@ -113,6 +121,21 @@ export const rounds = mysqlTable(
     dueDate: date('due_date', { mode: 'string' }),
   },
   (t) => [uniqueIndex('uk_rounds_project_number').on(t.projectId, t.number)],
+);
+
+/** Oldalankénti jóváhagyás: az ügyfél egy oldal összes visszajelzését jóváhagyhatja a körön belül, a teljes kör előtt is. */
+export const pageApprovals = mysqlTable(
+  'page_approvals',
+  {
+    id: id(),
+    roundId: int('round_id').notNull().references(() => rounds.id, { onDelete: 'cascade' }),
+    pageUrl: varchar('page_url', { length: 1000 }).notNull(),
+    /** Az oldal URL-jének SHA-256 hash-e: az egyediséget ez adja (a hosszú URL nem fér az indexbe). */
+    pageHash: varchar('page_hash', { length: 64 }).notNull(),
+    approvedBy: varchar('approved_by', { length: 120 }).notNull(),
+    createdAt: ts('created_at').notNull().$defaultFn(() => new Date()),
+  },
+  (t) => [uniqueIndex('uk_page_approvals').on(t.roundId, t.pageHash)],
 );
 
 export const comments = mysqlTable(
@@ -161,6 +184,8 @@ export const replies = mysqlTable(
     authorType: varchar('author_type', { length: 20 }).notNull(),
     userId: int('user_id').references(() => users.id, { onDelete: 'set null' }),
     body: text('body').notNull(),
+    /** Belső megjegyzés: csak a csapat látja, az ügyfélnek (widget, riport, értesítés) sosem jelenik meg. */
+    internal: boolean('internal').notNull().default(false),
     createdAt: ts('created_at').notNull().$defaultFn(() => new Date()),
   },
   (t) => [index('idx_replies_comment').on(t.commentId)],

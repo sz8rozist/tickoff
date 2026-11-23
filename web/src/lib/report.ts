@@ -17,7 +17,7 @@ export function esc(s: string | null | undefined): string {
 export interface ReportComment {
   comment: Comment;
   assigneeName: string | null;
-  replies: { authorName: string; authorType: string; body: string }[];
+  replies: { authorName: string; authorType: string; body: string; internal?: boolean }[];
 }
 
 const CSS = `
@@ -80,7 +80,7 @@ export function renderReport(
       if (replies.length > 0) {
         h += '<ul class="thread">';
         for (const r of replies) {
-          h += `<li><strong>${esc(r.authorName)}</strong>${r.authorType === 'DESIGNER' ? ' <span class="muted">(csapat)</span>' : ''}: ${esc(r.body)}</li>`;
+          h += `<li><strong>${esc(r.authorName)}</strong>${r.authorType === 'DESIGNER' ? ' <span class="muted">(csapat)</span>' : ''}${r.internal ? ' <span class="muted">(belső megjegyzés)</span>' : ''}: ${esc(r.body)}</li>`;
         }
         h += '</ul>';
       }

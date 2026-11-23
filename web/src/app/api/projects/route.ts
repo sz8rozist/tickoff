@@ -1,5 +1,6 @@
 import { db, schema } from '@/db';
 import { requireUser } from '@/lib/auth/session';
+import { toRole } from '@/lib/access';
 import { randomHex } from '@/lib/crypto';
 import { api, json, parseBody } from '@/lib/http';
 import { ProjectBody } from '@/lib/schemas';
@@ -13,7 +14,7 @@ export const GET = api(async (req) => {
   const user = await requireUser(req);
   const rows = await accessibleProjects(user.id);
   const stats = await statsFor(rows.map((r) => r.project.id));
-  return json(rows.map((r) => projectDto(r.project, r.project.ownerId === user.id ? 'OWNER' : 'MEMBER', r.ownerName, stats.get(r.project.id))));
+  return json(rows.map((r) => projectDto(r.project, toRole(r.project.ownerId, user.id, r.memberRole), r.ownerName, stats.get(r.project.id))));
 });
 
 /** Új projekt. Minden projekt az 1. körrel indul, a kommentek körökhöz tartoznak. */

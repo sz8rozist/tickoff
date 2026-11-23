@@ -554,3 +554,19 @@ body {
 .auth-main {
   position: relative;
 }
+
+/* A megtekintő nézetében a kezelőfelület <fieldset disabled>-ben van; keret és térköz nélkül, hogy ne változzon az elrendezés */
+.plain-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+/* Belső megjegyzés a szálban: halvány sárga háttér, hogy első ránézésre elüssön a nyilvános válaszoktól */
+.note-internal {
+  background: light-dark(var(--mantine-color-yellow-0), color-mix(in srgb, var(--mantine-color-yellow-6) 12%, transparent));
+  border-radius: var(--mantine-radius-sm);
+  padding: 4px 8px;
+  margin-left: -8px;
+}

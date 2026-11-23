@@ -34,7 +34,7 @@ export const GET = api<{ params: Promise<{ id: string }> }>(async (req, { params
       comment: schema.comments,
       round: schema.rounds.number,
       assignee: schema.users.name,
-      replyCount: sql<number>`(select count(*) from ${schema.replies} where ${schema.replies.commentId} = ${schema.comments.id})`,
+      replyCount: sql<number>`(select count(*) from ${schema.replies} where ${schema.replies.commentId} = ${schema.comments.id} and ${schema.replies.internal} = false)`,
     })
     .from(schema.comments)
     .innerJoin(schema.rounds, eq(schema.rounds.id, schema.comments.roundId))

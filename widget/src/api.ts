@@ -12,9 +12,18 @@ export interface ProjectInfo {
   position: 'RIGHT' | 'LEFT';
   /** A felület nyelve (hu vagy en). */
   lang: 'hu' | 'en';
+  /** Jelszóval védett, és még nincs feloldva: a tartalom nem érhető el. */
+  locked?: boolean;
+}
+
+export interface PageApproval {
+  pageUrl: string;
+  approvedBy: string;
 }
 
 export interface RoundInfo {
+  /** A már jóváhagyott oldalak a nyitott körben. */
+  approvedPages?: PageApproval[];
   id: number;
   number: number;
   /** Az ügyfél jóváhagyta a kört (minden komment kész volt). */
@@ -91,14 +100,48 @@ export class ApiError extends Error {
 export function createApi({ token, apiBase }: Config) {
   const base = `${apiBase}/api/widget/${encodeURIComponent(token)}`;
 
+  // A jelszóval védett widget hozzáférési tokenje: a munkamenet idejére a böngészőben marad (fül bezárásáig)
+  const accessKey = `tickoff-access-${token}`;
+  const readAccess = (): string | null => {
+    try {
+      return window.sessionStorage.getItem(accessKey);
+    } catch {
+      return null;
+    }
+  };
+  let memoryAccess: string | null = null;
+  const access = () => memoryAccess ?? readAccess();
+  /** A kérés fejlécei: a megadottak, és ha van, a hozzáférési token. */
+  const withAccess = (headers?: Record<string, string>): Record<string, string> => {
+    const a = access();
+    return a ? { ...(headers ?? {}), 'X-Tickoff-Access': a } : (headers ?? {});
+  };
+
   async function json<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(base + path, init);
+    const res = await fetch(base + path, { ...init, headers: withAccess(init?.headers as Record<string, string> | undefined) });
     if (!res.ok) throw new ApiError(res.status);
     return res.json() as Promise<T>;
   }
 
   return {
     project: () => json<ProjectInfo>('/project'),
+
+    /** A jelszóval védett widget feloldása; siker esetén a token eltárolódik. */
+    async unlock(password: string): Promise<void> {
+      const res = await fetch(`${base}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) throw new ApiError(res.status);
+      const { accessToken } = (await res.json()) as { accessToken: string };
+      memoryAccess = accessToken;
+      try {
+        window.sessionStorage.setItem(accessKey, accessToken);
+      } catch {
+        /* a token a memóriában megmarad az oldal bezárásáig */
+      }
+    },
 
     /** A nyitott kör összes kommentje (az összes oldalról), vagy egy oldaléi. */
     comments: (pageUrl?: string) =>
@@ -124,6 +167,13 @@ export function createApi({ token, apiBase }: Config) {
         body: JSON.stringify({ authorName, reason }),
       }),
 
+    approvePage: (authorName: string, pageUrl: string) =>
+      json<RoundInfo>('/page/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authorName, pageUrl }),
+      }),
+
     approveRound: (authorName: string) =>
       json<RoundInfo>('/round/approve', {
         method: 'POST',
@@ -143,7 +193,7 @@ export function createApi({ token, apiBase }: Config) {
     async withdrawComment(commentId: number, editToken: string): Promise<void> {
       const res = await fetch(`${base}/comments/${commentId}/withdraw`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withAccess({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ editToken }),
       });
       if (!res.ok) throw new ApiError(res.status);
@@ -160,7 +210,7 @@ export function createApi({ token, apiBase }: Config) {
     async uploadAttachment(commentId: number, image: Blob): Promise<void> {
       const res = await fetch(`${base}/comments/${commentId}/attachments`, {
         method: 'POST',
-        headers: { 'Content-Type': image.type || 'application/octet-stream' },
+        headers: withAccess({ 'Content-Type': image.type || 'application/octet-stream' }),
         body: image,
       });
       if (!res.ok) throw new ApiError(res.status);
@@ -169,7 +219,7 @@ export function createApi({ token, apiBase }: Config) {
     async uploadScreenshot(commentId: number, image: Blob): Promise<void> {
       const res = await fetch(`${base}/comments/${commentId}/screenshot`, {
         method: 'POST',
-        headers: { 'Content-Type': image.type },
+        headers: withAccess({ 'Content-Type': image.type }),
         body: image,
       });
       if (!res.ok) throw new ApiError(res.status);

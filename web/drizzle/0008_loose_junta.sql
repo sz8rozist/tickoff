@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `widget_password_hash` varchar(100);

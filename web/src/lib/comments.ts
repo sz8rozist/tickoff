@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { conflict, notFound } from './http';
+import { sha256 } from './crypto';
 
 export type Comment = typeof schema.comments.$inferSelect;
 export type Round = typeof schema.rounds.$inferSelect;
@@ -52,14 +53,15 @@ export async function requireReplyRoom(commentId: number): Promise<void> {
 }
 
 export function replyDto(r: typeof schema.replies.$inferSelect) {
-  return { id: r.id, authorName: r.authorName, authorType: r.authorType, body: r.body, createdAt: r.createdAt };
+  return { id: r.id, authorName: r.authorName, authorType: r.authorType, body: r.body, internal: r.internal, createdAt: r.createdAt };
 }
 
 /** A kommentek válaszai egyetlen lekérdezéssel, kommentazonosító szerint csoportosítva (időrendben). */
-export async function repliesByComment(commentIds: number[]) {
+export async function repliesByComment(commentIds: number[], includeInternal = false) {
   const map = new Map<number, ReturnType<typeof replyDto>[]>();
   if (commentIds.length === 0) return map;
-  const rows = await db.select().from(schema.replies).where(inArray(schema.replies.commentId, commentIds)).orderBy(asc(schema.replies.createdAt), asc(schema.replies.id));
+  // A belső megjegyzések alapból kimaradnak: csak a csapat felülete kéri őket kifejezetten
+  const rows = await db.select().from(schema.replies).where(includeInternal ? inArray(schema.replies.commentId, commentIds) : and(inArray(schema.replies.commentId, commentIds), eq(schema.replies.internal, false))).orderBy(asc(schema.replies.createdAt), asc(schema.replies.id));
   for (const r of rows) {
     const list = map.get(r.commentId) ?? [];
     list.push(replyDto(r));
@@ -71,7 +73,7 @@ export async function repliesByComment(commentIds: number[]) {
 /** A komment csapat-oldali ábrázolása (válaszokkal, mellékletekkel, felelőssel). */
 export async function commentDtos(rows: Comment[]) {
   const ids = rows.map((c) => c.id);
-  const replies = await repliesByComment(ids);
+  const replies = await repliesByComment(ids, true);
   const files = ids.length
     ? await db.select().from(schema.attachments).where(inArray(schema.attachments.commentId, ids)).orderBy(asc(schema.attachments.id))
     : [];
@@ -130,6 +132,7 @@ export async function changeStatus(comment: Comment, round: Round, status: Comme
     await tx.update(schema.comments).set({ status, customerApprovedAt: null }).where(eq(schema.comments.id, comment.id));
     if (status !== 'DONE') {
       await tx.update(schema.rounds).set({ approvedAt: null, approvedBy: null }).where(eq(schema.rounds.id, round.id));
+      await tx.delete(schema.pageApprovals).where(and(eq(schema.pageApprovals.roundId, round.id), eq(schema.pageApprovals.pageHash, sha256(comment.pageUrl))));
     }
   });
 }

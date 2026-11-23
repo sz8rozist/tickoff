@@ -14,6 +14,7 @@ export const WebhookEvents = {
   replyCreated: 'reply.created',
   commentReopened: 'comment.reopened',
   roundApproved: 'round.approved',
+  pageApproved: 'page.approved',
   test: 'test',
 } as const;
 
