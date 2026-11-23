@@ -135,6 +135,8 @@ export const comments = mysqlTable(
     createdAt: ts('created_at').notNull().$defaultFn(() => new Date()),
     customerEmail: varchar('customer_email', { length: 254 }),
     notifyToken: varchar('notify_token', { length: 32 }).unique(),
+    /** Mikor erősítette meg az ügyfél a címét; megerősítésig nem megy neki értesítés. */
+    customerEmailVerifiedAt: ts('customer_email_verified_at'),
     customerApprovedAt: ts('customer_approved_at'),
     assigneeId: int('assignee_id').references(() => users.id, { onDelete: 'set null' }),
     editTokenHash: varchar('edit_token_hash', { length: 64 }),

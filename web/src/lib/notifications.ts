@@ -32,7 +32,8 @@ export function deepLink(pageUrl: string, commentId: number): string {
 function notifyCustomer(project: Project, comment: Comment, subject: string, message: string): void {
   const email = comment.customerEmail;
   const token = comment.notifyToken;
-  if (!isMailEnabled() || !email || !token) return;
+  // Csak megerősített címre megy értesítés: valaki más címét nem lehet vele elárasztani
+  if (!isMailEnabled() || !email || !token || !comment.customerEmailVerifiedAt) return;
   if (!allow('c' + email.toLowerCase(), LIMITS.notifyRecipient)) {
     console.info('[notify] Ügyfél-értesítés kihagyva (címenkénti korlát), komment:', comment.id);
     return;
@@ -48,6 +49,28 @@ function notifyCustomer(project: Project, comment: Comment, subject: string, mes
         'Ezt a levelet azért kaptad, mert a visszajelzésed beküldésekor megadtad az e-mail-címedet. ' +
         `Ha nem szeretnél több értesítést, itt leiratkozhatsz: ${unsubscribe}\n`;
   sendMail(email, '[Tickoff] ' + subject, text);
+}
+
+/**
+ * Megerősítő levél az ügyfélnek, amikor a komment beküldésekor címet adott meg. A link egy oldalt nyit, ahol a címzett
+ * gombbal erősít meg (a levélkezelők előolvasása így nem erősíti meg a címet). Megerősítésig nem megy neki értesítés.
+ */
+export function requestEmailConfirmation(project: Project, comment: Comment): void {
+  const email = comment.customerEmail;
+  const token = comment.notifyToken;
+  if (!isMailEnabled() || !email || !token) return;
+  if (!allow('c' + email.toLowerCase(), LIMITS.notifyRecipient)) return;
+  const confirm = `${dashboardOrigin()}/api/notifications/confirm/${token}`;
+  const unsubscribe = `${dashboardOrigin()}/api/notifications/unsubscribe/${token}`;
+  const text =
+    project.widgetLang === 'en'
+      ? `Hi ${comment.authorName}!\n\nYou gave this email address when sending feedback on the "${project.name}" project. ` +
+        `To receive notifications about it, please confirm the address here: ${confirm}\n\n` +
+        `If it was not you, ignore this email and nothing will be sent. Remove the address: ${unsubscribe}\n`
+      : `Szia ${comment.authorName}!\n\nEzt az e-mail-címet adtad meg a(z) „${project.name}” projektben küldött visszajelzésedhez. ` +
+        `Hogy értesítést kaphass róla, erősítsd meg a címet itt: ${confirm}\n\n` +
+        `Ha nem te voltál, hagyd figyelmen kívül ezt a levelet, és nem küldünk semmit. A cím törlése: ${unsubscribe}\n`;
+  sendMail(email, project.widgetLang === 'en' ? '[Tickoff] Confirm your email address' : '[Tickoff] Erősítsd meg az e-mail-címed', text);
 }
 
 /** A csapat válaszolt: ha az ügyfél megadta az e-mail-címét, értesítjük. */

@@ -69,6 +69,7 @@ export const LIMITS = {
   widgetReadIp: { name: 'widget-read-ip', burst: 60, perMinute: 120 },
   widgetReadToken: { name: 'widget-read-token', burst: 120, perMinute: 600 },
   unsubscribe: { name: 'unsubscribe-ip', burst: 10, perMinute: 10 },
+  confirmEmail: { name: 'confirm-email-ip', burst: 10, perMinute: 10 },
   // A teszt-webhook kimenő kérést indít a szerverről, ezért szigorúan korlátozzuk
   webhookTest: { name: 'webhook-test-ip', burst: 5, perMinute: 5 },
   apiV1: { name: 'api-v1-ip', burst: 60, perMinute: 60 },

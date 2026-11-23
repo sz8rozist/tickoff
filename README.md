@@ -74,7 +74,6 @@
 
 - Éles levélküldés (Brevo): az SMTP-beállítás és a feladó igazolása még hátra van, addig a levelek csak a fejlesztői Mailpitbe mennek.
 - A csapat felülete (dashboard) és a csapatnak küldött értesítések csak magyarul érhetők el (az ügyfél felé a widget és a levelek magyarul és angolul is mennek).
-- Az ügyfél e-mail-címe nincs megerősítve (leiratkozó linkkel és korláttal védett).
 
 ## Felépítés
 
@@ -301,7 +300,7 @@ Az alkalmazás két célra küld levelet: **jelszó-visszaállítás** és **ér
 
 **Értesítések:** a levél a komment mentésének sikeres lezárása után megy el, külön szálon (a widget kérése nem vár az SMTP-szerverre, és annak hibája nem bukatja el), a sor korlátos. Címzettenként legfeljebb 10 levél egyszerre, utána percenként 1, így egy támadó sem tudja a csapat postafiókját és az SMTP-hírnevet elárasztani. A tárgy sortörés-mentesített (a projektnév nem injektálhat levélfejlécet).
 
-**Értesítések az ügyfélnek:** ha az ügyfél megadta az e-mail-címét a komment beküldésekor, a csapat válaszáról és a "Kész" állapotról levelet kap. A levélben a kommentre mutató mélylink és egy leiratkozó link van (`/api/notifications/unsubscribe/{token}`, 128 bites titok, IP-nként korlátozva); a leiratkozás törli a címet. A cím a kommenthez tartozik, nem fiókhoz, és csak a levélküldéshez használjuk. Címenként ugyanaz a korlát él, mint a csapat tagjainál (10 egyszerre, utána percenként 1). Az ügyfél címét nem erősítjük meg, ezért valaki más címét is megadhatja: a levél ilyenkor egy kommentre vonatkozó értesítés, leiratkozó linkkel, és a korlát miatt nem használható elárasztásra.
+**Értesítések az ügyfélnek:** ha az ügyfél megadta az e-mail-címét a komment beküldésekor, a csapat válaszáról és a "Kész" állapotról levelet kap. A levélben a kommentre mutató mélylink és egy leiratkozó link van (`/api/notifications/unsubscribe/{token}`, 128 bites titok, IP-nként korlátozva); a leiratkozás törli a címet. A cím a kommenthez tartozik, nem fiókhoz, és csak a levélküldéshez használjuk. Címenként ugyanaz a korlát él, mint a csapat tagjainál (10 egyszerre, utána percenként 1). **Az ügyfél címét meg kell erősíteni**: a komment beküldésekor megerősítő levél megy (`/api/notifications/confirm/{token}`), és értesítés csak a megerősítés után érkezik. A link megnyitása csak egy oldalt mutat, a megerősítést a gomb (POST) végzi, így a levélkezelők előolvasása nem erősíti meg a címet. Aki valaki más címét adja meg, az a címzettnek legfeljebb egy megerősítő levelet küld (címenként korlátozva), további levél nem megy, amíg ő nem erősít. A migráció előtti, címmel rendelkező kommentek megerősítettnek számítanak. SMTP nélkül nincs megerősítés, így értesítés sem.
 
 ## Webhook
 

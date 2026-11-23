@@ -15,6 +15,13 @@
       "when": 1795441605469,
       "tag": "0001_mature_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1795441696547,
+      "tag": "0002_cold_betty_ross",
+      "breakpoints": true
     }
   ]
 }

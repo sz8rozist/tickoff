@@ -6,6 +6,7 @@ import { repliesByComment } from '@/lib/comments';
 import { randomHex, sha256 } from '@/lib/crypto';
 import { badRequest, conflict, json, parseBody } from '@/lib/http';
 import { newCommentMail } from '@/lib/team-notifications';
+import { requestEmailConfirmation } from '@/lib/notifications';
 import { publishWebhook, WebhookEvents } from '@/lib/webhooks';
 import { EDIT_WINDOW_MS, openRound, sameOrigin, widgetCommentDto, widgetPreflight, widgetRoute } from '@/lib/widget';
 
@@ -82,6 +83,7 @@ export const POST = widgetRoute('write', async ({ req, project }) => {
   const [saved] = await db.select().from(schema.comments).where(eq(schema.comments.id, commentId)).limit(1);
   await recordActivity(project.id, 'CUSTOMER', saved.authorName, 'comment.created', saved.id, `Új visszajelzés: ${quote(saved.body)}`);
   void newCommentMail(project, saved);
+  requestEmailConfirmation(project, saved);
   void publishWebhook(project, WebhookEvents.commentCreated,
     `[${project.name}] Új visszajelzés ${saved.authorName} tollából (${saved.pageUrl}):\n${saved.body.slice(0, 500)}`, saved, null);
 

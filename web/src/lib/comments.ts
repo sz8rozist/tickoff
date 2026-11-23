@@ -101,7 +101,7 @@ export async function commentDtos(rows: Comment[]) {
     editedAt: c.editedAt,
     priority: c.priority,
     labels: parseLabels(c.labels),
-    notifiesCustomer: c.notifyToken !== null,
+    notifiesCustomer: c.notifyToken !== null && c.customerEmailVerifiedAt !== null,
     assigneeId: c.assigneeId,
     assigneeName: c.assigneeId === null ? null : (assigneeName.get(c.assigneeId) ?? null),
     attachments: files.filter((f) => f.commentId === c.id).map((f) => ({ id: f.id, contentType: f.contentType, size: f.sizeBytes })),
