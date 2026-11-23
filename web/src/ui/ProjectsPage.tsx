@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActionIcon,
   Alert,
@@ -6,26 +6,20 @@ import {
   Badge,
   Button,
   Card,
-  Code,
-  CopyButton,
   Group,
   Menu,
   Modal,
-  Paper,
   SimpleGrid,
   Stack,
   Switch,
-  Tabs,
   Text,
   TextInput,
   Title,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { api, ApiError, type Project } from './api';
+import { fold, useDashboard } from './DashboardContext';
 import { saveBlob } from './download';
-import { ActivityPanel } from './ActivityPanel';
-import { MembersPanel } from './MembersPanel';
-import { RoundsPanel } from './RoundsPanel';
 import { WebhookModal } from './WebhookModal';
 import { WidgetAppearanceModal } from './WidgetAppearanceModal';
 
@@ -46,7 +40,7 @@ function ProjectForm({
   initial?: Project;
   submitLabel: string;
   onSubmit: (name: string, siteUrl: string) => Promise<void>;
-  onCancel?: () => void;
+  onCancel: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,7 +58,6 @@ function ProjectForm({
     setBusy(true);
     try {
       await onSubmit(values.name, values.siteUrl);
-      if (!initial) form.reset();
     } catch (err) {
       setError(describe(err));
     } finally {
@@ -75,78 +68,23 @@ function ProjectForm({
   return (
     <form onSubmit={form.onSubmit(submit)}>
       <Stack gap="sm">
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <TextInput
-            label="Projekt neve"
-            placeholder="Kávézó weboldal"
-            maxLength={160}
-            {...form.getInputProps('name')}
-          />
-          <TextInput
-            label="Az oldal címe"
-            placeholder="https://staging.ugyfel.hu"
-            maxLength={500}
-            {...form.getInputProps('siteUrl')}
-          />
-        </SimpleGrid>
+        <TextInput label="Projekt neve" placeholder="Kávézó weboldal" maxLength={160} data-autofocus {...form.getInputProps('name')} />
+        <TextInput label="Az oldal címe" placeholder="https://staging.ugyfel.hu" maxLength={500} {...form.getInputProps('siteUrl')} />
         {error && (
           <Alert color="red" role="alert">
             {error}
           </Alert>
         )}
-        <Group>
+        <Group justify="flex-end" mt="xs">
+          <Button variant="default" onClick={onCancel}>
+            Mégse
+          </Button>
           <Button type="submit" loading={busy}>
             {submitLabel}
           </Button>
-          {onCancel && (
-            <Button variant="default" onClick={onCancel}>
-              Mégse
-            </Button>
-          )}
         </Group>
       </Stack>
     </form>
-  );
-}
-
-/** A nyitott kör összesítője egy sorban: kommentek státuszonként és az ügyfél jóváhagyása. */
-function StatsRow({ stats }: { stats: Project['stats'] }) {
-  if (stats.roundNumber === null) {
-    return (
-      <Text size="xs" c="dimmed">
-        Nincs nyitott kör. Nyiss egyet, hogy az ügyfél visszajelzést küldhessen.
-      </Text>
-    );
-  }
-  const total = stats.open + stats.inProgress + stats.done;
-  return (
-    <Group gap="xs">
-      <Badge variant="outline" color="gray">
-        {stats.roundNumber}. kör
-      </Badge>
-      {total === 0 ? (
-        <Text size="xs" c="dimmed">
-          még nincs komment
-        </Text>
-      ) : (
-        <>
-          <Badge variant="light" color="orange">
-            {stats.open} nyitott
-          </Badge>
-          <Badge variant="light" color="brand">
-            {stats.inProgress} folyamatban
-          </Badge>
-          <Badge variant="light" color="teal">
-            {stats.done} kész
-          </Badge>
-        </>
-      )}
-      {stats.approved && (
-        <Badge color="teal" variant="filled">
-          ✓ az ügyfél jóváhagyta
-        </Badge>
-      )}
-    </Group>
   );
 }
 
@@ -160,55 +98,144 @@ function DotsIcon() {
   );
 }
 
-/** Az összes projekt összesítője: mennyi dolog vár a csapatra. */
-function Overview({ projects }: { projects: Project[] }) {
+/** Az összes aktív projekt összesítője: bento rács, hogy mennyi dolog vár a csapatra. */
+function Overview({ projects, onOpen }: { projects: Project[]; onOpen: (p: Project) => void }) {
   const open = projects.reduce((n, p) => n + p.stats.open, 0);
   const inProgress = projects.reduce((n, p) => n + p.stats.inProgress, 0);
+  const done = projects.reduce((n, p) => n + p.stats.done, 0);
   const awaiting = projects.filter((p) => p.stats.approved).length;
-  const withOpen = projects.filter((p) => p.stats.open > 0).length;
+  const total = open + inProgress + done;
+  const pct = (n: number) => (total === 0 ? 0 : (n / total) * 100);
+  const attention = projects
+    .filter((p) => p.stats.open > 0)
+    .sort((a, b) => b.stats.open - a.stats.open)
+    .slice(0, 3);
+
   return (
-    <SimpleGrid cols={{ base: 1, sm: 3 }}>
-      <Paper withBorder p="md" shadow="xs">
-        <Text size="xs" c="dimmed" fw={600}>
-          NYITOTT VISSZAJELZÉS
+    <div className="bento">
+      <div className="tile tile-wide">
+        <Text className="tile-label">Beérkezett visszajelzés</Text>
+        <div className="tile-value">{total}</div>
+        <div className="stack-bar" role="img" aria-label={`${open} nyitott, ${inProgress} folyamatban, ${done} megoldott`}>
+          <span style={{ width: `${pct(open)}%`, background: 'var(--mantine-color-orange-5)' }} />
+          <span style={{ width: `${pct(inProgress)}%`, background: 'var(--mantine-color-brand-6)' }} />
+          <span style={{ width: `${pct(done)}%`, background: 'var(--mantine-color-green-6)' }} />
+        </div>
+        <Text size="xs" c="dimmed" mt={8}>
+          {projects.length} aktív projektben
         </Text>
-        <Text fz={28} fw={800} lh={1.2}>
+      </div>
+      <div className="tile">
+        <Text className="tile-label">Nyitott</Text>
+        <div className="tile-value" style={{ color: open > 0 ? 'var(--mantine-color-orange-6)' : undefined }}>
           {open}
-        </Text>
+        </div>
         <Text size="xs" c="dimmed">
-          {withOpen} projektben
+          {projects.filter((p) => p.stats.open > 0).length} projektben
         </Text>
-      </Paper>
-      <Paper withBorder p="md" shadow="xs">
-        <Text size="xs" c="dimmed" fw={600}>
-          FOLYAMATBAN
-        </Text>
-        <Text fz={28} fw={800} lh={1.2}>
+      </div>
+      <div className="tile">
+        <Text className="tile-label">Folyamatban</Text>
+        <div className="tile-value" style={{ color: 'var(--mantine-color-brand-6)' }}>
           {inProgress}
-        </Text>
+        </div>
         <Text size="xs" c="dimmed">
           dolgozunk rajta
         </Text>
-      </Paper>
-      <Paper withBorder p="md" shadow="xs">
-        <Text size="xs" c="dimmed" fw={600}>
-          JÓVÁHAGYOTT KÖR
+      </div>
+      <div className="tile">
+        <Text className="tile-label">Megoldott</Text>
+        <div className="tile-value" style={{ color: 'var(--mantine-color-green-6)' }}>
+          {done}
+        </div>
+        <Text size="xs" c="dimmed">
+          a nyitott körökben
         </Text>
-        <Text fz={28} fw={800} lh={1.2}>
-          {awaiting}
-        </Text>
+      </div>
+      <div className="tile">
+        <Text className="tile-label">Jóváhagyott kör</Text>
+        <div className="tile-value">{awaiting}</div>
         <Text size="xs" c="dimmed">
           lezárásra vár
         </Text>
-      </Paper>
-    </SimpleGrid>
+      </div>
+      <div className="tile tile-wide">
+        <Text className="tile-label">Figyelmet igényel</Text>
+        {attention.length === 0 ? (
+          <Text size="sm" c="dimmed" mt={8}>
+            Nincs nyitott visszajelzés. Minden rendben.
+          </Text>
+        ) : (
+          <Stack gap={4} mt={6}>
+            {attention.map((p) => (
+              <button key={p.id} type="button" className="attention-row" onClick={() => onOpen(p)}>
+                <span className="attention-name">{p.name}</span>
+                <Badge size="sm" variant="light" color="orange">
+                  {p.stats.open} nyitott
+                </Badge>
+              </button>
+            ))}
+          </Stack>
+        )}
+      </div>
+    </div>
   );
 }
 
-export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
-  const [projects, setProjects] = useState<Project[] | null>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+function StatChips({ stats }: { stats: Project['stats'] }) {
+  if (stats.roundNumber === null) {
+    return (
+      <Text size="xs" c="dimmed">
+        Nincs nyitott kör.
+      </Text>
+    );
+  }
+  const total = stats.open + stats.inProgress + stats.done;
+  return (
+    <Stack gap={8}>
+      <Group gap={6}>
+        <Badge variant="outline" color="gray" size="sm">
+          {stats.roundNumber}. kör
+        </Badge>
+        {total === 0 ? (
+          <Text size="xs" c="dimmed">
+            még nincs komment
+          </Text>
+        ) : (
+          <>
+            <Badge variant="light" color="orange" size="sm">
+              {stats.open} nyitott
+            </Badge>
+            <Badge variant="light" color="brand" size="sm">
+              {stats.inProgress} folyamatban
+            </Badge>
+            <Badge variant="light" color="green" size="sm">
+              {stats.done} kész
+            </Badge>
+          </>
+        )}
+        {stats.approved && (
+          <Badge color="green" variant="filled" size="sm">
+            ✓ jóváhagyva
+          </Badge>
+        )}
+      </Group>
+      {total > 0 && (
+        <div className="stack-bar thin" aria-hidden="true">
+          <span style={{ width: `${(stats.open / total) * 100}%`, background: 'var(--mantine-color-orange-5)' }} />
+          <span style={{ width: `${(stats.inProgress / total) * 100}%`, background: 'var(--mantine-color-brand-6)' }} />
+          <span style={{ width: `${(stats.done / total) * 100}%`, background: 'var(--mantine-color-green-6)' }} />
+        </div>
+      )}
+    </Stack>
+  );
+}
+
+export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
+  const { projects, setProjects, loadError, select, selected, query } = useDashboard();
+  // A szerkesztő/létrehozó ablak: "new" vagy a szerkesztett projekt
+  const [formFor, setFormFor] = useState<'new' | Project | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   // A `deleting` a bezáródó animáció alatt is megmarad, hogy a szöveg ne ürüljön ki.
   const [deleting, setDeleting] = useState<Project | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -225,20 +252,27 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
   const [showArchived, setShowArchived] = useState(false);
 
   const archivedCount = projects?.filter((p) => p.archivedAt !== null).length ?? 0;
+  const needle = fold(query.trim());
+  const visible = (projects ?? []).filter(
+    (p) => (showArchived || p.archivedAt === null) && (needle === '' || fold(`${p.name} ${p.siteUrl}`).includes(needle)),
+  );
 
-  useEffect(() => {
-    api.projects.list().then(setProjects).catch(() => setLoadError(true));
-  }, []);
-
-  async function create(name: string, siteUrl: string) {
-    const created = await api.projects.create({ name, siteUrl });
-    setProjects((prev) => [created, ...(prev ?? [])]);
+  function openForm(target: 'new' | Project) {
+    setFormFor(target);
+    setFormOpen(true);
   }
 
-  async function update(id: number, name: string, siteUrl: string) {
-    const updated = await api.projects.update(id, { name, siteUrl });
-    setProjects((prev) => prev?.map((p) => (p.id === id ? updated : p)) ?? null);
-    setEditingId(null);
+  async function saveForm(name: string, siteUrl: string) {
+    if (formFor === 'new' || formFor === null) {
+      const created = await api.projects.create({ name, siteUrl });
+      setProjects((prev) => [created, ...(prev ?? [])]);
+      select(created.id);
+    } else {
+      const id = formFor.id;
+      const updated = await api.projects.update(id, { name, siteUrl });
+      setProjects((prev) => prev?.map((p) => (p.id === id ? updated : p)) ?? null);
+    }
+    setFormOpen(false);
   }
 
   async function toggleArchive(p: Project) {
@@ -291,26 +325,25 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
     }
   }
 
+  function open(p: Project) {
+    select(p.id);
+    onOpenProject();
+  }
+
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="baseline">
-        <Title order={2}>Projektek</Title>
-        {projects && projects.length > 0 && (
+      <Group justify="space-between" align="center">
+        <div>
+          <Title order={2}>Projektek</Title>
           <Text size="sm" c="dimmed">
-            {projects.length} projekt
+            {projects ? `${projects.filter((p) => p.archivedAt === null).length} aktív projekt` : 'Betöltés…'}
           </Text>
-        )}
+        </div>
+        <Button onClick={() => openForm('new')}>Új projekt</Button>
       </Group>
 
-      <Paper withBorder p="lg" shadow="xs">
-        <Text fw={700} mb="sm">
-          Új projekt
-        </Text>
-        <ProjectForm submitLabel="Projekt létrehozása" onSubmit={create} />
-      </Paper>
-
       {actionError && (
-        <Alert color="red" role="alert">
+        <Alert color="red" role="alert" withCloseButton onClose={() => setActionError(null)}>
           {actionError}
         </Alert>
       )}
@@ -319,7 +352,11 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
           A projektek betöltése nem sikerült.
         </Alert>
       )}
-      {projects && projects.length > 0 && <Overview projects={projects.filter((p) => p.archivedAt === null)} />}
+
+      {projects && projects.some((p) => p.archivedAt === null) && (
+        <Overview projects={projects.filter((p) => p.archivedAt === null)} onOpen={open} />
+      )}
+
       {archivedCount > 0 && (
         <Switch
           checked={showArchived}
@@ -327,168 +364,137 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
           label={`Archivált projektek mutatása (${archivedCount})`}
         />
       )}
+
       {projects && projects.length === 0 && (
-        <Paper withBorder p="xl" style={{ borderStyle: 'dashed' }}>
-          <Text c="dimmed" ta="center">
-            Még nincs projekted. Hozd létre az elsőt fent, és add át az ügyfélnek a megosztó tokent.
+        <div className="empty">
+          <Text fw={600}>Még nincs projekted</Text>
+          <Text size="sm" c="dimmed" mb="sm">
+            Hozd létre az elsőt, és add át az ügyfélnek a megosztó tokent.
           </Text>
-        </Paper>
+          <Button onClick={() => openForm('new')}>Első projekt létrehozása</Button>
+        </div>
+      )}
+      {projects && projects.length > 0 && visible.length === 0 && (
+        <Text size="sm" c="dimmed">
+          Nincs a keresésnek megfelelő projekt.
+        </Text>
       )}
 
-      {projects
-        ?.filter((p) => showArchived || p.archivedAt === null)
-        .map((p) => (
-        <Card key={p.id} withBorder padding="lg" style={p.archivedAt ? { opacity: 0.7 } : undefined}>
-          {editingId === p.id ? (
-            <ProjectForm
-              initial={p}
-              submitLabel="Mentés"
-              onSubmit={(n, u) => update(p.id, n, u)}
-              onCancel={() => setEditingId(null)}
-            />
-          ) : (
-            <Stack gap="md">
-              <Group justify="space-between" align="flex-start" wrap="nowrap">
-                <Group gap="md" wrap="nowrap" style={{ minWidth: 0 }}>
-                  <div className="project-mark" aria-hidden="true">
-                    {(p.name.trim()[0] ?? '?').toUpperCase()}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <Group gap="xs" wrap="nowrap">
-                      <Title order={3} lineClamp={1}>
-                        {p.name}
-                      </Title>
-                      {p.archivedAt && (
-                        <Badge color="gray" variant="light">
-                          archivált
-                        </Badge>
-                      )}
-                    </Group>
-                    <Anchor href={p.siteUrl} target="_blank" rel="noopener noreferrer" size="sm" c="dimmed">
-                      {p.siteUrl}
-                    </Anchor>
-                  </div>
-                </Group>
-                {p.role === 'OWNER' ? (
-                  <Menu position="bottom-end" withinPortal>
-                    <Menu.Target>
-                      <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Projekt műveletei">
-                        <DotsIcon />
-                      </ActionIcon>
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                      <Menu.Item onClick={() => setEditingId(p.id)}>Szerkesztés</Menu.Item>
-                      <Menu.Item
-                        onClick={() => {
-                          setRegenerating(p);
-                          setRegenerateOpen(true);
-                        }}
-                      >
-                        Új token generálása
-                      </Menu.Item>
-                      <Menu.Item onClick={() => void toggleArchive(p)}>
-                        {p.archivedAt ? 'Visszaállítás az aktívak közé' : 'Archiválás'}
-                      </Menu.Item>
-                      <Menu.Item
-                        onClick={() => {
-                          setAppearanceFor(p);
-                          setAppearanceOpen(true);
-                        }}
-                      >
-                        A widget megjelenése és nyelve
-                      </Menu.Item>
-                      <Menu.Item
-                        onClick={() => {
-                          setWebhookFor(p);
-                          setWebhookOpen(true);
-                        }}
-                      >
-                        Webhook (Slack, Discord){p.webhookUrl ? ' ✓' : ''}
-                      </Menu.Item>
-                      <Menu.Divider />
-                      <Menu.Item
-                        color="red"
-                        onClick={() => {
-                          setDeleting(p);
-                          setDeleteOpen(true);
-                        }}
-                      >
-                        Projekt törlése
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-                ) : (
-                  // A tag a visszajelzéseket kezelheti, a projekt beállításait nem
-                  <Stack gap={2} align="flex-end">
-                    <Badge variant="light" color="grape">
+      <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="md">
+        {visible.map((p) => (
+          <Card key={p.id} withBorder padding="lg" className="project-card" data-selected={selected?.id === p.id || undefined} style={p.archivedAt ? { opacity: 0.7 } : undefined}>
+            <Stack gap="md" h="100%" justify="space-between">
+              <Stack gap="md">
+                <Group justify="space-between" align="flex-start" wrap="nowrap">
+                  <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                    <div className="project-mark" aria-hidden="true">
+                      {(p.name.trim()[0] ?? '?').toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <Group gap={6} wrap="nowrap">
+                        <Title order={3} lineClamp={1}>
+                          {p.name}
+                        </Title>
+                        {p.archivedAt && (
+                          <Badge color="gray" variant="light" size="sm">
+                            archivált
+                          </Badge>
+                        )}
+                      </Group>
+                      <Anchor href={p.siteUrl} target="_blank" rel="noopener noreferrer" size="xs" c="dimmed" lineClamp={1}>
+                        {p.siteUrl}
+                      </Anchor>
+                    </div>
+                  </Group>
+                  {p.role === 'OWNER' ? (
+                    <Menu position="bottom-end" withinPortal>
+                      <Menu.Target>
+                        <ActionIcon variant="subtle" color="gray" size="md" aria-label={`${p.name} műveletei`}>
+                          <DotsIcon />
+                        </ActionIcon>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Item onClick={() => openForm(p)}>Szerkesztés</Menu.Item>
+                        <Menu.Item onClick={() => void exportAll(p)}>Összes komment (CSV)</Menu.Item>
+                        <Menu.Item
+                          onClick={() => {
+                            setRegenerating(p);
+                            setRegenerateOpen(true);
+                          }}
+                        >
+                          Új token generálása
+                        </Menu.Item>
+                        <Menu.Item onClick={() => void toggleArchive(p)}>
+                          {p.archivedAt ? 'Visszaállítás az aktívak közé' : 'Archiválás'}
+                        </Menu.Item>
+                        <Menu.Item
+                          onClick={() => {
+                            setAppearanceFor(p);
+                            setAppearanceOpen(true);
+                          }}
+                        >
+                          A widget megjelenése és nyelve
+                        </Menu.Item>
+                        <Menu.Item
+                          onClick={() => {
+                            setWebhookFor(p);
+                            setWebhookOpen(true);
+                          }}
+                        >
+                          Webhook (Slack, Discord){p.webhookUrl ? ' ✓' : ''}
+                        </Menu.Item>
+                        <Menu.Divider />
+                        <Menu.Item
+                          color="red"
+                          onClick={() => {
+                            setDeleting(p);
+                            setDeleteOpen(true);
+                          }}
+                        >
+                          Projekt törlése
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
+                  ) : (
+                    <Badge variant="light" color="gray" size="sm" title={`Tulajdonos: ${p.ownerName}`}>
                       meghívott tag
                     </Badge>
-                    <Text size="xs" c="dimmed">
-                      Tulajdonos: {p.ownerName}
-                    </Text>
-                  </Stack>
-                )}
-              </Group>
-
-              <StatsRow stats={p.stats} />
-
-              <div className="token-bar">
-                <Text size="xs" c="dimmed" fw={600}>
-                  Megosztó token
-                </Text>
-                <Code>{p.shareToken}</Code>
-                <CopyButton value={p.shareToken}>
-                  {({ copied, copy }) => (
-                    <Button variant="light" size="compact-xs" onClick={copy}>
-                      {copied ? 'Másolva' : 'Másolás'}
-                    </Button>
                   )}
-                </CopyButton>
-                <Button variant="subtle" color="gray" size="compact-xs" ml="auto" onClick={() => exportAll(p)}>
-                  Összes komment (CSV)
+                </Group>
+                <StatChips stats={p.stats} />
+              </Stack>
+              <Group justify="space-between" align="center">
+                {p.role === 'MEMBER' ? (
+                  <Text size="xs" c="dimmed">
+                    Tulajdonos: {p.ownerName}
+                  </Text>
+                ) : (
+                  <span />
+                )}
+                <Button size="compact-sm" variant="light" onClick={() => open(p)}>
+                  Megnyitás
                 </Button>
-              </div>
-
-              <Tabs defaultValue="rounds" keepMounted={false}>
-                <Tabs.List>
-                  <Tabs.Tab value="rounds">Körök</Tabs.Tab>
-                  <Tabs.Tab value="members">Tagok</Tabs.Tab>
-                  <Tabs.Tab value="activity">Tevékenység</Tabs.Tab>
-                </Tabs.List>
-                <Tabs.Panel value="rounds" pt="sm">
-                  <RoundsPanel
-                    projectId={p.id}
-                    currentUserId={currentUserId}
-                    onActivity={() =>
-                      void api.projects
-                        .get(p.id)
-                        .then((fresh) => setProjects((prev) => prev?.map((x) => (x.id === fresh.id ? { ...x, stats: fresh.stats } : x)) ?? null))
-                        .catch(() => undefined)
-                    }
-                  />
-                </Tabs.Panel>
-                <Tabs.Panel value="activity" pt="sm">
-                  <ActivityPanel projectId={p.id} />
-                </Tabs.Panel>
-                <Tabs.Panel value="members" pt="sm">
-                  <MembersPanel
-                    projectId={p.id}
-                    role={p.role}
-                    currentUserId={currentUserId}
-                    onLeft={() => setProjects((prev) => prev?.filter((x) => x.id !== p.id) ?? null)}
-                    onTransferred={(newOwnerName) =>
-                      setProjects(
-                        (prev) =>
-                          prev?.map((x) => (x.id === p.id ? { ...x, role: 'MEMBER', ownerName: newOwnerName } : x)) ?? null,
-                      )
-                    }
-                  />
-                </Tabs.Panel>
-              </Tabs>
+              </Group>
             </Stack>
-          )}
-        </Card>
-      ))}
+          </Card>
+        ))}
+      </SimpleGrid>
+
+      <Modal
+        opened={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={formFor === 'new' || formFor === null ? 'Új projekt' : 'Projekt szerkesztése'}
+        centered
+      >
+        {formOpen && (
+          <ProjectForm
+            initial={formFor === 'new' || formFor === null ? undefined : formFor}
+            submitLabel={formFor === 'new' || formFor === null ? 'Projekt létrehozása' : 'Mentés'}
+            onSubmit={saveForm}
+            onCancel={() => setFormOpen(false)}
+          />
+        )}
+      </Modal>
 
       <WidgetAppearanceModal
         project={projects?.find((x) => x.id === appearanceFor?.id) ?? appearanceFor}

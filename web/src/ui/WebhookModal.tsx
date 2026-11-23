@@ -101,7 +101,7 @@ export function WebhookModal({
           </Alert>
         )}
         {result && (
-          <Alert color={result.ok ? 'teal' : 'red'} role="status">
+          <Alert color={result.ok ? 'green' : 'red'} role="status">
             {result.text}
           </Alert>
         )}

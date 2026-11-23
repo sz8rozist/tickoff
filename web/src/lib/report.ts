@@ -21,14 +21,14 @@ export interface ReportComment {
 }
 
 const CSS = `
-body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1f2140;max-width:820px;margin:32px auto;padding:0 20px;line-height:1.5}
-h1{margin:0;font-size:28px;letter-spacing:-.02em}.sub{margin:4px 0 20px;color:#5a5f86}
-h2{font-size:15px;margin:26px 0 8px;padding-bottom:6px;border-bottom:1px solid #e3e5f3;word-break:break-all;color:#4a52c9}
-table.meta{border-collapse:collapse;margin-bottom:8px;font-size:14px}.meta th{text-align:left;padding:4px 18px 4px 0;color:#5a5f86;font-weight:600}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#111827;max-width:820px;margin:32px auto;padding:0 20px;line-height:1.5}
+h1{margin:0;font-size:28px;letter-spacing:-.02em}.sub{margin:4px 0 20px;color:#64748b}
+h2{font-size:15px;margin:26px 0 8px;padding-bottom:6px;border-bottom:1px solid #e3e5f3;word-break:break-all;color:#1d4ed8}
+table.meta{border-collapse:collapse;margin-bottom:8px;font-size:14px}.meta th{text-align:left;padding:4px 18px 4px 0;color:#64748b;font-weight:600}
 .c{border:1px solid #e3e5f3;border-left:4px solid #adb5bd;border-radius:10px;padding:10px 14px;margin:10px 0;page-break-inside:avoid}
-.c.open{border-left-color:#f76707}.c.in_progress{border-left-color:#5b64e3}.c.done{border-left-color:#12b886}
-.head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#eef0ff;font-size:12px;font-weight:700}
-.badge{margin-left:auto;font-size:12px;font-weight:600;padding:2px 10px;border-radius:999px;background:#f1f2fa}
+.c.open{border-left-color:#f76707}.c.in_progress{border-left-color:#2563eb}.c.done{border-left-color:#16a34a}
+.head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#eff6ff;font-size:12px;font-weight: 600}
+.badge{margin-left:auto;font-size:12px;font-weight:600;padding:2px 10px;border-radius:999px;background:#f1f5f9}
 .body{margin:6px 0;white-space:pre-wrap}.muted{color:#6b7094}.small{font-size:12px}
 .thread{margin:6px 0 0;padding-left:16px;border-left:2px solid #e3e5f3;list-style:none;font-size:14px}.thread li{margin:3px 0;white-space:pre-wrap}
 .foot{margin-top:30px}@media print{body{margin:0;max-width:none}}

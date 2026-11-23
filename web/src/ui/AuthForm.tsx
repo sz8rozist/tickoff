@@ -188,7 +188,7 @@ export function AuthForm({
         <Stack gap="md">
           {mode === 'forgot' && reminderSent ? (
             <>
-              <Alert color="teal" role="status" title="Elküldtük">
+              <Alert color="green" role="status" title="Elküldtük">
                 Ha van ilyen fiók, elküldtük a jelszó-visszaállító linket. A levél pár percen belül megérkezik, a link
                 egy óráig érvényes.
               </Alert>

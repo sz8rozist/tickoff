@@ -99,7 +99,7 @@ export function TwoFactorModal({
       <Stack>
         {recovery ? (
           <>
-            <Alert color="teal" title="Bekapcsolva">
+            <Alert color="green" title="Bekapcsolva">
               Mostantól belépéskor a jelszó mellett a hitelesítő alkalmazás kódját is meg kell adni.
             </Alert>
             <Text size="sm">
@@ -122,7 +122,7 @@ export function TwoFactorModal({
           </>
         ) : user.twoFactorEnabled ? (
           <>
-            <Alert color="teal">A kétlépcsős belépés be van kapcsolva.</Alert>
+            <Alert color="green">A kétlépcsős belépés be van kapcsolva.</Alert>
             <Text size="sm">A kikapcsoláshoz add meg a jelszavad és egy kódot (hitelesítő alkalmazásé vagy helyreállító).</Text>
             <PasswordInput label="Jelszó" value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoComplete="current-password" />
             <TextInput label="Kód" value={code} onChange={(e) => setCode(e.currentTarget.value)} autoComplete="one-time-code" />

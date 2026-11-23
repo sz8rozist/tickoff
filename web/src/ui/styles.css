@@ -1,6 +1,9 @@
 :root {
-  --tk-page: #f5f6fb;
-  --tk-grad: linear-gradient(135deg, #6b75e6 0%, #8b5cf6 100%);
+  --tk-page: #f8fafc;
+  --tk-grad: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  --tk-border: #e2e8f0;
+  --tk-ring: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  --tk-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 :root[data-mantine-color-scheme='light'] body {
@@ -9,6 +12,7 @@
 
 body {
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
 }
 
 /* Bejelentkezés, regisztráció, jelszó-visszaállítás: bal oldalt a márka, jobb oldalt az űrlap */
@@ -28,7 +32,7 @@ body {
   color: #fff;
   background:
     radial-gradient(34rem 22rem at 100% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
-    linear-gradient(150deg, #5b64e3 0%, #7c5cf0 100%);
+    linear-gradient(150deg, #2563eb 0%, #1d4ed8 100%);
 }
 
 .auth-brand-logo {
@@ -38,7 +42,7 @@ body {
   color: inherit;
   text-decoration: none;
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .auth-brand-logo .logo-mark {
@@ -51,7 +55,7 @@ body {
   font-size: clamp(1.6rem, 2.6vw, 2.2rem);
   line-height: 1.15;
   letter-spacing: -0.025em;
-  font-weight: 800;
+  font-weight: 600;
   max-width: 24rem;
 }
 
@@ -80,7 +84,7 @@ body {
   display: grid;
   place-items: center;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   background: rgba(255, 255, 255, 0.22);
 }
 
@@ -106,7 +110,7 @@ body {
   color: inherit;
   text-decoration: none;
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .auth-title {
@@ -130,22 +134,12 @@ body {
   letter-spacing: -0.03em;
 }
 
-/* Fejléc */
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: color-mix(in srgb, var(--mantine-color-body) 85%, transparent);
-  backdrop-filter: saturate(160%) blur(10px);
-  border-bottom: 1px solid var(--mantine-color-default-border);
-}
-
 .logo-mark {
   display: grid;
   place-items: center;
   border-radius: 28%;
   background: var(--tk-grad);
-  box-shadow: 0 4px 14px rgba(107, 117, 230, 0.4);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
   color: #fff;
   flex: none;
 }
@@ -157,7 +151,7 @@ body {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 1.1rem;
   color: #fff;
   background: var(--tk-grad);
@@ -210,7 +204,7 @@ body {
   --status: var(--mantine-color-brand-5);
 }
 .comment-card[data-status='DONE'] {
-  --status: var(--mantine-color-teal-5);
+  --status: var(--mantine-color-green-6);
 }
 
 .page-pill {
@@ -230,8 +224,300 @@ body {
   border-left: 2px solid var(--mantine-color-default-border);
 }
 
-@media (max-width: 36em) {
-  .app-header .user-name {
-    display: none;
+
+/* ---------- Dashboard váz ---------- */
+.shell-header {
+  background: color-mix(in srgb, var(--mantine-color-body) 88%, transparent);
+  backdrop-filter: saturate(160%) blur(10px);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.shell-nav {
+  background: var(--mantine-color-body);
+  border-right: 1px solid var(--mantine-color-default-border);
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--mantine-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mantine-color-dimmed);
+  transition:
+    background-color 0.15s var(--tk-ease),
+    color 0.15s var(--tk-ease);
+}
+
+.nav-item:hover {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  color: light-dark(var(--mantine-color-black), var(--mantine-color-dark-0));
+}
+
+.nav-item[data-active] {
+  background: light-dark(var(--mantine-color-brand-0), color-mix(in srgb, var(--mantine-color-brand-5) 18%, transparent));
+  color: light-dark(var(--mantine-color-brand-7), var(--mantine-color-brand-3));
+}
+
+.shell-main {
+  background: var(--tk-page);
+}
+
+:root[data-mantine-color-scheme='dark'] .shell-main {
+  background: var(--mantine-color-dark-7);
+}
+
+.page-enter {
+  animation: tk-rise 0.32s var(--tk-ease) both;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+@keyframes tk-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- Bento rács ---------- */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.bento-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tile {
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-lg);
+  box-shadow: var(--mantine-shadow-xs);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  transition:
+    box-shadow 0.2s var(--tk-ease),
+    transform 0.2s var(--tk-ease),
+    border-color 0.2s var(--tk-ease);
+  animation: tk-rise 0.4s var(--tk-ease) both;
+}
+
+.tile:nth-child(2) { animation-delay: 0.04s; }
+.tile:nth-child(3) { animation-delay: 0.08s; }
+.tile:nth-child(4) { animation-delay: 0.12s; }
+.tile:nth-child(5) { animation-delay: 0.16s; }
+.tile:nth-child(6) { animation-delay: 0.2s; }
+
+.tile:hover {
+  box-shadow: var(--mantine-shadow-sm);
+  border-color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+}
+
+.tile-wide {
+  grid-column: span 2;
+}
+
+.tile-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--mantine-color-dimmed);
+}
+
+.tile-value {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stack-bar {
+  display: flex;
+  height: 8px;
+  margin-top: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+}
+
+.stack-bar.thin {
+  height: 5px;
+  margin-top: 0;
+}
+
+.stack-bar > span {
+  display: block;
+  height: 100%;
+  transition: width 0.5s var(--tk-ease);
+}
+
+.attention-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  width: calc(100% + 16px);
+  border: 0;
+  border-radius: var(--mantine-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s var(--tk-ease);
+}
+
+.attention-row:hover {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+}
+
+.attention-name {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Kártyák ---------- */
+.project-card {
+  transition:
+    box-shadow 0.2s var(--tk-ease),
+    transform 0.2s var(--tk-ease),
+    border-color 0.2s var(--tk-ease);
+}
+
+.project-card:hover {
+  box-shadow: var(--mantine-shadow-md);
+  transform: translateY(-2px);
+}
+
+.project-card[data-selected] {
+  border-color: var(--mantine-color-brand-4);
+}
+
+.panel-card {
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-lg);
+  box-shadow: var(--mantine-shadow-xs);
+  padding: 18px 20px;
+}
+
+.panel-card.flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.panel-card.danger {
+  border-color: light-dark(var(--mantine-color-red-2), color-mix(in srgb, var(--mantine-color-red-6) 40%, transparent));
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  border: 1px dashed var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-lg);
+  background: var(--mantine-color-body);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.setting-row:first-of-type {
+  border-top: 0;
+}
+
+.setting-control {
+  flex: none;
+}
+
+.data-table th {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mantine-color-dimmed);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+}
+
+.row-link {
+  cursor: pointer;
+}
+
+@media (max-width: 62em) {
+  .bento,
+  .bento-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 30em) {
+  .tile-wide {
+    grid-column: span 2;
+  }
+  .tile-value {
+    font-size: 1.6rem;
+  }
+}
+
+.project-mark.lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 1.3rem;
+}
+
+/* A kommentkártya a panelen belül finomabb: lekerekített, árnyékos */
+.comment-card {
+  border-radius: var(--mantine-radius-lg);
+  box-shadow: var(--mantine-shadow-xs);
+  transition: box-shadow 0.2s var(--tk-ease);
+}
+
+.comment-card:hover {
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.token-bar {
+  border-style: solid;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .tile,
+  .project-card,
+  .stack-bar > span {
+    animation: none;
+    transition: none;
+  }
+  .project-card:hover {
+    transform: none;
   }
 }

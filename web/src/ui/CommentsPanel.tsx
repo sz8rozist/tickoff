@@ -7,6 +7,7 @@ import {
   Button,
   Checkbox,
   Code,
+  Drawer,
   Group,
   Image,
   Loader,
@@ -15,10 +16,11 @@ import {
   Select,
   Stack,
   Text,
+  Table,
   TagsInput,
-  TextInput,
 } from '@mantine/core';
 import { api, type Comment, type CommentStatus, type Member, type Priority } from './api';
+import { fold, useDashboard } from './DashboardContext';
 import { Thread } from './Thread';
 
 const STATUS_OPTIONS = [
@@ -33,6 +35,9 @@ const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
   { value: 'NORMAL', label: 'Normál' },
   { value: 'LOW', label: 'Alacsony' },
 ];
+
+const PRIORITY_COLOR: Record<Priority, string> = { URGENT: 'red', HIGH: 'orange', NORMAL: 'gray', LOW: 'gray' };
+const STATUS_COLOR: Record<CommentStatus, string> = { OPEN: 'orange', IN_PROGRESS: 'brand', DONE: 'green' };
 
 const PRIORITY_RANK: Record<Priority, number> = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
 
@@ -54,11 +59,6 @@ const ASSIGNEE_FILTER = [
   { value: 'ME', label: 'Hozzám rendelt' },
   { value: 'NONE', label: 'Gazdátlan' },
 ];
-
-/** Ékezet- és kisbetű-független összehasonlításhoz (a keresés "kave"-ra is megtalálja a "Kávé"-t). */
-function fold(s: string): string {
-  return s.normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase();
-}
 
 const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -131,7 +131,17 @@ export function CommentsPanel({
   const [deleting, setDeleting] = useState<Comment | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [gallery, setGallery] = useState<{ comment: Comment; urls: string[]; failed: boolean } | null>(null);
-  const [query, setQuery] = useState('');
+  // A keresés a felső sávból jön (minden nézetben ugyanaz a mező)
+  const { query, setQuery } = useDashboard();
+  const [view, setViewState] = useState<'cards' | 'table'>(() => {
+    try {
+      return window.localStorage.getItem('tickoff.commentView') === 'table' ? 'table' : 'cards';
+    } catch {
+      return 'cards';
+    }
+  });
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<number | null>(null);
   const [sort, setSort] = useState('OLDEST');
   const [labelFilter, setLabelFilter] = useState<string | null>(null);
   // A tömeges művelethez kijelölt kommentek
@@ -139,6 +149,15 @@ export function CommentsPanel({
   const [bulkBusy, setBulkBusy] = useState(false);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState('ALL');
+
+  function setView(v: 'cards' | 'table') {
+    setViewState(v);
+    try {
+      window.localStorage.setItem('tickoff.commentView', v);
+    } catch {
+      /* a választás csak a munkamenetre szól */
+    }
+  }
 
   useEffect(() => {
     api.comments.list(projectId, roundId).then(setComments).catch(() => setError('A kommentek betöltése nem sikerült.'));
@@ -299,6 +318,7 @@ export function CommentsPanel({
     if (assigneeFilter === 'ME' && c.assigneeId !== currentUserId) return false;
     if (assigneeFilter === 'NONE' && c.assigneeId !== null) return false;
     if (labelFilter !== null && !c.labels.includes(labelFilter)) return false;
+    if (priorityFilter !== null && c.priority !== priorityFilter) return false;
     if (needle === '') return true;
     const haystack = fold(
       [c.authorName, c.body, pagePath(c.pageUrl), c.assigneeName ?? '', ...c.labels, ...c.replies.map((r) => r.body)].join(' '),
@@ -321,7 +341,7 @@ export function CommentsPanel({
   });
   const selectedCount = comments.filter((c) => selected.has(c.id)).length;
   const allLabels = [...new Set(comments.flatMap((c) => c.labels))].sort();
-  const filtering = statusFilter !== 'ALL' || assigneeFilter !== 'ALL' || labelFilter !== null || needle !== '';
+  const filtering = statusFilter !== 'ALL' || assigneeFilter !== 'ALL' || labelFilter !== null || priorityFilter !== null || needle !== '';
 
   // Oldalanként csoportosítjuk: "a második oldalon az a gomb" típusú visszajelzések így egy helyen vannak.
   const byPage = new Map<string, Comment[]>();
@@ -329,138 +349,8 @@ export function CommentsPanel({
     byPage.set(c.pageUrl, [...(byPage.get(c.pageUrl) ?? []), c]);
   }
 
-  return (
-    <Stack gap="md" mt="md">
-      <Group gap="xs" align="center">
-        <TextInput
-          size="xs"
-          placeholder="Keresés a kommentekben…"
-          aria-label="Keresés a kommentekben"
-          value={query}
-          onChange={(e) => setQuery(e.currentTarget.value)}
-          style={{ flex: '1 1 180px' }}
-        />
-        <Select
-          size="xs"
-          w={170}
-          aria-label="Rendezés"
-          allowDeselect={false}
-          data={SORT_OPTIONS}
-          value={sort}
-          onChange={(v) => setSort(v ?? 'OLDEST')}
-        />
-        {allLabels.length > 0 && (
-          <Select
-            size="xs"
-            w={150}
-            placeholder="Címke"
-            aria-label="Szűrés címkére"
-            clearable
-            data={allLabels}
-            value={labelFilter}
-            onChange={setLabelFilter}
-          />
-        )}
-        <SegmentedControl size="xs" data={STATUS_FILTER} value={statusFilter} onChange={setStatusFilter} aria-label="Szűrés státuszra" />
-        <SegmentedControl size="xs" data={ASSIGNEE_FILTER} value={assigneeFilter} onChange={setAssigneeFilter} aria-label="Szűrés felelősre" />
-      </Group>
-      {filtering && (
-        <Group gap="xs">
-          <Text size="xs" c="dimmed">
-            {visible.length} / {comments.length} komment
-          </Text>
-          <Button
-            size="compact-xs"
-            variant="subtle"
-            onClick={() => {
-              setQuery('');
-              setStatusFilter('ALL');
-              setAssigneeFilter('ALL');
-              setLabelFilter(null);
-            }}
-          >
-            Szűrők törlése
-          </Button>
-        </Group>
-      )}
-      {visible.length > 0 && (
-        <Group gap="xs" align="center">
-          <Checkbox
-            size="xs"
-            label={selectedCount > 0 ? `${selectedCount} kijelölve` : 'Kijelölés'}
-            checked={selectedCount > 0 && visible.every((c) => selected.has(c.id))}
-            indeterminate={selectedCount > 0 && !visible.every((c) => selected.has(c.id))}
-            onChange={(e) =>
-              setSelected(e.currentTarget.checked ? new Set([...selected, ...visible.map((c) => c.id)]) : new Set())
-            }
-          />
-          {selectedCount > 0 && (
-            <>
-              <Text size="xs" c="dimmed">
-                Státusz:
-              </Text>
-              {STATUS_OPTIONS.map((o) => (
-                <Button
-                  key={o.value}
-                  size="compact-xs"
-                  variant="light"
-                  disabled={bulkBusy}
-                  onClick={() =>
-                    void bulk((c) => api.comments.setStatus(projectId, c.id, o.value as CommentStatus), 'A státusz módosítása nem sikerült')
-                  }
-                >
-                  {o.label}
-                </Button>
-              ))}
-              <Select
-                size="xs"
-                w={180}
-                placeholder="Felelős kijelölése…"
-                aria-label="Felelős a kijelölteknek"
-                clearable
-                disabled={bulkBusy}
-                data={team.map((m) => ({ value: String(m.userId), label: m.userId === currentUserId ? `${m.name} (te)` : m.name }))}
-                value={null}
-                onChange={(v) =>
-                  v !== null && void bulk((c) => api.comments.assign(projectId, c.id, Number(v)), 'A felelős kijelölése nem sikerült')
-                }
-              />
-              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setSelected(new Set())}>
-                Kijelölés törlése
-              </Button>
-            </>
-          )}
-        </Group>
-      )}
-      {visible.length === 0 && (
-        <Text size="sm" c="dimmed">
-          Nincs a szűrésnek megfelelő komment.
-        </Text>
-      )}
-      {error && (
-        <Alert color="red" role="alert">
-          {error}
-        </Alert>
-      )}
-      {[...byPage.entries()].map(([url, items]) => (
-        <Stack key={url} gap="xs">
-          <Group gap="xs" wrap="nowrap">
-            <Anchor
-              className="page-pill"
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              underline="never"
-              title={url}
-            >
-              {pagePath(url)}
-            </Anchor>
-            <Text size="xs" c="dimmed">
-              {items.length} komment
-            </Text>
-          </Group>
-          {items.map((c) => (
-            <div key={c.id} className="comment-card" data-status={c.status}>
+  const renderCard = (c: Comment) => (
+<div className="comment-card" data-status={c.status}>
               <Stack gap={8}>
                 <Group justify="space-between" align="flex-start" wrap="wrap">
                   <Group gap="xs" wrap="nowrap">
@@ -546,12 +436,12 @@ export function CommentsPanel({
                     </Badge>
                   )}
                   {c.areaWidth !== null && (
-                    <Badge size="sm" color="grape" variant="light" title="Az ügyfél téglalappal jelölte ki a területet">
+                    <Badge size="sm" color="gray" variant="light" title="Az ügyfél téglalappal jelölte ki a területet">
                       kijelölt terület
                     </Badge>
                   )}
                   {c.customerApprovedAt && (
-                    <Badge size="sm" color="teal" variant="light">
+                    <Badge size="sm" color="green" variant="light">
                       ✓ az ügyfél elfogadta
                     </Badge>
                   )}
@@ -606,6 +496,226 @@ export function CommentsPanel({
                 />
               </Stack>
             </div>
+  );
+
+  const detail = detailId === null ? null : (comments.find((c) => c.id === detailId) ?? null);
+
+  return (
+    <Stack gap="md" mt="md">
+      <Group gap="xs" align="center">
+        <Select
+          size="xs"
+          w={170}
+          aria-label="Rendezés"
+          allowDeselect={false}
+          data={SORT_OPTIONS}
+          value={sort}
+          onChange={(v) => setSort(v ?? 'OLDEST')}
+        />
+        {allLabels.length > 0 && (
+          <Select
+            size="xs"
+            w={150}
+            placeholder="Címke"
+            aria-label="Szűrés címkére"
+            clearable
+            data={allLabels}
+            value={labelFilter}
+            onChange={setLabelFilter}
+          />
+        )}
+        <SegmentedControl size="xs" data={STATUS_FILTER} value={statusFilter} onChange={setStatusFilter} aria-label="Szűrés státuszra" />
+        <SegmentedControl size="xs" data={ASSIGNEE_FILTER} value={assigneeFilter} onChange={setAssigneeFilter} aria-label="Szűrés felelősre" />
+        <Select
+          size="xs"
+          w={140}
+          placeholder="Prioritás"
+          aria-label="Szűrés prioritásra"
+          clearable
+          data={PRIORITY_OPTIONS}
+          value={priorityFilter}
+          onChange={setPriorityFilter}
+        />
+        <SegmentedControl
+          size="xs"
+          ml="auto"
+          aria-label="Nézet"
+          value={view}
+          onChange={(v) => setView(v as 'cards' | 'table')}
+          data={[
+            { value: 'cards', label: 'Kártyák' },
+            { value: 'table', label: 'Táblázat' },
+          ]}
+        />
+      </Group>
+      {filtering && (
+        <Group gap="xs">
+          <Text size="xs" c="dimmed">
+            {visible.length} / {comments.length} komment
+          </Text>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            onClick={() => {
+              setQuery('');
+              setStatusFilter('ALL');
+              setAssigneeFilter('ALL');
+              setLabelFilter(null);
+              setPriorityFilter(null);
+            }}
+          >
+            Szűrők törlése
+          </Button>
+        </Group>
+      )}
+      {visible.length > 0 && (
+        <Group gap="xs" align="center">
+          <Checkbox
+            size="xs"
+            label={selectedCount > 0 ? `${selectedCount} kijelölve` : 'Kijelölés'}
+            checked={selectedCount > 0 && visible.every((c) => selected.has(c.id))}
+            indeterminate={selectedCount > 0 && !visible.every((c) => selected.has(c.id))}
+            onChange={(e) =>
+              setSelected(e.currentTarget.checked ? new Set([...selected, ...visible.map((c) => c.id)]) : new Set())
+            }
+          />
+          {selectedCount > 0 && (
+            <>
+              <Text size="xs" c="dimmed">
+                Státusz:
+              </Text>
+              {STATUS_OPTIONS.map((o) => (
+                <Button
+                  key={o.value}
+                  size="compact-xs"
+                  variant="light"
+                  disabled={bulkBusy}
+                  onClick={() =>
+                    void bulk((c) => api.comments.setStatus(projectId, c.id, o.value as CommentStatus), 'A státusz módosítása nem sikerült')
+                  }
+                >
+                  {o.label}
+                </Button>
+              ))}
+              <Select
+                size="xs"
+                w={180}
+                placeholder="Felelős kijelölése…"
+                aria-label="Felelős a kijelölteknek"
+                clearable
+                disabled={bulkBusy}
+                data={team.map((m) => ({ value: String(m.userId), label: m.userId === currentUserId ? `${m.name} (te)` : m.name }))}
+                value={null}
+                onChange={(v) =>
+                  v !== null && void bulk((c) => api.comments.assign(projectId, c.id, Number(v)), 'A felelős kijelölése nem sikerült')
+                }
+              />
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setSelected(new Set())}>
+                Kijelölés törlése
+              </Button>
+            </>
+          )}
+        </Group>
+      )}
+      {visible.length === 0 && (
+        <Text size="sm" c="dimmed">
+          Nincs a szűrésnek megfelelő komment.
+        </Text>
+      )}
+      {error && (
+        <Alert color="red" role="alert">
+          {error}
+        </Alert>
+      )}
+      {view === 'table' && visible.length > 0 && (
+        <div className="panel-card flush">
+          <Table.ScrollContainer minWidth={720}>
+            <Table highlightOnHover className="data-table">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th w={36} />
+                  <Table.Th>Visszajelzés</Table.Th>
+                  <Table.Th>Oldal</Table.Th>
+                  <Table.Th>Prioritás</Table.Th>
+                  <Table.Th>Státusz</Table.Th>
+                  <Table.Th>Felelős</Table.Th>
+                  <Table.Th>Idő</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {visible.map((c) => (
+                  <Table.Tr key={c.id} className="row-link" onClick={() => setDetailId(c.id)}>
+                    <Table.Td onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        size="xs"
+                        aria-label={`Kijelölés: ${c.authorName} kommentje`}
+                        checked={selected.has(c.id)}
+                        onChange={() => toggleSelected(c.id)}
+                      />
+                    </Table.Td>
+                    <Table.Td maw={340}>
+                      <Text size="sm" fw={500} lineClamp={1}>
+                        {c.body}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {c.authorName}
+                        {c.replies.length > 0 ? ` · ${c.replies.length} válasz` : ''}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td maw={180}>
+                      <Text size="xs" c="dimmed" lineClamp={1} title={c.pageUrl}>
+                        {pagePath(c.pageUrl)}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge size="sm" variant="light" color={PRIORITY_COLOR[c.priority]}>
+                        {PRIORITY_OPTIONS.find((o) => o.value === c.priority)?.label}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge size="sm" variant="light" color={STATUS_COLOR[c.status]}>
+                        {STATUS_OPTIONS.find((o) => o.value === c.status)?.label}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs" c="dimmed">
+                        {c.assigneeName ?? '–'}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs" c="dimmed">
+                        {dateTime(c.createdAt)}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        </div>
+      )}
+      <Drawer opened={detail !== null} onClose={() => setDetailId(null)} position="right" size="lg" title="Visszajelzés részletei">
+        {detail && renderCard(detail)}
+      </Drawer>
+      {view === 'cards' && [...byPage.entries()].map(([url, items]) => (
+        <Stack key={url} gap="xs">
+          <Group gap="xs" wrap="nowrap">
+            <Anchor
+              className="page-pill"
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              underline="never"
+              title={url}
+            >
+              {pagePath(url)}
+            </Anchor>
+            <Text size="xs" c="dimmed">
+              {items.length} komment
+            </Text>
+          </Group>
+          {items.map((c) => (
+            <div key={c.id}>{renderCard(c)}</div>
           ))}
         </Stack>
       ))}

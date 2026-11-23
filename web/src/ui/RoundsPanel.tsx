@@ -125,9 +125,9 @@ export function RoundsPanel({
         <div key={r.id} className="round-row" data-open={r.status === 'OPEN'}>
           <Group justify="space-between" gap="sm">
             <Group gap="sm">
-              <Text fw={700}>{r.number}. kör</Text>
+              <Text fw={600}>{r.number}. kör</Text>
               {r.status === 'OPEN' ? (
-                <Badge color="teal" variant="light">
+                <Badge color="green" variant="light">
                   nyitott
                 </Badge>
               ) : (
@@ -140,7 +140,7 @@ export function RoundsPanel({
                 {r.commentCount > 0 && ` · ${r.openCommentCount} nyitott`}
               </Text>
               {r.approvedAt && (
-                <Badge color="teal" variant="filled" title={`Jóváhagyta: ${r.approvedBy ?? ''}`}>
+                <Badge color="green" variant="filled" title={`Jóváhagyta: ${r.approvedBy ?? ''}`}>
                   ✓ az ügyfél jóváhagyta{r.approvedBy ? ` (${r.approvedBy})` : ''}
                 </Badge>
               )}
@@ -197,7 +197,7 @@ export function RoundsPanel({
             <Progress
               mt="xs"
               size={5}
-              color="teal"
+              color="green"
               value={((r.commentCount - r.openCommentCount) / r.commentCount) * 100}
               aria-label="Lezárt kommentek aránya"
             />

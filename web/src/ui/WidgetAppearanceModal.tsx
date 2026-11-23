@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, ColorInput, Group, Modal, SegmentedControl, Stack, Text } from '@mantine/core';
 import { api, ApiError, type Project } from './api';
 
-const DEFAULT_COLOR = '#5b64e3';
-const SWATCHES = ['#5b64e3', '#e03131', '#f76707', '#2f9e44', '#1c7ed6', '#9c36b5', '#d6336c', '#1f2140'];
+const DEFAULT_COLOR = '#2563eb';
+const SWATCHES = ['#2563eb', '#e03131', '#f76707', '#2f9e44', '#1c7ed6', '#9c36b5', '#d6336c', '#111827'];
 
 /** A widget megjelenése: márkaszín és a gombok oldala, élő előnézettel. Csak a tulajdonos állíthatja. */
 export function WidgetAppearanceModal({
@@ -124,7 +124,7 @@ export function WidgetAppearanceModal({
               fontWeight: 600,
               fontSize: 14,
               background: valid ? `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color}, black 28%))` : DEFAULT_COLOR,
-              boxShadow: '0 6px 20px rgba(31,33,64,.25)',
+              boxShadow: '0 6px 20px rgba(17, 24, 39,.25)',
             }}
           >
             ✓ Visszajelzés

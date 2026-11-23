@@ -58,7 +58,7 @@ export function ActivityPanel({ projectId }: { projectId: number }) {
           <Text size="xs" c="dimmed" w={96} style={{ flex: 'none' }}>
             {dateTime(e.createdAt)}
           </Text>
-          <Badge size="xs" variant="light" color={e.actorType === 'CUSTOMER' ? 'grape' : 'brand'} style={{ flex: 'none' }}>
+          <Badge size="xs" variant="light" color={e.actorType === 'CUSTOMER' ? 'gray' : 'brand'} style={{ flex: 'none' }}>
             {e.actorType === 'CUSTOMER' ? 'ügyfél' : 'csapat'}
           </Badge>
           <Text size="sm">

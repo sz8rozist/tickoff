@@ -1,13 +1,13 @@
 /* A bemutató (landing) oldal. A színek light-dark()-kal követik a világos/sötét témát. */
 .lp {
-  --lp-bg: light-dark(#ffffff, #14152a);
-  --lp-alt: light-dark(#f5f6fb, #1a1c35);
-  --lp-card: light-dark(#ffffff, #20224a);
-  --lp-text: light-dark(#1f2140, #eceefc);
-  --lp-muted: light-dark(#5a5f86, #a6abd6);
-  --lp-line: light-dark(rgba(31, 33, 64, 0.1), rgba(255, 255, 255, 0.12));
-  --lp-brand: #5b64e3;
-  --lp-grad: linear-gradient(135deg, #6b75e6 0%, #8b5cf6 100%);
+  --lp-bg: light-dark(#ffffff, #111827);
+  --lp-alt: light-dark(#f8fafc, #0f172a);
+  --lp-card: light-dark(#ffffff, #1f2937);
+  --lp-text: light-dark(#111827, #f3f4f6);
+  --lp-muted: light-dark(#64748b, #9ca3af);
+  --lp-line: light-dark(rgba(17, 24, 39, 0.1), rgba(255, 255, 255, 0.12));
+  --lp-brand: #2563eb;
+  --lp-grad: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   background: var(--lp-bg);
   color: var(--lp-text);
   min-height: 100vh;
@@ -52,7 +52,7 @@
   gap: 10px;
   color: inherit;
   text-decoration: none;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 20px;
 }
 
@@ -95,19 +95,19 @@
 }
 
 .lp-btn:focus-visible {
-  outline: 3px solid rgba(91, 100, 227, 0.45);
+  outline: 3px solid rgba(37, 99, 235, 0.45);
   outline-offset: 2px;
 }
 
 .lp-btn-primary {
   background: var(--lp-grad);
   color: #fff;
-  box-shadow: 0 8px 22px rgba(107, 117, 230, 0.4);
+  box-shadow: 0 8px 22px rgba(59, 130, 246, 0.4);
 }
 
 .lp-btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(107, 117, 230, 0.5);
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.5);
 }
 
 .lp-btn-ghost {
@@ -141,8 +141,8 @@
 .lp-hero {
   padding: 72px 0 80px;
   background:
-    radial-gradient(60rem 28rem at 12% -8%, rgba(107, 117, 230, 0.2), transparent 60%),
-    radial-gradient(48rem 26rem at 100% 10%, rgba(139, 92, 246, 0.16), transparent 60%);
+    radial-gradient(60rem 28rem at 12% -8%, rgba(59, 130, 246, 0.2), transparent 60%),
+    radial-gradient(48rem 26rem at 100% 10%, rgba(37, 99, 235, 0.16), transparent 60%);
 }
 
 .lp-hero-grid {
@@ -156,8 +156,8 @@
   display: inline-block;
   padding: 5px 14px;
   border-radius: 999px;
-  background: light-dark(#eef0ff, rgba(107, 117, 230, 0.2));
-  color: light-dark(#4a52c9, #b7bcff);
+  background: light-dark(#eff6ff, rgba(59, 130, 246, 0.2));
+  color: light-dark(#1d4ed8, #b7bcff);
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 18px;
@@ -166,7 +166,7 @@
 .lp-hero h1 {
   font-size: clamp(2.1rem, 4.6vw, 3.4rem);
   line-height: 1.08;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .lp-grad {
@@ -206,8 +206,8 @@
 
 .lp-checks li::before {
   content: '✓';
-  color: #12b886;
-  font-weight: 800;
+  color: #16a34a;
+  font-weight: 600;
   margin-right: 10px;
 }
 
@@ -217,7 +217,7 @@
   border-radius: 18px;
   background: var(--lp-card);
   border: 1px solid var(--lp-line);
-  box-shadow: 0 30px 70px rgba(31, 33, 64, 0.22);
+  box-shadow: 0 30px 70px rgba(17, 24, 39, 0.22);
   overflow: hidden;
   transform: rotate(-1.2deg);
 }
@@ -263,7 +263,7 @@
 
 .lp-mock-h {
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.02em;
   margin-bottom: 14px;
 }
@@ -299,16 +299,16 @@
   display: grid;
   place-items: center;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: #fff;
   border: 2px solid #fff;
-  box-shadow: 0 3px 10px rgba(31, 33, 64, 0.4);
+  box-shadow: 0 3px 10px rgba(17, 24, 39, 0.4);
 }
 
 .lp-pin.p1 {
   left: 15px;
   top: 44px;
-  background: #12b886;
+  background: #16a34a;
 }
 
 .lp-pin.p2 {
@@ -323,8 +323,8 @@
   top: 218px;
   width: 150px;
   height: 56px;
-  border: 2px dashed #5b64e3;
-  background: rgba(91, 100, 227, 0.1);
+  border: 2px dashed #2563eb;
+  background: rgba(37, 99, 235, 0.1);
   border-radius: 6px;
 }
 
@@ -337,7 +337,7 @@
   border-radius: 14px;
   background: var(--lp-card);
   border: 1px solid var(--lp-line);
-  box-shadow: 0 16px 40px rgba(31, 33, 64, 0.25);
+  box-shadow: 0 16px 40px rgba(17, 24, 39, 0.25);
   font-size: 13px;
   line-height: 1.4;
 }
@@ -357,7 +357,7 @@
 .lp-bubble-tags span {
   padding: 2px 9px;
   border-radius: 999px;
-  background: light-dark(#f1f2fa, #2c2f63);
+  background: light-dark(#f1f5f9, #2c2f63);
   font-size: 11px;
   font-weight: 600;
 }
@@ -389,7 +389,7 @@
 .lp-mock-dock .fab {
   background: var(--lp-grad);
   color: #fff;
-  box-shadow: 0 6px 16px rgba(107, 117, 230, 0.4);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
 }
 
 /* Szakaszok */
@@ -403,7 +403,7 @@
 
 .lp-section h2 {
   font-size: clamp(1.7rem, 3.2vw, 2.3rem);
-  font-weight: 800;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -445,7 +445,7 @@
   border-radius: 12px;
   background: var(--lp-grad);
   color: #fff;
-  font-weight: 800;
+  font-weight: 600;
   margin-bottom: 16px;
 }
 
@@ -467,7 +467,7 @@
   margin: 28px auto 0;
   max-width: 720px;
   border-radius: 14px;
-  background: #1f2140;
+  background: #111827;
   color: #dfe2fd;
   overflow-x: auto;
 }
@@ -506,7 +506,7 @@
 
 .lp-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 14px 34px rgba(31, 33, 64, 0.12);
+  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.12);
 }
 
 .lp-ico {
@@ -517,8 +517,8 @@
   border-radius: 12px;
   margin-bottom: 14px;
   font-size: 20px;
-  color: #4a52c9;
-  background: light-dark(#eef0ff, rgba(107, 117, 230, 0.22));
+  color: #1d4ed8;
+  background: light-dark(#eff6ff, rgba(59, 130, 246, 0.22));
 }
 
 .lp-two {
@@ -558,7 +558,7 @@
   display: grid;
   place-items: center;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   color: #0b7a5a;
   background: light-dark(#e6fcf5, rgba(18, 184, 134, 0.22));
 }
@@ -599,7 +599,7 @@
 
 .lp-cta-band h2 {
   font-size: clamp(1.7rem, 3.2vw, 2.4rem);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .lp-cta-band p {
@@ -609,7 +609,7 @@
 }
 
 .lp-cta-band .lp-btn-light {
-  color: #1f2140;
+  color: #111827;
   background: #fff;
 }
 

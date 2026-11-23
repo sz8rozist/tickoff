@@ -15,7 +15,7 @@ export function Wordmark({ size = 32 }: { size?: number }) {
   return (
     <Group gap={10} wrap="nowrap">
       <Logo size={size} />
-      <Text className="wordmark" fw={800} fz={size * 0.62} lh={1}>
+      <Text className="wordmark" fw={600} fz={size * 0.62} lh={1}>
         Tickoff
       </Text>
     </Group>

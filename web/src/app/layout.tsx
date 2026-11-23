@@ -1,3 +1,4 @@
+import '@fontsource-variable/inter/index.css';
 import '@mantine/core/styles.css';
 import '../ui/styles.css';
 

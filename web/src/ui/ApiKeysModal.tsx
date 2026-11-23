@@ -56,7 +56,7 @@ export function ApiKeysModal({ opened, onClose }: { opened: boolean; onClose: ()
         </Text>
 
         {created && (
-          <Alert color="teal" title="Másold ki most, később nem látható">
+          <Alert color="green" title="Másold ki most, később nem látható">
             <Group gap="xs" wrap="nowrap">
               <Code style={{ wordBreak: 'break-all' }}>{created}</Code>
               <CopyButton value={created}>

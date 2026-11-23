@@ -231,7 +231,7 @@ export function MembersPanel({
       )}
 
       {notice && (
-        <Alert color="teal" role="status">
+        <Alert color="green" role="status">
           {notice}
         </Alert>
       )}
