@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Paper, PasswordInput, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, PasswordInput, Stack, Text, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { api, ApiError } from './api';
 
@@ -37,11 +37,14 @@ export function ResetPasswordPage({ token, onDone }: { token: string; onDone: ()
   }
 
   return (
-    <Paper withBorder shadow="sm" p="xl" radius="md">
+    <div>
+      <Title order={1} className="auth-title">
+        Új jelszó
+      </Title>
+      <Text c="dimmed" mt={6} mb="xl">
+        Add meg az új jelszavad, és újra beléphetsz.
+      </Text>
       <Stack>
-        <Title order={2} size="h3">
-          Új jelszó
-        </Title>
         {done ? (
           <>
             <Alert color="green" role="status">
@@ -54,6 +57,7 @@ export function ResetPasswordPage({ token, onDone }: { token: string; onDone: ()
           <form onSubmit={form.onSubmit(submit)}>
             <Stack>
               <PasswordInput
+                size="md"
                 label="Új jelszó"
                 description="Legalább 8 karakter"
                 maxLength={72}
@@ -62,6 +66,7 @@ export function ResetPasswordPage({ token, onDone }: { token: string; onDone: ()
                 {...form.getInputProps('password')}
               />
               <PasswordInput
+                size="md"
                 label="Új jelszó újra"
                 maxLength={72}
                 autoComplete="new-password"
@@ -72,7 +77,7 @@ export function ResetPasswordPage({ token, onDone }: { token: string; onDone: ()
                   {error}
                 </Alert>
               )}
-              <Button type="submit" loading={busy}>
+              <Button type="submit" size="md" fullWidth loading={busy}>
                 Jelszó megváltoztatása
               </Button>
               <Text size="xs" c="dimmed" ta="center">
@@ -82,6 +87,6 @@ export function ResetPasswordPage({ token, onDone }: { token: string; onDone: ()
           </form>
         )}
       </Stack>
-    </Paper>
+    </div>
   );
 }

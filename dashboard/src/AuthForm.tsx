@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Alert, Anchor, Button, Paper, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Anchor, Button, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { api, ApiError, type User } from './api';
+import { PATH_LOGIN, PATH_REGISTER } from './route';
 
 type Mode = 'login' | 'register' | 'forgot';
 
@@ -22,13 +23,28 @@ function errorMessage(e: unknown, mode: Mode): string {
 }
 
 const TITLES: Record<Mode, string> = {
-  login: 'Belépés',
-  register: 'Regisztráció',
+  login: 'Üdv újra!',
+  register: 'Fiók létrehozása',
   forgot: 'Elfelejtett jelszó',
 };
 
-export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
-  const [mode, setMode] = useState<Mode>('login');
+const SUBTITLES: Record<Mode, string> = {
+  login: 'Lépj be, és nézd meg, mi érkezett az ügyfeleidtől.',
+  register: 'Pár perc, és az első ügyfeled már küldheti a visszajelzéseit.',
+  forgot: 'Küldünk egy linket, amivel új jelszót adhatsz meg.',
+};
+
+export function AuthForm({
+  onAuth,
+  initialMode = 'login',
+  onNavigate,
+}: {
+  onAuth: (user: User) => void;
+  initialMode?: Mode;
+  /** A belépés és a regisztráció külön címen él: váltáskor erre a függvényre bízzuk a navigációt. */
+  onNavigate?: (path: string) => void;
+}) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // A "jelszó-emlékeztető elküldve" állapot: a szöveg szándékosan nem árulja el, hogy van-e ilyen fiók
@@ -76,19 +92,24 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
     setError(null);
     setReminderSent(false);
     form.clearErrors();
+    if (next === 'login') onNavigate?.(PATH_LOGIN);
+    if (next === 'register') onNavigate?.(PATH_REGISTER);
   }
 
   return (
-    <Paper withBorder shadow="lg" p="xl" radius="lg">
-      <form onSubmit={form.onSubmit(submit)}>
-        <Stack>
-          <Title order={2} size="h3">
-            {TITLES[mode]}
-          </Title>
+    <div>
+      <Title order={1} className="auth-title">
+        {TITLES[mode]}
+      </Title>
+      <Text c="dimmed" mt={6} mb="xl">
+        {SUBTITLES[mode]}
+      </Text>
 
+      <form onSubmit={form.onSubmit(submit)}>
+        <Stack gap="md">
           {mode === 'forgot' && reminderSent ? (
             <>
-              <Alert color="green" role="status">
+              <Alert color="teal" role="status" title="Elküldtük">
                 Ha van ilyen fiók, elküldtük a jelszó-visszaállító linket. A levél pár percen belül megérkezik, a link
                 egy óráig érvényes.
               </Alert>
@@ -101,15 +122,25 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
           ) : (
             <>
               {mode === 'register' && (
-                <TextInput label="Név" maxLength={120} autoComplete="name" {...form.getInputProps('name')} />
+                <TextInput
+                  size="md"
+                  label="Név"
+                  placeholder="Kovács Anna"
+                  maxLength={120}
+                  autoComplete="name"
+                  {...form.getInputProps('name')}
+                />
               )}
-              <TextInput label="E-mail" autoComplete="email" {...form.getInputProps('email')} />
-              {mode === 'forgot' ? (
-                <Text size="sm" c="dimmed">
-                  Add meg a fiókod e-mail címét, és küldünk egy linket, amivel új jelszót adhatsz meg.
-                </Text>
-              ) : (
+              <TextInput
+                size="md"
+                label="E-mail"
+                placeholder="te@ceged.hu"
+                autoComplete="email"
+                {...form.getInputProps('email')}
+              />
+              {mode !== 'forgot' && (
                 <PasswordInput
+                  size="md"
                   label="Jelszó"
                   description={mode === 'register' ? 'Legalább 8 karakter' : undefined}
                   maxLength={72}
@@ -117,34 +148,40 @@ export function AuthForm({ onAuth }: { onAuth: (user: User) => void }) {
                   {...form.getInputProps('password')}
                 />
               )}
-              {error && (
-                <Alert color="red" role="alert">
-                  {error}
-                </Alert>
-              )}
-              <Button type="submit" loading={busy}>
-                {mode === 'login' ? 'Belépés' : mode === 'register' ? 'Fiók létrehozása' : 'Link küldése'}
-              </Button>
               {mode === 'login' && (
-                <Text size="sm" ta="center">
+                <Text size="sm" ta="right" mt={-8}>
                   <Anchor component="button" type="button" onClick={() => switchTo('forgot')}>
                     Elfelejtett jelszó
                   </Anchor>
                 </Text>
               )}
-              <Text size="sm" ta="center">
+              {error && (
+                <Alert color="red" role="alert">
+                  {error}
+                </Alert>
+              )}
+              <Button type="submit" size="md" fullWidth loading={busy}>
+                {mode === 'login' ? 'Belépés' : mode === 'register' ? 'Fiók létrehozása' : 'Link küldése'}
+              </Button>
+              {mode === 'register' && (
+                <Text size="xs" c="dimmed" ta="center">
+                  A regisztráció után e-mailben megerősítő linket küldünk a címedre.
+                </Text>
+              )}
+              <Text size="sm" ta="center" c="dimmed">
+                {mode === 'login' ? 'Még nincs fiókod? ' : mode === 'register' ? 'Már van fiókod? ' : ''}
                 <Anchor
                   component="button"
                   type="button"
                   onClick={() => switchTo(mode === 'register' ? 'login' : mode === 'forgot' ? 'login' : 'register')}
                 >
-                  {mode === 'login' ? 'Még nincs fiókom' : mode === 'register' ? 'Már van fiókom' : 'Vissza a belépéshez'}
+                  {mode === 'login' ? 'Regisztrálj' : mode === 'register' ? 'Lépj be' : 'Vissza a belépéshez'}
                 </Anchor>
               </Text>
             </>
           )}
         </Stack>
       </form>
-    </Paper>
+    </div>
   );
 }

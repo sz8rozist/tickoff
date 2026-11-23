@@ -6,6 +6,8 @@ import { AuthShell } from './AuthShell';
 import { Wordmark } from './Logo';
 import { DeleteAccountModal } from './DeleteAccountModal';
 import { ProjectsPage } from './ProjectsPage';
+import { Landing } from './Landing';
+import { PATH_LOGIN, PATH_REGISTER, usePath } from './route';
 import { ResetPasswordPage } from './ResetPasswordPage';
 
 const RESET_PARAM = 'reset-token';
@@ -36,6 +38,7 @@ export function App() {
   const [verifyToken] = useState<string | null>(() => new URLSearchParams(window.location.search).get(VERIFY_PARAM));
   const [verifyResult, setVerifyResult] = useState<'ok' | 'fail' | null>(null);
   const [resent, setResent] = useState(false);
+  const [path, navigate] = usePath();
   // Ha van mentett token, először megnézzük, érvényes-e.
   const [loading, setLoading] = useState<boolean>(() => getToken() !== null);
 
@@ -57,9 +60,18 @@ export function App() {
       .then(() => {
         setVerifyResult('ok');
         if (getToken()) api.me().then(setUser).catch(() => undefined);
+        else navigate(PATH_LOGIN, true);
       })
-      .catch(() => setVerifyResult('fail'));
-  }, [verifyToken]);
+      .catch(() => {
+        setVerifyResult('fail');
+        if (!getToken()) navigate(PATH_LOGIN, true);
+      });
+  }, [verifyToken, navigate]);
+
+  // Bejelentkezve a belépő és regisztrációs címeknek nincs értelme: a dashboardra irányítunk
+  useEffect(() => {
+    if (user && (path === PATH_LOGIN || path === PATH_REGISTER)) navigate('/', true);
+  }, [user, path, navigate]);
 
   async function resendVerification() {
     try {
@@ -99,7 +111,7 @@ export function App() {
   // A visszaállító linkről érkező felhasználó (be van-e jelentkezve vagy sem) először az új jelszót adja meg
   if (resetToken) {
     return (
-      <AuthShell>
+      <AuthShell onHome={() => setResetToken(null)}>
         <ResetPasswordPage
           token={resetToken}
           onDone={() => {
@@ -121,9 +133,14 @@ export function App() {
     );
   }
 
+  // Bejelentkezés előtt a  a bemutató oldal, a belépés és a regisztráció külön címen van
+  if (!user && path !== PATH_LOGIN && path !== PATH_REGISTER) {
+    return <Landing navigate={navigate} />;
+  }
+
   if (!user) {
     return (
-      <AuthShell>
+      <AuthShell onHome={() => navigate('/')}>
         {verifyResult === 'ok' && (
           <Alert color="teal" mb="md" role="status">
             Az e-mail-címed megerősítve. Most már beléphetsz.
@@ -134,7 +151,7 @@ export function App() {
             A megerősítő link érvénytelen vagy lejárt. Belépés után kérhetsz újat.
           </Alert>
         )}
-        <AuthForm onAuth={setUser} />
+        <AuthForm key={path} initialMode={path === PATH_REGISTER ? 'register' : 'login'} onAuth={setUser} onNavigate={navigate} />
       </AuthShell>
     );
   }

@@ -6,6 +6,11 @@
 
 ## Funkciók
 
+### Bemutató oldal és belépés
+
+- **Landing oldal** (`/`, bejelentkezés előtt): bemutatja a terméket (nyitó rész ábrával, "három lépés" a beágyazási példával, funkciók, az ügyfél szemszöge, felhívás). Külső erőforrás nélkül készült (a Caddy CSP-je ezt nem is engedné), világos és sötét témában is, mobilon is jól olvasható.
+- **Belépés** (`/belepes`) és **regisztráció** (`/regisztracio`): kétoszlopos felület (bal oldalt a márka és az előnyök, jobb oldalt az űrlap), mobilon egyoszlopos. Bejelentkezve ezek a címek a dashboardra irányítanak. Az útvonalkezelés a History API-val, külön router nélkül működik; élesben a Caddy `try_files` szabálya miatt a címek frissítéskor is betöltődnek.
+
 ### Designer (dashboard)
 
 - **Fiók**: regisztráció és belépés e-mail + jelszóval (JWT, bcrypt), a munkamenet oldalfrissítés után is megmarad. A nyilvános regisztráció éles üzemben kikapcsolható. A fiók a jelszó megadásával véglegesen törölhető (a saját projektekkel együtt). **Elfelejtett jelszó**: e-mailben kapott, egy óráig érvényes, egyszer használható linkkel új jelszó adható meg, és ilyenkor a fiók minden korábbi bejelentkezése megszűnik.
