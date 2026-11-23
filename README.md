@@ -21,10 +21,17 @@
 - **Javítási körök**: új kör nyitása és lezárása. Új körnél a **nem kész kommentek átvihetők** az új körbe (alapból be van jelölve), így az ügyfélnek nem kell újra beküldenie a még meg nem oldottakat; az átvitt komment az új kör kommentje lesz (a lezárt kör előzményéből kikerül), a kész kommentek a régi körben maradnak. Egyszerre egy nyitott kör van, új kört csak az előző lezárása után lehet nyitni. A köröknél látszik az összes és a nyitott kommentek száma.
 - **Kommentek**: körönként listázva, **oldalanként csoportosítva**. Mindegyiknél látszik a szerző, az idő, a szöveg, az elem CSS-selectora, a viewport mérete és a böngésző/rendszer. Státusz: nyitott, folyamatban, kész.
 - **Szűrés és keresés**: a kommentek szűrhetők státuszra és felelősre ("Hozzám rendelt", "Gazdátlan"), és kereshetők szövegben (szerző, komment, válaszok, oldal, felelős neve; ékezet- és kisbetű-független). Szűrés közben látszik az "X / Y komment" számláló.
+- **Tevékenységnapló**: a projekt kártyáján a "Tevékenység" fül időrendben mutatja, ki mit csinált (új visszajelzés, válaszok, státuszváltás, felelős, prioritás, szerkesztés és visszavonás, elfogadás, visszanyitás, kör nyitása/lezárása/jóváhagyása, törlés), újabb elöl, 50-esével lapozva. A bejegyzés a művelettel azonos tranzakcióban születik; 180 napnál régebbi bejegyzések törlődnek (külön ütemező nélkül, rögzítés közben).
+- **Kör-riport**: minden körnél a "Riport" gomb nyomtatható összefoglalót nyit új lapon (a böngészőből PDF-be menthető): a kör adatai, a jóváhagyás, az összesítés és a kommentek oldalanként, szálakkal. Alapból ügyfélnek is átadható (nincs benne prioritás, címke, felelős és CSS-selector), a "Belső riport" ezeket is tartalmazza. Minden szöveg HTML-escape-elt, a riport nem tartalmaz scriptet.
+- **Prioritás és címkék**: minden kommenthez belső prioritás (sürgős, magas, normál, alacsony) és legfeljebb 5 címke adható (a szerver kisbetűsre, egyedire normalizálja). A sürgős és magas kommentek jelvényt kapnak; szűrhető címkére, rendezhető prioritás szerint, és az exportban külön oszlop. Az ügyfél nem látja.
 - **Rendezés és tömeges művelet**: a kommentek rendezhetők (legrégebbi / legújabb elöl, státusz szerint, válaszok száma szerint). A kommentek kijelölhetők (egyenként vagy az összes látható egyszerre), és a kijelöltekre egy lépésben állítható a státusz vagy a felelős; a hibás elemek kijelölve maradnak az újrapróbáláshoz. A kész állapotra váltásról az e-mailt kérő ügyfelek értesítést kapnak, ahogy egyenként is.
 - **Felelős**: minden komment egy csapattagra (tulajdonos vagy tag) bízható. Aki másra bíz egy kommentet, annak az illető e-mail értesítést kap (ha nem kapcsolta ki). Ha valaki kilép vagy eltávolítják, a rá bízott kommentek felelős nélkül maradnak. A CSV-exportban külön oszlop.
+- **A widget nyelve**: projektenként választható magyar vagy angol. Az angol a widget teljes felületét (űrlap, jelölők, lista, jóváhagyás, hibaüzenetek, dátumok) és az ügyfélnek küldött leveleket (válasz, kész javítás, leiratkozó oldal) érinti; a csapat felülete (dashboard) és a csapatnak küldött értesítések magyarok maradnak. Hiányzó fordításnál a magyar szöveg jelenik meg.
 - **A widget megjelenése**: a tulajdonos a projekt menüjében beállíthatja a widget márkaszínét (a gomb és a kiemelések színe) és a gombok oldalát (jobb vagy bal alul), élő előnézettel. A túl világos színt a szerver elutasítja (a gombokon fehér szöveg van, legalább 3:1 kontraszt kell). A beállítás a widget indulásakor töltődik be, nincs szükség új beágyazásra.
 - **Archiválás**: a lezárt projekt archiválható (a tulajdonos a projekt menüjében): eltűnik a listából és az összesítőből (egy kapcsolóval megjeleníthető), a widgetje leáll (az ügyfél nem lát és nem küld semmit), az adatok megmaradnak, és bármikor visszaállítható.
+- **Összefoglaló e-mail**: a fiók menüből kérhető napi (minden reggel 8-kor) vagy heti (hétfőn) összefoglaló a projektekről: nyitott és folyamatban lévő visszajelzések, az új kommentek az előző levél óta, jóváhagyott körök, határidők. Csak akkor megy levél, ha van mit mondani; az archivált projektek kimaradnak; SMTP nélkül nem működik. Az időzóna a `tickoff.export-zone` (alapból Europe/Budapest).
+- **Kétlépcsős belépés (TOTP)**: a fiók menüből bekapcsolható hitelesítő alkalmazással (Google Authenticator, Authy, 1Password stb.): QR-kód beolvasása, majd a 6 jegyű kód megerősítése. Bekapcsolás után belépéskor a jelszó mellett a kód is kell. 8 egyszeri **helyreállító kód** készül (csak a hash-ük tárolódik), ha elvész a telefon. Egy kód csak egyszer használható (visszajátszás ellen), a találgatást IP- és fiókonkénti korlát védi. Kikapcsolás a jelszóval és egy kóddal.
+- **API-kulcsok és nyilvános API**: a fiók menüből API-kulcs hozható létre (legfeljebb 10; a teljes kulcs csak létrehozáskor látható, az adatbázisban csak a hash-e van). A kulccsal (`Authorization: Bearer tk_…`) **csak olvasható** végpontok érhetők el az `/api/v1` alatt (lásd az API szakaszt); a kulcs a tulajdonos jogaival dolgozik, és csak itt fogadható el. A lista mutatja az utolsó használat idejét; bármikor törölhető.
 - **Téma**: a fiók menüből automatikus (a rendszer beállítását követi), világos vagy sötét téma választható.
 - **Webhook (Slack, Discord, saját fogadó)**: a tulajdonos a projekt menüjében megadhat egy webhook-címet; ide érkezik az új visszajelzés, az ügyfél válasza, az újranyitás és a kör jóváhagyása. A tartalom Slack és Discord bejövő webhookjával közvetlenül működik (`text` és `content` mező), saját fogadónak strukturált JSON (`event`, `project`, `comment`, `round`) és `X-Tickoff-Signature: sha256=…` HMAC-aláírás jár. A "Teszt küldése" gomb azonnal kipróbálja. A cím és a titok csak a tulajdonosnak látszik.
 - **Képernyőképek**: a komment képernyőképe megnyitható a dashboardon (a kiválasztott elem kiemelve).
@@ -36,7 +43,7 @@
 
 ### Ügyfél (widget)
 
-- **Beágyazás** egyetlen `<script>` címkével, regisztráció és telepítés nélkül; a widget Shadow DOM-ban fut, nem zavarja az oldal stílusait (~23,6 KB gzip).
+- **Beágyazás** egyetlen `<script>` címkével, regisztráció és telepítés nélkül; a widget Shadow DOM-ban fut, nem zavarja az oldal stílusait (~28,7 KB gzip).
 - **Elemkiválasztás**: a gomb elindítja a kiválasztást, az egér alatti elem keretet kap, kattintásra kiválasztódik (Esc: mégse). **Területkijelölés**: egérrel téglalapot is lehet húzni (képnél, elrendezési hibánál pontosabb); a terület a legkisebb, egészében tartalmazó elemhez kötődik (a mérete az elem méretének százaléka), a képernyőképen és a megnyitott kommentnél szaggatott kerettel látszik, a dashboardon "kijelölt terület" jelvény jelzi. A widget a kattintást elnyeli, az oldal saját kezelője nem fut le.
 - **Visszajelzés-űrlap**: név (megjegyzi a böngésző) és szöveg, opcionális képernyőkép.
 - **Képernyőkép** a látható nézetről, a kiválasztott elem piros-fehér kerettel kiemelve. Ha nem sikerül elkészíteni, a komment akkor is elmegy, és az ügyfél jelzést kap.
@@ -64,9 +71,9 @@
 
 ### Még nincs meg
 
-- Komment szerkesztése: az ügyfélnek nincs azonosítója, így nem dönthető el, kié a komment.
-- Meghívás még nem létező fiókra (jelenleg a kollégának előbb regisztrálnia kell). Ehhez e-mail-megerősítés kellene a regisztrációkor: enélkül az első, a meghívott címmel regisztráló személy hozzáférést kapna a projekthez.
-- Értesítés a designer saját műveleteiről (pl. státuszváltás) és a megerősítetlen e-mail-cím kezelése.
+- Éles levélküldés (Brevo): az SMTP-beállítás és a feladó igazolása még hátra van, addig a levelek csak a fejlesztői Mailpitbe mennek.
+- A csapat felülete (dashboard) és a csapatnak küldött értesítések csak magyarul érhetők el (az ügyfél felé a widget és a levelek magyarul és angolul is mennek).
+- A webhook-kézbesítésnek nincs újrapróbálkozása, és az ügyfél e-mail-címe nincs megerősítve (leiratkozó linkkel és korláttal védett).
 
 ## Felépítés (monorepo)
 
@@ -139,6 +146,10 @@ JWT (HS256, Spring Security OAuth2 resource server), állapotmentes. A designere
 | `POST /api/auth/register` | `{email, password (8–72), name}` → `201 {token, user}`; `409` ha már van ilyen e-mail |
 | `POST /api/auth/login` | `{email, password}` → `200 {token, user}`; `401` hibás adatokra |
 | `GET /api/me` | `Authorization: Bearer <token>` → az aktuális felhasználó (`notifyEmail` is) |
+| `POST /api/auth/login` | `{email, password}` → `{token, user}`; bekapcsolt kétlépcsős belépésnél `{twoFactorRequired: true, challenge}` (a kihívás 5 percig érvényes, API-hívásra nem használható) |
+| `POST /api/auth/login/2fa` | `{challenge, code}` → `{token, user}`; `401` hibás kódra vagy lejárt kihívásra, `429` túl sok próbálkozásra |
+| `POST /api/me/2fa/setup` / `enable` / `disable` | új titok és `otpauthUri` / megerősítés kóddal (a válasz az egyszeri `recoveryCodes`) / kikapcsolás `{password, code}` |
+| `PATCH /api/me/digest` | `{frequency: OFF \| DAILY \| WEEKLY}`: összefoglaló e-mail gyakorisága |
 | `PATCH /api/me` | `{notifyEmail: true \| false}`: az e-mail értesítések be- és kikapcsolása |
 | `POST /api/auth/forgot-password` | `{email}` → mindig `204`, akár van ilyen fiók, akár nincs (nem derül ki, kinek van fiókja). Ha van, és be van állítva SMTP, visszaállító levelet küld |
 | `POST /api/auth/reset-password` | `{token, password (8–72)}` → `204`; `400`, ha a token ismeretlen, lejárt vagy már használt |
@@ -203,10 +214,13 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 | `GET /api/projects/{id}/members/invites` | a függő meghívók (csak a tulajdonos) |
 | `POST /api/projects/{id}/members/invites` | `{email}` → `201`: meghívó még nem megerősítetten regisztrált kollégának (levelet kap). `503`, ha nincs e-mail-küldés beállítva; `409`, ha már meghívták / tag, vagy 20 függő meghívó van; IP-nként 20/perc |
 | `DELETE /api/projects/{id}/members/invites/{inviteId}` | `204`: a meghívó visszavonása |
-| `PUT /api/projects/{id}/widget-appearance` | `{color: "#rrggbb" \| null, position: RIGHT \| LEFT}`: a widget megjelenése (csak a tulajdonos); `400` érvénytelen vagy túl világos színre |
+| `PUT /api/projects/{id}/widget-appearance` | `{color: "#rrggbb" \| null, position: RIGHT \| LEFT, lang: hu \| en}`: a widget megjelenése és nyelve (csak a tulajdonos); `400` érvénytelen vagy túl világos színre |
 | `PUT /api/projects/{id}/archive` | `{archived: true \| false}`: archiválás / visszaállítás (csak a tulajdonos). Archivált projektnél a widget végpontjai `404`-et adnak |
 | `PUT /api/projects/{id}/webhook` | `{url}`: webhook beállítása (csak a tulajdonos), üres/`null` kikapcsolja; `400`, ha a cím nem nyilvános https-cím |
 | `POST /api/projects/{id}/webhook/test` | teszt-üzenet a webhookra → `{ok, status, error}`; `409`, ha nincs beállítva; IP-nként 5/perc |
+| `GET /api/projects/{id}/rounds/{roundId}/report?internal=` | nyomtatható HTML-riport a körről (`internal=true`: belső változat); a dashboard JWT-vel kéri le és blobként nyitja meg |
+| `GET /api/projects/{id}/activity?before=` | a tevékenységnapló (újabb elöl, 50 bejegyzés; a `before` az utolsó kapott azonosító) |
+| `PUT /api/projects/{id}/comments/{commentId}/triage` | `{priority: LOW \| NORMAL \| HIGH \| URGENT, labels: [..]}`: belső prioritás és címkék |
 | `PUT /api/projects/{id}/comments/{commentId}/assignee` | `{userId}`: felelős kijelölése, `null` törli. `400`, ha a felhasználó nem a projekt csapatának tagja |
 | `GET /api/projects/{id}/comments/{commentId}/attachments/{attachmentId}` | a melléklet képe; `404`, ha nincs. A komment listaelemében az `attachments` tömb tartalmazza az azonosítókat |
 | `GET /api/projects/{id}/comments/{commentId}/screenshot` | a képernyőkép (PNG/JPEG); `404`, ha nincs |
@@ -214,6 +228,23 @@ A widgetből beérkezett kommentek a bejelentkezett tulajdonos számára, projek
 | `GET /api/projects/{id}/comments/export[?roundId=]` | CSV a projekt (vagy egy kör) kommentjeiről: pontosvessző, UTF-8 BOM (magyar Excelhez), a cellák védettek a CSV-injection ellen (az `=`, `+`, `-`, `@` kezdetű szöveg elé aposztróf kerül), az időpontok budapesti idő szerint (`TICKOFF_EXPORT_ZONE`-nal állítható); a "Válaszok" oszlopban a szál egy cellában, soronként "Név (csapat): szöveg" |
 
 A körlistában minden körnél ott van a `commentCount` és az `openCommentCount`. A képernyőképet JWT védi, ezért a dashboard fejléccel kéri le, és `blob:` URL-ként jeleníti meg (nem `<img src>`-vel). A dashboardon a kommentek oldalanként (`pageUrl`) csoportosítva látszanak.
+
+## Nyilvános API (API-kulccsal)
+
+Csak olvasható, a kulcs tulajdonosának projektjeire. Hitelesítés: `Authorization: Bearer tk_…` (kulcsot a dashboard fiók menüjében lehet létrehozni). Érvénytelen kulcsra `401`, nem hozzáférő projektre `404`; IP-nként 60 kérés/perc.
+
+| Végpont | Leírás |
+|---|---|
+| `GET /api/v1/projects` | a kulcs tulajdonosának projektjei: `id`, `name`, `siteUrl`, `archived`, `createdAt` |
+| `GET /api/v1/projects/{id}/comments?status=&round=&limit=&offset=` | a projekt kommentjei (kör és idő szerint): szerző, szöveg, oldal, selector, státusz, prioritás, címkék, felelős neve, ügyfél-elfogadás, válaszok száma. Szűrhető `status` (`OPEN`, `IN_PROGRESS`, `DONE`) és `round` (kör száma) szerint; `limit` alapból 200, legfeljebb 500 |
+
+A válasz nem tartalmaz ügyfél-e-mailt, megosztó tokent és webhook-adatot.
+
+```bash
+curl -H "Authorization: Bearer tk_…" https://app.pelda.hu/api/v1/projects
+```
+
+A kulcsok kezelése (`GET`/`POST`/`DELETE /api/me/api-keys`) csak bejelentkezéssel (JWT) érhető el, API-kulccsal nem.
 
 ## Widget API
 

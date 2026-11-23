@@ -43,13 +43,25 @@ public class AuthController {
     public record VerifyEmailRequest(@NotBlank @Size(max = 200) String token) {
     }
 
-    public record UserDto(Long id, String email, String name, boolean notifyEmail, boolean emailVerified) {
+    public record UserDto(Long id, String email, String name, boolean notifyEmail, boolean emailVerified,
+                          String digestFrequency, boolean twoFactorEnabled) {
         static UserDto of(User u) {
-            return new UserDto(u.getId(), u.getEmail(), u.getName(), u.isNotifyEmail(), u.isEmailVerified());
+            return new UserDto(u.getId(), u.getEmail(), u.getName(), u.isNotifyEmail(), u.isEmailVerified(),
+                u.getDigestFrequency(), u.isTotpEnabled());
         }
     }
 
     public record AuthResponse(String token, UserDto user) {
+    }
+
+    /**
+     * A belépés válasza: vagy kész munkamenet (token + felhasználó), vagy — bekapcsolt kétlépcsős belépésnél —
+     * {@code twoFactorRequired} egy rövid életű kihívással, amit a kóddal együtt kell beküldeni.
+     */
+    public record LoginResponse(String token, UserDto user, boolean twoFactorRequired, String challenge) {
+    }
+
+    public record TwoFactorLoginRequest(@NotBlank @Size(max = 2000) String challenge, @NotBlank @Size(max = 40) String code) {
     }
 
     private final UserRepository users;
@@ -60,16 +72,19 @@ public class AuthController {
 
     private final PasswordResetService passwordReset;
     private final EmailVerificationService verification;
+    private final TwoFactorService twoFactor;
     private final boolean registrationEnabled;
 
     public AuthController(UserRepository users, PasswordEncoder encoder, TokenService tokens,
                           PasswordResetService passwordReset, EmailVerificationService verification,
+                          TwoFactorService twoFactor,
                           @Value("${tickoff.registration.enabled:true}") boolean registrationEnabled) {
         this.users = users;
         this.encoder = encoder;
         this.tokens = tokens;
         this.passwordReset = passwordReset;
         this.verification = verification;
+        this.twoFactor = twoFactor;
         this.registrationEnabled = registrationEnabled;
         this.dummyHash = encoder.encode("tickoff-dummy-password");
     }
@@ -107,11 +122,34 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest req) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest req) {
         User user = users.findByEmail(normalize(req.email())).orElse(null);
         boolean ok = encoder.matches(req.password(), user != null ? user.getPasswordHash() : dummyHash);
         if (user == null || !ok) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Hibás e-mail vagy jelszó");
+        }
+        if (user.isTotpEnabled()) {
+            // A jelszó helyes, de kell a második lépés: kihívást adunk, munkamenetet még nem
+            return new LoginResponse(null, null, true, tokens.issueChallenge(user));
+        }
+        return new LoginResponse(tokens.issue(user), UserDto.of(user), false, null);
+    }
+
+    /** A belépés második lépése: a kihívás és a hitelesítő alkalmazás (vagy helyreállító) kódja. Hibás kódra 401. */
+    @PostMapping("/login/2fa")
+    public AuthResponse loginSecondFactor(@Valid @RequestBody TwoFactorLoginRequest req) {
+        Long userId = tokens.verifyChallenge(req.challenge())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Érvénytelen vagy lejárt kihívás"));
+        User user = users.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Érvénytelen vagy lejárt kihívás"));
+        boolean ok;
+        try {
+            ok = twoFactor.verifyLogin(user.getId(), req.code());
+        } catch (TwoFactorService.TooManyAttempts e) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Túl sok próbálkozás");
+        }
+        if (!ok) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Hibás kód");
         }
         return new AuthResponse(tokens.issue(user), UserDto.of(user));
     }

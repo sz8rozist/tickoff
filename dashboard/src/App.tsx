@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Alert, Avatar, Box, Button, Center, Container, Group, Loader, Menu, Switch, Text, UnstyledButton, useMantineColorScheme } from '@mantine/core';
 import { api, ApiError, getToken, type User } from './api';
+import { ApiKeysModal } from './ApiKeysModal';
+import { TwoFactorModal } from './TwoFactorModal';
 import { AuthForm } from './AuthForm';
 import { AuthShell } from './AuthShell';
 import { Wordmark } from './Logo';
@@ -32,6 +34,8 @@ function initials(name: string): string {
 export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [apiKeysOpen, setApiKeysOpen] = useState(false);
+  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [notifyError, setNotifyError] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(readResetToken);
   // Az e-mail-megerősítő linkből érkező token és az eredménye
@@ -195,6 +199,23 @@ export function App() {
                     error={notifyError ? 'A beállítás mentése nem sikerült' : undefined}
                   />
                 </Menu.Item>
+                <Menu.Label>Összefoglaló e-mail</Menu.Label>
+                {(
+                  [
+                    ['OFF', 'Kikapcsolva'],
+                    ['DAILY', 'Naponta reggel'],
+                    ['WEEKLY', 'Hetente, hétfőn'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Menu.Item
+                    key={value}
+                    closeMenuOnClick={false}
+                    onClick={() => void api.account.setDigest(value).then(setUser).catch(() => undefined)}
+                  >
+                    {user.digestFrequency === value ? '✓ ' : '\u2003'}
+                    {label}
+                  </Menu.Item>
+                ))}
                 <Menu.Divider />
                 <Menu.Label>Téma</Menu.Label>
                 {(
@@ -210,6 +231,10 @@ export function App() {
                   </Menu.Item>
                 ))}
                 <Menu.Divider />
+                <Menu.Item onClick={() => setTwoFactorOpen(true)}>
+                  Kétlépcsős belépés{user.twoFactorEnabled ? ' ✓' : ''}
+                </Menu.Item>
+                <Menu.Item onClick={() => setApiKeysOpen(true)}>API-kulcsok</Menu.Item>
                 <Menu.Item onClick={logout}>Kilépés</Menu.Item>
                 <Menu.Item color="red" onClick={() => setDeleteAccountOpen(true)}>
                   Fiók törlése
@@ -243,6 +268,8 @@ export function App() {
         </Alert>
       )}
       <ProjectsPage currentUserId={user.id} />
+      <TwoFactorModal user={user} opened={twoFactorOpen} onClose={() => setTwoFactorOpen(false)} onChanged={setUser} />
+      <ApiKeysModal opened={apiKeysOpen} onClose={() => setApiKeysOpen(false)} />
       <DeleteAccountModal
         opened={deleteAccountOpen}
         onClose={() => setDeleteAccountOpen(false)}

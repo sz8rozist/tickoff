@@ -1,3 +1,4 @@
+import { t, locale } from './i18n';
 import { Fragment } from 'preact';
 import { useEffect, useState } from 'react';
 import type { WidgetComment } from './api';
@@ -11,7 +12,7 @@ const STATUS_LABEL: Record<WidgetComment['status'], string> = {
   DONE: 'Kész',
 };
 
-const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' });
+const dateTime = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
 
 /** A komment helye a viewportban: az elem bal felső sarka + a mentett százalékos eltolás. */
 function pinPosition(c: WidgetComment): { x: number; y: number } | null {
@@ -43,7 +44,7 @@ function ReplyForm({
   if (!open) {
     return (
       <button type="button" class="btn small" onClick={() => setOpen(true)}>
-        Válasz
+        {t('Válasz')}
       </button>
     );
   }
@@ -69,15 +70,15 @@ function ReplyForm({
         type="text"
         value={name}
         maxLength={120}
-        placeholder="A neved"
-        aria-label="A neved"
+        placeholder={t('A neved')}
+        aria-label={t('A neved')}
         onInput={(e) => setName(e.currentTarget.value)}
       />
       <textarea
         value={body}
         maxLength={4000}
-        placeholder="Válasz írása…"
-        aria-label="Válasz"
+        placeholder={t('Válasz írása…')}
+        aria-label={t('Válasz')}
         autofocus
         onInput={(e) => setBody(e.currentTarget.value)}
         onKeyDown={(e) => {
@@ -91,10 +92,10 @@ function ReplyForm({
       )}
       <div class="actions">
         <button type="button" class="btn small" disabled={busy} onClick={() => setOpen(false)}>
-          Mégse
+          {t('Mégse')}
         </button>
         <button type="submit" class="btn small primary" disabled={busy || name.trim() === '' || body.trim() === ''}>
-          {busy ? 'Küldés…' : 'Küldés'}
+          {busy ? t('Küldés…') : t('Küldés')}
         </button>
       </div>
     </form>
@@ -138,7 +139,7 @@ function OwnActions({
           if (body.trim() !== '') run(() => onEdit(body.trim()), () => setEditing(false));
         }}
       >
-        <textarea value={body} maxLength={4000} aria-label="A komment szövege" autofocus onInput={(e) => setBody(e.currentTarget.value)} />
+        <textarea value={body} maxLength={4000} aria-label={t('A komment szövege')} autofocus onInput={(e) => setBody(e.currentTarget.value)} />
         {error && (
           <p class="err" role="alert">
             {error}
@@ -146,10 +147,10 @@ function OwnActions({
         )}
         <div class="actions">
           <button type="button" class="btn small" disabled={busy} onClick={() => setEditing(false)}>
-            Mégse
+            {t('Mégse')}
           </button>
           <button type="submit" class="btn small primary" disabled={busy || body.trim() === ''}>
-            {busy ? 'Mentés…' : 'Mentés'}
+            {busy ? t('Mentés…') : t('Mentés')}
           </button>
         </div>
       </form>
@@ -159,7 +160,7 @@ function OwnActions({
   return (
     <div class="own">
       <button type="button" class="btn small" disabled={busy} onClick={() => setEditing(true)}>
-        Szerkesztés
+        {t('Szerkesztés')}
       </button>
       {comment.replies.length === 0 && (
         <button
@@ -168,7 +169,7 @@ function OwnActions({
           disabled={busy}
           onClick={() => (confirm ? run(onWithdraw) : setConfirm(true))}
         >
-          {confirm ? 'Biztosan visszavonod?' : 'Visszavonás'}
+          {confirm ? t('Biztosan visszavonod?') : t('Visszavonás')}
         </button>
       )}
       {error && (
@@ -204,7 +205,7 @@ function ReviewActions({
   if (comment.status !== 'DONE') return null;
 
   if (comment.approved) {
-    return <div class="approved">✓ Elfogadva</div>;
+    return <div class="approved">{t('✓ Elfogadva')}</div>;
   }
 
   async function run(action: () => Promise<string | null>) {
@@ -229,15 +230,15 @@ function ReviewActions({
           type="text"
           value={name}
           maxLength={120}
-          placeholder="A neved"
-          aria-label="A neved"
+          placeholder={t('A neved')}
+          aria-label={t('A neved')}
           onInput={(e) => setName(e.currentTarget.value)}
         />
         <textarea
           value={reason}
           maxLength={4000}
-          placeholder="Mi nem jó még? (nem kötelező)"
-          aria-label="Indoklás"
+          placeholder={t('Mi nem jó még? (nem kötelező)')}
+          aria-label={t('Indoklás')}
           autofocus
           onInput={(e) => setReason(e.currentTarget.value)}
         />
@@ -248,10 +249,10 @@ function ReviewActions({
         )}
         <div class="actions">
           <button type="button" class="btn small" disabled={busy} onClick={() => setReopening(false)}>
-            Mégse
+            {t('Mégse')}
           </button>
           <button type="submit" class="btn small primary" disabled={busy || name.trim() === ''}>
-            {busy ? 'Küldés…' : 'Visszanyitás'}
+            {busy ? t('Küldés…') : t('Visszanyitás')}
           </button>
         </div>
       </form>
@@ -260,13 +261,13 @@ function ReviewActions({
 
   return (
     <div class="review">
-      <div class="review-q">Rendben van így?</div>
+      <div class="review-q">{t('Rendben van így?')}</div>
       <div class="review-btns">
         <button type="button" class="btn small primary" disabled={busy} onClick={() => run(onApprove)}>
-          Elfogadom
+          {t('Elfogadom')}
         </button>
         <button type="button" class="btn small" disabled={busy} onClick={() => setReopening(true)}>
-          Visszanyitom
+          {t('Visszanyitom')}
         </button>
       </div>
       {error && (
@@ -329,7 +330,7 @@ export function Pins({
             <button
               class={`pin ${c.status}${inert ? ' inert' : ''}`}
               style={{ left: pos.x, top: pos.y }}
-              aria-label={`${i + 1}. visszajelzés: ${c.authorName}`}
+              aria-label={t('{n}. visszajelzés: {author}', { n: i + 1, author: c.authorName })}
               aria-expanded={isOpen}
               onClick={() => setOpenId(isOpen ? null : c.id)}
             >
@@ -340,10 +341,10 @@ export function Pins({
               <div class="pop" role="dialog" style={{ left: popLeft, top: popTop }}>
                 <div class="meta">
                   {c.authorName} · {dateTime(c.createdAt)}
-                  {c.edited && ' · szerkesztve'}
+                  {c.edited && t(' · szerkesztve')}
                 </div>
                 <div class="body">{c.body}</div>
-                <div class="status">{STATUS_LABEL[c.status]}</div>
+                <div class="status">{t(STATUS_LABEL[c.status])}</div>
                 <OwnActions comment={c} onEdit={(body) => onEdit(c.id, body)} onWithdraw={() => onWithdraw(c.id)} />
                 <ReviewActions
                   comment={c}
@@ -358,7 +359,7 @@ export function Pins({
                       <div class="reply" key={r.id}>
                         <div class="meta">
                           {r.authorName}
-                          {r.authorType === 'DESIGNER' && <span class="badge">csapat</span>} · {dateTime(r.createdAt)}
+                          {r.authorType === 'DESIGNER' && <span class="badge">{t('csapat')}</span>} · {dateTime(r.createdAt)}
                         </div>
                         <div class="body">{r.body}</div>
                       </div>

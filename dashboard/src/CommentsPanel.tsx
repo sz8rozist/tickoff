@@ -15,9 +15,10 @@ import {
   Select,
   Stack,
   Text,
+  TagsInput,
   TextInput,
 } from '@mantine/core';
-import { api, type Comment, type CommentStatus, type Member } from './api';
+import { api, type Comment, type CommentStatus, type Member, type Priority } from './api';
 import { Thread } from './Thread';
 
 const STATUS_OPTIONS = [
@@ -26,7 +27,17 @@ const STATUS_OPTIONS = [
   { value: 'DONE', label: 'Kész' },
 ];
 
+const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
+  { value: 'URGENT', label: 'Sürgős' },
+  { value: 'HIGH', label: 'Magas' },
+  { value: 'NORMAL', label: 'Normál' },
+  { value: 'LOW', label: 'Alacsony' },
+];
+
+const PRIORITY_RANK: Record<Priority, number> = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
+
 const SORT_OPTIONS = [
+  { value: 'PRIORITY', label: 'Prioritás szerint' },
   { value: 'OLDEST', label: 'Legrégebbi elöl' },
   { value: 'NEWEST', label: 'Legújabb elöl' },
   { value: 'STATUS', label: 'Státusz szerint' },
@@ -122,6 +133,7 @@ export function CommentsPanel({
   const [gallery, setGallery] = useState<{ comment: Comment; urls: string[]; failed: boolean } | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('OLDEST');
+  const [labelFilter, setLabelFilter] = useState<string | null>(null);
   // A tömeges művelethez kijelölt kommentek
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -199,6 +211,19 @@ export function CommentsPanel({
     setBulkBusy(false);
   }
 
+  async function triage(c: Comment, priority: Priority, labels: string[]) {
+    setError(null);
+    setBusyId(c.id);
+    try {
+      const updated = await api.comments.triage(projectId, c.id, priority, labels);
+      setComments((prev) => prev?.map((x) => (x.id === c.id ? updated : x)) ?? null);
+    } catch {
+      setError('A prioritás vagy a címkék mentése nem sikerült.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function assign(c: Comment, userId: number | null) {
     setError(null);
     setBusyId(c.id);
@@ -273,14 +298,17 @@ export function CommentsPanel({
     if (statusFilter !== 'ALL' && c.status !== statusFilter) return false;
     if (assigneeFilter === 'ME' && c.assigneeId !== currentUserId) return false;
     if (assigneeFilter === 'NONE' && c.assigneeId !== null) return false;
+    if (labelFilter !== null && !c.labels.includes(labelFilter)) return false;
     if (needle === '') return true;
     const haystack = fold(
-      [c.authorName, c.body, pagePath(c.pageUrl), c.assigneeName ?? '', ...c.replies.map((r) => r.body)].join(' '),
+      [c.authorName, c.body, pagePath(c.pageUrl), c.assigneeName ?? '', ...c.labels, ...c.replies.map((r) => r.body)].join(' '),
     );
     return haystack.includes(needle);
   });
   visible.sort((a, b) => {
     switch (sort) {
+      case 'PRIORITY':
+        return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || a.createdAt.localeCompare(b.createdAt);
       case 'NEWEST':
         return b.createdAt.localeCompare(a.createdAt);
       case 'STATUS':
@@ -292,7 +320,8 @@ export function CommentsPanel({
     }
   });
   const selectedCount = comments.filter((c) => selected.has(c.id)).length;
-  const filtering = statusFilter !== 'ALL' || assigneeFilter !== 'ALL' || needle !== '';
+  const allLabels = [...new Set(comments.flatMap((c) => c.labels))].sort();
+  const filtering = statusFilter !== 'ALL' || assigneeFilter !== 'ALL' || labelFilter !== null || needle !== '';
 
   // Oldalanként csoportosítjuk: "a második oldalon az a gomb" típusú visszajelzések így egy helyen vannak.
   const byPage = new Map<string, Comment[]>();
@@ -320,6 +349,18 @@ export function CommentsPanel({
           value={sort}
           onChange={(v) => setSort(v ?? 'OLDEST')}
         />
+        {allLabels.length > 0 && (
+          <Select
+            size="xs"
+            w={150}
+            placeholder="Címke"
+            aria-label="Szűrés címkére"
+            clearable
+            data={allLabels}
+            value={labelFilter}
+            onChange={setLabelFilter}
+          />
+        )}
         <SegmentedControl size="xs" data={STATUS_FILTER} value={statusFilter} onChange={setStatusFilter} aria-label="Szűrés státuszra" />
         <SegmentedControl size="xs" data={ASSIGNEE_FILTER} value={assigneeFilter} onChange={setAssigneeFilter} aria-label="Szűrés felelősre" />
       </Group>
@@ -335,6 +376,7 @@ export function CommentsPanel({
               setQuery('');
               setStatusFilter('ALL');
               setAssigneeFilter('ALL');
+              setLabelFilter(null);
             }}
           >
             Szűrők törlése
@@ -452,6 +494,28 @@ export function CommentsPanel({
                 <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
                   {c.body}
                 </Text>
+                <Group gap="xs" align="flex-start">
+                <Select
+                  size="xs"
+                  w={130}
+                  aria-label="Prioritás"
+                  allowDeselect={false}
+                  data={PRIORITY_OPTIONS}
+                  value={c.priority}
+                  disabled={busyId === c.id}
+                  onChange={(v) => v && void triage(c, v as Priority, c.labels)}
+                />
+                <TagsInput
+                  size="xs"
+                  w={260}
+                  placeholder="Címkék (Enter)"
+                  aria-label="Címkék"
+                  maxTags={5}
+                  data={allLabels}
+                  value={c.labels}
+                  disabled={busyId === c.id}
+                  onChange={(v) => void triage(c, c.priority, v)}
+                />
                 <Select
                   size="xs"
                   w={220}
@@ -468,8 +532,14 @@ export function CommentsPanel({
                   value={c.assigneeId === null ? null : String(c.assigneeId)}
                   onChange={(v) => void assign(c, v === null ? null : Number(v))}
                 />
+                </Group>
                 <Group gap="xs">
                   {c.cssSelector && <Code>{c.cssSelector}</Code>}
+                  {(c.priority === 'URGENT' || c.priority === 'HIGH') && (
+                    <Badge size="sm" color={c.priority === 'URGENT' ? 'red' : 'orange'} variant="filled">
+                      {c.priority === 'URGENT' ? 'sürgős' : 'magas'}
+                    </Badge>
+                  )}
                   {c.editedAt && (
                     <Badge size="sm" color="yellow" variant="light" title={`Módosítva: ${dateTime(c.editedAt)}`}>
                       szerkesztve

@@ -10,6 +10,8 @@ export interface ProjectInfo {
   color: string | null;
   /** A gombok oldala. */
   position: 'RIGHT' | 'LEFT';
+  /** A felület nyelve (hu vagy en). */
+  lang: 'hu' | 'en';
 }
 
 export interface RoundInfo {

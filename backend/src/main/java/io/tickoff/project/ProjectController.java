@@ -57,7 +57,8 @@ public class ProjectController {
 
     public record WidgetAppearanceRequest(
         @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "#rrggbb szín kell") String color,
-        @NotBlank @Pattern(regexp = "^(RIGHT|LEFT)$") String position) {
+        @NotBlank @Pattern(regexp = "^(RIGHT|LEFT)$") String position,
+        @Pattern(regexp = "^(hu|en)$") String lang) {
     }
 
     /** A projekt nyitott körének összesítője: kommentek státuszonként és az ügyfél jóváhagyása. */
@@ -69,12 +70,12 @@ public class ProjectController {
     public record ProjectDto(Long id, String name, String siteUrl, String shareToken, Instant createdAt,
                              ProjectAccess.Role role, String ownerName, String webhookUrl, String webhookSecret,
                              ProjectStats stats, String widgetColor, String widgetPosition,
-                             Instant archivedAt) {
+                             Instant archivedAt, String widgetLang) {
         static ProjectDto of(Project p, ProjectAccess.Role role, String ownerName, ProjectStats stats) {
             boolean owner = role == ProjectAccess.Role.OWNER;
             return new ProjectDto(p.getId(), p.getName(), p.getSiteUrl(), p.getShareToken(), p.getCreatedAt(),
                 role, ownerName, owner ? p.getWebhookUrl() : null, owner ? p.getWebhookSecret() : null, stats,
-                p.getWidgetColor(), p.getWidgetPosition(), p.getArchivedAt());
+                p.getWidgetColor(), p.getWidgetPosition(), p.getArchivedAt(), p.getWidgetLang());
         }
     }
 
@@ -185,7 +186,7 @@ public class ProjectController {
         if (color != null && !hasEnoughContrastWithWhite(color)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Túl világos szín: a gombokon fehér szöveg van");
         }
-        project.setWidgetAppearance(color, req.position());
+        project.setWidgetAppearance(color, req.position(), req.lang() == null ? "hu" : req.lang());
         return dto(project, userId(jwt));
     }
 

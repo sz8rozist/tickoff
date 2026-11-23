@@ -35,6 +35,20 @@ public class UnsubscribeController {
         Ha a link már korábban felhasználásra került, nincs további teendőd.</p></main></body></html>
         """;
 
+    private static final String PAGE_EN = """
+        <!doctype html>
+        <html lang="en"><head><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noindex">
+        <title>Unsubscribed</title>
+        <style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f5f6fb;color:#1f2140}
+        main{max-width:420px;padding:32px;margin:16px;background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(31,33,64,.12)}
+        h1{margin:0 0 8px;font-size:20px}p{margin:0;color:#5a5f86;line-height:1.5}</style></head>
+        <body><main><h1>You have been unsubscribed</h1>
+        <p>We will no longer send notifications to this email address for this feedback.
+        If the link was already used, there is nothing more to do.</p></main></body></html>
+        """;
+
     private final CommentRepository comments;
 
     public UnsubscribeController(CommentRepository comments) {
@@ -44,13 +58,16 @@ public class UnsubscribeController {
     @GetMapping("/{token}")
     @Transactional
     public ResponseEntity<byte[]> unsubscribe(@PathVariable String token) {
+        boolean english = false;
         if (token.length() == 32) {
-            comments.findByNotifyToken(token).ifPresent(c -> c.unsubscribe());
+            var found = comments.findByNotifyToken(token);
+            english = found.map(c -> c.getRound().getProject().isEnglish()).orElse(false);
+            found.ifPresent(c -> c.unsubscribe());
         }
         return ResponseEntity.ok()
             .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
             .cacheControl(CacheControl.noStore())
             .header("Referrer-Policy", "no-referrer")
-            .body(PAGE.getBytes(StandardCharsets.UTF_8));
+            .body((english ? PAGE_EN : PAGE).getBytes(StandardCharsets.UTF_8));
     }
 }

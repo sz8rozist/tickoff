@@ -1,5 +1,6 @@
 package io.tickoff.project;
 
+import io.tickoff.activity.ActivityLog;
 import io.tickoff.domain.Attachment;
 import io.tickoff.domain.AttachmentRepository;
 import io.tickoff.domain.Comment;
@@ -67,6 +68,10 @@ public class CommentController {
     public record AssigneeRequest(Long userId) {
     }
 
+    /** Prioritás és címkék (belső rendezés). A címkéket a szerver normalizálja. */
+    public record TriageRequest(@NotNull Comment.Priority priority, @Size(max = 10) List<@Size(max = 100) String> labels) {
+    }
+
     public record AttachmentDto(Long id, String contentType, int size) {
         static AttachmentDto of(Attachment a) {
             return new AttachmentDto(a.getId(), a.getContentType(), a.getSizeBytes());
@@ -79,12 +84,13 @@ public class CommentController {
     public record CommentDto(Long id, String authorName, String body, String pageUrl, String cssSelector,
                              Double posX, Double posY, Double areaWidth, Double areaHeight, Integer viewportWidth, Integer viewportHeight,
                              String userAgent, Comment.Status status, boolean hasScreenshot, Instant createdAt,
-                             Instant customerApprovedAt, Instant editedAt, boolean notifiesCustomer, Long assigneeId, String assigneeName,
+                             Instant customerApprovedAt, Instant editedAt, Comment.Priority priority, List<String> labels,
+                             boolean notifiesCustomer, Long assigneeId, String assigneeName,
                              List<AttachmentDto> attachments, List<ReplyDto> replies) {
         static CommentDto of(Comment c, List<ReplyDto> replies, List<AttachmentDto> attachments) {
             return new CommentDto(c.getId(), c.getAuthorName(), c.getBody(), c.getPageUrl(), c.getCssSelector(),
                 c.getPosX(), c.getPosY(), c.getAreaWidth(), c.getAreaHeight(), c.getViewportWidth(), c.getViewportHeight(), c.getUserAgent(),
-                c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), c.getCustomerApprovedAt(), c.getEditedAt(),
+                c.getStatus(), c.getScreenshotPath() != null, c.getCreatedAt(), c.getCustomerApprovedAt(), c.getEditedAt(), c.getPriority(), c.getLabels(),
                 c.getNotifyToken() != null,
                 c.getAssignee() == null ? null : c.getAssignee().getId(),
                 c.getAssignee() == null ? null : c.getAssignee().getName(), attachments, replies);
@@ -100,11 +106,13 @@ public class CommentController {
     private final ScreenshotStorage storage;
     private final AttachmentRepository attachments;
     private final NotificationService notifications;
+    private final ActivityLog activity;
     private final ZoneId exportZone;
 
     public CommentController(ProjectAccess access, RoundRepository rounds, CommentRepository comments,
                              ReplyRepository replyRepository, ReplyService replyService, UserRepository users,
                              ScreenshotStorage storage, AttachmentRepository attachments, NotificationService notifications,
+                             ActivityLog activity,
                              @Value("${tickoff.export-zone:Europe/Budapest}") String zone) {
         this.access = access;
         this.rounds = rounds;
@@ -115,6 +123,7 @@ public class CommentController {
         this.storage = storage;
         this.attachments = attachments;
         this.notifications = notifications;
+        this.activity = activity;
         this.exportZone = ZoneId.of(zone);
     }
 
@@ -142,7 +151,12 @@ public class CommentController {
         Comment comment = comments.findByIdAndRoundProjectId(commentId, project.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         boolean becameDone = req.status() == Comment.Status.DONE && comment.getStatus() != Comment.Status.DONE;
+        Comment.Status before = comment.getStatus();
         comment.setStatus(req.status());
+        if (before != req.status()) {
+            activity.byUser(project, Long.valueOf(jwt.getSubject()), "status.changed", comment,
+                statusLabel(before) + " → " + statusLabel(req.status()) + ": " + ActivityLog.quote(comment));
+        }
         if (becameDone) {
             notifications.commentDone(project, comment);
         }
@@ -172,9 +186,28 @@ public class CommentController {
         boolean changed = !java.util.Objects.equals(
             comment.getAssignee() == null ? null : comment.getAssignee().getId(), req.userId());
         comment.setAssignee(assignee);
+        if (changed) {
+            activity.byUser(project, actorId, "assigned", comment, (assignee == null
+                ? "Levette a felelőst: " : "Felelős: " + assignee.getName() + " – ") + ActivityLog.quote(comment));
+        }
         if (changed && assignee != null && !assignee.getId().equals(actorId)) {
             String by = users.findById(actorId).map(User::getName).orElse("Egy kolléga");
             notifications.assigned(project, comment, assignee, by);
+        }
+        return single(comment);
+    }
+
+    /** Prioritás és címkék beállítása (belső rendezés, az ügyfél nem látja). */
+    @PutMapping("/comments/{commentId}/triage")
+    @Transactional
+    public CommentDto triage(@AuthenticationPrincipal Jwt jwt, @PathVariable Long projectId,
+                             @PathVariable Long commentId, @Valid @RequestBody TriageRequest req) {
+        Comment comment = comment(jwt, projectId, commentId);
+        Comment.Priority beforePriority = comment.getPriority();
+        comment.setTriage(req.priority(), req.labels());
+        if (beforePriority != req.priority()) {
+            activity.byUser(access.member(projectId, Long.valueOf(jwt.getSubject())), Long.valueOf(jwt.getSubject()),
+                "triaged", comment, "Prioritás: " + req.priority().name().toLowerCase() + " – " + ActivityLog.quote(comment));
         }
         return single(comment);
     }
@@ -193,6 +226,7 @@ public class CommentController {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         Reply saved = replyRepository.save(Reply.byDesigner(comment, author, req.body().trim()));
         notifications.designerReply(project, comment, saved);
+        activity.byUser(project, author.getId(), "reply.team", comment, "Válaszolt erre: " + ActivityLog.quote(comment));
         return ReplyDto.of(saved);
     }
 
@@ -235,6 +269,8 @@ public class CommentController {
         Comment comment = comment(jwt, projectId, commentId);
         String screenshot = comment.getScreenshotPath();
         List<String> files = attachments.findByCommentIdOrderByIdAsc(comment.getId()).stream().map(Attachment::getPath).toList();
+        activity.byUser(owned(jwt, projectId), Long.valueOf(jwt.getSubject()), "comment.deleted", null,
+            "Törölte a visszajelzést: " + ActivityLog.quote(comment));
         comments.delete(comment);
         // A képek a fájlrendszerben vannak: az adatbázis-törlés után külön töröljük
         storage.delete(screenshot);
@@ -258,7 +294,7 @@ public class CommentController {
         DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(exportZone);
         CsvWriter csv = new CsvWriter().row(List.of(
             "Kör", "Oldal", "Szerző", "Szöveg", "Státusz", "Elem (selector)", "Viewport", "Böngésző", "Létrehozva",
-            "Válaszok", "Felelős"));
+            "Válaszok", "Felelős", "Prioritás", "Címkék"));
         List<Comment> exported = comments.findAllForExport(project.getId()).stream()
             .filter(c -> roundId == null || c.getRound().getId().equals(roundId))
             .toList();
@@ -280,7 +316,9 @@ public class CommentController {
                     .map(r -> r.authorName() + (r.authorType() == Reply.AuthorType.DESIGNER ? " (csapat)" : "")
                         + ": " + r.body())
                     .collect(Collectors.joining("\n")),
-                c.getAssignee() == null ? "" : c.getAssignee().getName()));
+                c.getAssignee() == null ? "" : c.getAssignee().getName(),
+                c.getPriority().name(),
+                String.join(", ", c.getLabels())));
         }
 
         String filename = "tickoff-" + slug(project.getName())

@@ -23,6 +23,7 @@ import {
 import { useForm } from '@mantine/form';
 import { api, ApiError, type Project } from './api';
 import { saveBlob } from './download';
+import { ActivityPanel } from './ActivityPanel';
 import { MembersPanel } from './MembersPanel';
 import { RoundsPanel } from './RoundsPanel';
 import { WebhookModal } from './WebhookModal';
@@ -394,7 +395,7 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                           setAppearanceOpen(true);
                         }}
                       >
-                        A widget megjelenése
+                        A widget megjelenése és nyelve
                       </Menu.Item>
                       <Menu.Item
                         onClick={() => {
@@ -452,6 +453,7 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                 <Tabs.List>
                   <Tabs.Tab value="rounds">Körök</Tabs.Tab>
                   <Tabs.Tab value="members">Tagok</Tabs.Tab>
+                  <Tabs.Tab value="activity">Tevékenység</Tabs.Tab>
                 </Tabs.List>
                 <Tabs.Panel value="rounds" pt="sm">
                   <RoundsPanel
@@ -464,6 +466,9 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                         .catch(() => undefined)
                     }
                   />
+                </Tabs.Panel>
+                <Tabs.Panel value="activity" pt="sm">
+                  <ActivityPanel projectId={p.id} />
                 </Tabs.Panel>
                 <Tabs.Panel value="members" pt="sm">
                   <MembersPanel

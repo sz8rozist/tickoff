@@ -14,6 +14,11 @@ public class Comment {
 
     public enum Status { OPEN, IN_PROGRESS, DONE }
 
+    public enum Priority { LOW, NORMAL, HIGH, URGENT }
+
+    public static final int MAX_LABELS = 5;
+    public static final int MAX_LABEL_LENGTH = 24;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -83,6 +88,15 @@ public class Comment {
 
     @Column(name = "edited_at")
     private Instant editedAt;
+
+    /** A csapat belső prioritása (az ügyfél nem látja). */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private Priority priority = Priority.NORMAL;
+
+    /** Vesszővel elválasztott, kisbetűs címkék. */
+    @Column(nullable = false, length = 255)
+    private String labels = "";
 
     /** A felelős csapattag (tulajdonos vagy tag), vagy null. */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -190,6 +204,31 @@ public class Comment {
     }
 
     public Instant getEditedAt() { return editedAt; }
+
+    /** Prioritás és címkék beállítása; a címkéket normalizáljuk (kisbetű, vessző nélkül, egyedi, legfeljebb 5). */
+    public void setTriage(Priority priority, java.util.List<String> newLabels) {
+        this.priority = priority;
+        this.labels = String.join(",", normalizeLabels(newLabels));
+    }
+
+    static java.util.List<String> normalizeLabels(java.util.List<String> raw) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        for (String l : raw == null ? java.util.List.<String>of() : raw) {
+            if (l == null) continue;
+            String clean = l.replaceAll("[,\\p{Cntrl}]", " ").trim().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.ROOT);
+            if (clean.isEmpty()) continue;
+            if (clean.length() > MAX_LABEL_LENGTH) clean = clean.substring(0, MAX_LABEL_LENGTH).trim();
+            out.add(clean);
+            if (out.size() == MAX_LABELS) break;
+        }
+        return new java.util.ArrayList<>(out);
+    }
+
+    public Priority getPriority() { return priority; }
+
+    public java.util.List<String> getLabels() {
+        return labels.isEmpty() ? java.util.List.of() : java.util.List.of(labels.split(","));
+    }
 
     public void setAssignee(User assignee) { this.assignee = assignee; }
     public User getAssignee() { return assignee; }

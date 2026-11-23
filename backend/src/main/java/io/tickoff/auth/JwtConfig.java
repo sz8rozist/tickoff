@@ -51,8 +51,14 @@ public class JwtConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(MacAlgorithm.HS256).build();
         // Az alap ellenőrzések (lejárat) mellett: a token érvénytelen, ha a felhasználó törlődött, vagy a jelszava
         // a token kiadása után változott (jelszó-visszaállítás).
+        // A kétlépcsős belépés "kihívás" tokenje (purpose claim) nem hitelesít API-hívást, csak a második lépést indítja
+        org.springframework.security.oauth2.core.OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> notChallenge = jwt ->
+            jwt.hasClaim("purpose")
+                ? org.springframework.security.oauth2.core.OAuth2TokenValidatorResult.failure(
+                    new org.springframework.security.oauth2.core.OAuth2Error("invalid_token", "Nem hozzáférési token", null))
+                : org.springframework.security.oauth2.core.OAuth2TokenValidatorResult.success();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-            JwtValidators.createDefault(), new PasswordChangedValidator(users)));
+            JwtValidators.createDefault(), notChallenge, new PasswordChangedValidator(users)));
         return decoder;
     }
 }

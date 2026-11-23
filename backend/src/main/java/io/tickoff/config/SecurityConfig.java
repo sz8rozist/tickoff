@@ -1,5 +1,7 @@
 package io.tickoff.config;
 
+import io.tickoff.apikey.ApiKeyFilter;
+import io.tickoff.apikey.ApiKeyService;
 import io.tickoff.domain.ProjectRepository;
 import io.tickoff.ratelimit.RateLimits;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +22,7 @@ import org.springframework.web.filter.CorsFilter;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http,
+    SecurityFilterChain filterChain(HttpSecurity http, ApiKeyService apiKeys,
                                     @Value("${tickoff.rate-limit.enabled:true}") boolean rateLimitEnabled) throws Exception {
         if (rateLimitEnabled) {
             // A durva korlát a CORS előtt fut (a preflightot is védi), a pontos korlátok utána (a 429-es válasz
@@ -42,7 +44,13 @@ public class SecurityConfig {
                 // Widget végpontok: tokennel védettek, a controller ellenőrzi
                 .requestMatchers("/api/widget/**").permitAll()
                 .anyRequest().authenticated())
-            .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));
+            // Az API-kulcsot (tk_…) az ApiKeyFilter kezeli az /api/v1/** útvonalon; az erőforrás-szerver nem próbálja JWT-ként
+            // értelmezni (más útvonalon így a kulcs egyszerűen nem hitelesít)
+            .addFilterBefore(new ApiKeyFilter(apiKeys), org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
+            .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults())
+                .bearerTokenResolver(request -> ApiKeyFilter.isApiKeyRequest(request)
+                    ? null
+                    : new org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver().resolve(request)));
         return http.build();
     }
 

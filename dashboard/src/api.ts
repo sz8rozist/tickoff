@@ -6,6 +6,17 @@ export interface User {
   notifyEmail: boolean;
   /** Az e-mail-cím megerősítve (regisztrációkor levélben kapott linkkel). */
   emailVerified: boolean;
+  /** Összefoglaló e-mail gyakorisága. */
+  digestFrequency: 'OFF' | 'DAILY' | 'WEEKLY';
+  /** Be van-e kapcsolva a kétlépcsős belépés. */
+  twoFactorEnabled: boolean;
+}
+
+interface LoginResponse {
+  token: string | null;
+  user: User | null;
+  twoFactorRequired: boolean;
+  challenge: string | null;
 }
 
 /** Függő meghívó: olyan címre, amelyhez még nincs megerősített fiók. */
@@ -85,6 +96,8 @@ export interface Project {
   widgetPosition: 'RIGHT' | 'LEFT';
   /** Mikor archiválták (null: aktív). Archivált projektnél a widget nem működik. */
   archivedAt: string | null;
+  /** A widget és az ügyfélnek küldött levelek nyelve. */
+  widgetLang: 'hu' | 'en';
 }
 
 export interface ProjectStats {
@@ -140,6 +153,28 @@ export interface Attachment {
   size: number;
 }
 
+/** Egy API-kulcs adatai (a kulcs maga nem kérhető le újra). */
+export interface ApiKeyInfo {
+  id: number;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+/** Egy bejegyzés a projekt tevékenységnaplójában. */
+export interface ActivityEntry {
+  id: number;
+  actorType: 'USER' | 'CUSTOMER';
+  actorName: string;
+  event: string;
+  commentId: number | null;
+  summary: string;
+  createdAt: string;
+}
+
+export type Priority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+
 export interface Comment {
   id: number;
   authorName: string;
@@ -161,6 +196,9 @@ export interface Comment {
   customerApprovedAt: string | null;
   /** Az ügyfél utólag módosította a szöveget. */
   editedAt: string | null;
+  /** Belső prioritás és címkék (az ügyfél nem látja). */
+  priority: Priority;
+  labels: string[];
   /** Az ügyfél e-mail-értesítést kért a válaszokról (a címet nem mutatjuk). */
   notifiesCustomer: boolean;
   /** A felelős csapattag, vagy null. */
@@ -184,13 +222,32 @@ export const api = {
     setToken(r.token);
     return r.user;
   },
-  async login(email: string, password: string): Promise<User> {
-    const r = await request<AuthResponse>('/api/auth/login', {
+  /** Bekapcsolt kétlépcsős belépésnél nincs még munkamenet: egy kihívást kapunk, amit a kóddal együtt kell beküldeni. */
+  async login(email: string, password: string): Promise<{ user: User } | { challenge: string }> {
+    const r = await request<LoginResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
+    if (r.twoFactorRequired && r.challenge) return { challenge: r.challenge };
+    setToken(r.token!);
+    return { user: r.user! };
+  },
+  /** A belépés második lépése: a hitelesítő alkalmazás (vagy egy helyreállító) kódja. Hibás kódra 401. */
+  async login2fa(challenge: string, code: string): Promise<User> {
+    const r = await request<AuthResponse>('/api/auth/login/2fa', {
+      method: 'POST',
+      body: JSON.stringify({ challenge, code }),
+    });
     setToken(r.token);
     return r.user;
+  },
+  twoFactor: {
+    setup: () => request<{ secret: string; otpauthUri: string }>('/api/me/2fa/setup', { method: 'POST' }),
+    /** A helyreállító kódokat csak itt, egyszer kapjuk meg. */
+    enable: (code: string) =>
+      request<{ recoveryCodes: string[] }>('/api/me/2fa/enable', { method: 'POST', body: JSON.stringify({ code }) }),
+    disable: (password: string, code: string) =>
+      request<void>('/api/me/2fa/disable', { method: 'POST', body: JSON.stringify({ password, code }) }),
   },
   me: () => request<User>('/api/me'),
   /** A regisztrációkor kapott linkkel megerősíti az e-mail-címet; érvénytelen vagy lejárt tokenre 400. */
@@ -219,10 +276,10 @@ export const api = {
     setArchived: (id: number, archived: boolean) =>
       request<Project>(`/api/projects/${id}/archive`, { method: 'PUT', body: JSON.stringify({ archived }) }),
     /** A widget márkaszíne és oldala (csak a tulajdonos); túl világos színre 400. */
-    setWidgetAppearance: (id: number, color: string | null, position: 'RIGHT' | 'LEFT') =>
+    setWidgetAppearance: (id: number, color: string | null, position: 'RIGHT' | 'LEFT', lang: 'hu' | 'en') =>
       request<Project>(`/api/projects/${id}/widget-appearance`, {
         method: 'PUT',
-        body: JSON.stringify({ color, position }),
+        body: JSON.stringify({ color, position, lang }),
       }),
     /** Teszt-üzenet a beállított webhookra; az eredményt azonnal visszaadja. */
     testWebhook: (id: number) => request<WebhookTestResult>(`/api/projects/${id}/webhook/test`, { method: 'POST' }),
@@ -253,6 +310,12 @@ export const api = {
     /** Új kör; `carryOver`: az előző kör nem kész kommentjei átkerülnek az újba. */
     open: (projectId: number, carryOver = false) =>
       request<Round>(`/api/projects/${projectId}/rounds?carryOver=${carryOver}`, { method: 'POST' }),
+    /** Nyomtatható riport (HTML): `internal` = belső változat (prioritás, címkék, felelős). A böngészőből PDF-be menthető. */
+    async report(projectId: number, roundId: number, internal: boolean): Promise<Blob> {
+      const res = await authFetch(`/api/projects/${projectId}/rounds/${roundId}/report?internal=${internal}`);
+      if (!res.ok) throw new ApiError(res.status);
+      return res.blob();
+    },
     /** A nyitott kör határideje (ÉÉÉÉ-HH-NN); `null` törli. */
     setDueDate: (projectId: number, roundId: number, dueDate: string | null) =>
       request<Round>(`/api/projects/${projectId}/rounds/${roundId}/due-date`, {
@@ -283,6 +346,12 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ userId }),
       }),
+    /** Prioritás és címkék (a címkéket a szerver normalizálja: kisbetű, legfeljebb 5). */
+    triage: (projectId: number, commentId: number, priority: Priority, labels: string[]) =>
+      request<Comment>(`/api/projects/${projectId}/comments/${commentId}/triage`, {
+        method: 'PUT',
+        body: JSON.stringify({ priority, labels }),
+      }),
     removeReply: (projectId: number, commentId: number, replyId: number) =>
       request<void>(`/api/projects/${projectId}/comments/${commentId}/replies/${replyId}`, { method: 'DELETE' }),
     /** CSV-export: az egész projekt, vagy a megadott kör kommentjei. A fájlnevet a szerver adja. */
@@ -307,7 +376,22 @@ export const api = {
       return res.blob();
     },
   },
+  apiKeys: {
+    list: () => request<ApiKeyInfo[]>('/api/me/api-keys'),
+    /** A teljes kulcs csak a létrehozás válaszában látható. */
+    create: (name: string) =>
+      request<ApiKeyInfo & { key: string }>('/api/me/api-keys', { method: 'POST', body: JSON.stringify({ name }) }),
+    remove: (id: number) => request<void>(`/api/me/api-keys/${id}`, { method: 'DELETE' }),
+  },
+  activity: {
+    /** Újabb elöl, 50 bejegyzés; a következő oldalhoz az utolsó kapott azonosítót kell megadni. */
+    list: (projectId: number, before?: number) =>
+      request<ActivityEntry[]>(`/api/projects/${projectId}/activity${before !== undefined ? `?before=${before}` : ''}`),
+  },
   account: {
+    /** Az összefoglaló e-mail gyakorisága (kikapcsolva, naponta, hetente hétfőn). */
+    setDigest: (frequency: 'OFF' | 'DAILY' | 'WEEKLY') =>
+      request<User>('/api/me/digest', { method: 'PATCH', body: JSON.stringify({ frequency }) }),
     /** Az e-mail értesítések be- és kikapcsolása. */
     setNotifyEmail: (notifyEmail: boolean) =>
       request<User>('/api/me', { method: 'PATCH', body: JSON.stringify({ notifyEmail }) }),

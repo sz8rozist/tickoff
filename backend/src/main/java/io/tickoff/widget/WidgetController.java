@@ -1,5 +1,6 @@
 package io.tickoff.widget;
 
+import io.tickoff.activity.ActivityLog;
 import io.tickoff.domain.Attachment;
 import io.tickoff.domain.AttachmentRepository;
 import io.tickoff.domain.Comment;
@@ -65,7 +66,8 @@ public class WidgetController {
         }
     }
 
-    public record ProjectInfo(String name, String siteUrl, RoundInfo openRound, String color, String position) {
+    public record ProjectInfo(String name, String siteUrl, RoundInfo openRound, String color, String position,
+                              String lang) {
     }
 
     public record CommentRequest(
@@ -131,11 +133,12 @@ public class WidgetController {
     private final NotificationService notifications;
     private final ScreenshotStorage storage;
     private final AttachmentRepository attachments;
+    private final ActivityLog activity;
 
     public WidgetController(ProjectRepository projects, RoundRepository rounds, CommentRepository comments,
                             ReplyRepository replyRepository, ReplyService replyService,
                             NotificationService notifications, ScreenshotStorage storage,
-                            AttachmentRepository attachments) {
+                            AttachmentRepository attachments, ActivityLog activity) {
         this.projects = projects;
         this.rounds = rounds;
         this.comments = comments;
@@ -144,6 +147,7 @@ public class WidgetController {
         this.notifications = notifications;
         this.storage = storage;
         this.attachments = attachments;
+        this.activity = activity;
     }
 
     @GetMapping("/project")
@@ -151,7 +155,7 @@ public class WidgetController {
         Project project = authorize(token, request);
         RoundInfo open = openRound(project).map(RoundInfo::of).orElse(null);
         return new ProjectInfo(project.getName(), project.getSiteUrl(), open, project.getWidgetColor(),
-            project.getWidgetPosition());
+            project.getWidgetPosition(), project.getWidgetLang());
     }
 
     /** A nyitott kör kommentjei (opcionálisan egy oldalra szűrve), hogy a widget ki tudja rajzolni a jelöléseket. */
@@ -195,6 +199,8 @@ public class WidgetController {
         String editToken = comment.issueEditToken();
         Comment saved = comments.save(comment);
         notifications.newComment(project, saved);
+        activity.byCustomer(project, saved.getAuthorName(), "comment.created", saved,
+            "Új visszajelzés: " + ActivityLog.quote(saved));
         return CommentDto.of(saved, List.of()).withEdit(editToken, saved.getCreatedAt().plus(EDIT_WINDOW));
     }
 
@@ -228,6 +234,8 @@ public class WidgetController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Csak kész visszajelzést lehet elfogadni");
         }
         comment.approveByCustomer();
+        activity.byCustomer(project, comment.getAuthorName(), "comment.approved", comment,
+            "Az ügyfél elfogadta a javítást: " + ActivityLog.quote(comment));
         return CommentDto.of(comment, replyService.forComment(comment.getId()));
     }
 
@@ -247,6 +255,8 @@ public class WidgetController {
         comment.setStatus(Comment.Status.OPEN);
         replyRepository.save(Reply.byCustomer(comment, name, reason == null ? "Visszanyitva." : "Visszanyitva: " + reason));
         notifications.commentReopened(project, comment, name, reason);
+        activity.byCustomer(project, name, "comment.reopened", comment,
+            "Visszanyitotta a kész visszajelzést: " + ActivityLog.quote(comment));
         return CommentDto.of(comment, replyService.forComment(comment.getId()));
     }
 
@@ -265,6 +275,7 @@ public class WidgetController {
         String name = req.authorName().trim();
         open.approve(name);
         notifications.roundApproved(project, open, name);
+        activity.byCustomer(project, name, "round.approved", null, "Jóváhagyta a " + open.getNumber() + ". kört");
         return RoundInfo.of(open);
     }
 
@@ -282,6 +293,8 @@ public class WidgetController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A feldolgozás alatt álló komment már nem szerkeszthető");
         }
         comment.editBody(req.body().trim());
+        activity.byCustomer(project, comment.getAuthorName(), "comment.edited", comment,
+            "Módosította a visszajelzését: " + ActivityLog.quote(comment));
         return CommentDto.of(comment, replyService.forComment(comment.getId()));
     }
 
@@ -298,6 +311,8 @@ public class WidgetController {
         }
         String screenshot = comment.getScreenshotPath();
         List<String> files = attachments.findByCommentIdOrderByIdAsc(comment.getId()).stream().map(Attachment::getPath).toList();
+        activity.byCustomer(project, comment.getAuthorName(), "comment.withdrawn", null,
+            "Visszavonta a visszajelzését: " + ActivityLog.quote(comment));
         comments.delete(comment);
         storage.delete(screenshot);
         files.forEach(storage::delete);
@@ -344,6 +359,8 @@ public class WidgetController {
         replyService.requireRoom(comment.getId());
         Reply saved = replyRepository.save(Reply.byCustomer(comment, req.authorName().trim(), req.body().trim()));
         notifications.customerReply(project, comment, saved);
+        activity.byCustomer(project, saved.getAuthorName(), "reply.customer", comment,
+            "Válaszolt erre: " + ActivityLog.quote(comment));
         return ReplyDto.of(saved);
     }
 

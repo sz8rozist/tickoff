@@ -49,6 +49,9 @@ export function AuthForm({
   const [busy, setBusy] = useState(false);
   // A "jelszó-emlékeztető elküldve" állapot: a szöveg szándékosan nem árulja el, hogy van-e ilyen fiók
   const [reminderSent, setReminderSent] = useState(false);
+  // Kétlépcsős belépés: a jelszó után a kihívás és a beírandó kód
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [code, setCode] = useState('');
 
   const form = useForm({
     initialValues: { name: '', email: '', password: '' },
@@ -75,13 +78,39 @@ export function AuthForm({
         setReminderSent(true);
         return;
       }
-      const user =
-        mode === 'login'
-          ? await api.login(values.email, values.password)
-          : await api.register(values.email, values.password, values.name);
-      onAuth(user);
+      if (mode === 'login') {
+        const result = await api.login(values.email, values.password);
+        if ('challenge' in result) {
+          setChallenge(result.challenge);
+          return;
+        }
+        onAuth(result.user);
+        return;
+      }
+      onAuth(await api.register(values.email, values.password, values.name));
     } catch (err) {
       setError(errorMessage(err, mode));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!challenge || code.trim() === '') return;
+    setError(null);
+    setBusy(true);
+    try {
+      onAuth(await api.login2fa(challenge, code.trim()));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        // A kihívás 5 percig érvényes: ha lejárt, újra kell kezdeni a jelszóval
+        setError('Hibás kód, vagy lejárt a belépési kísérlet. Próbáld újra, szükség esetén a jelszóval elölről.');
+      } else if (err instanceof ApiError && err.status === 429) {
+        setError('Túl sok próbálkozás. Várj egy percet, és próbáld újra.');
+      } else {
+        setError('A szerver nem elérhető, próbáld újra később.');
+      }
     } finally {
       setBusy(false);
     }
@@ -94,6 +123,56 @@ export function AuthForm({
     form.clearErrors();
     if (next === 'login') onNavigate?.(PATH_LOGIN);
     if (next === 'register') onNavigate?.(PATH_REGISTER);
+  }
+
+  if (challenge) {
+    return (
+      <div>
+        <Title order={1} className="auth-title">
+          Második lépés
+        </Title>
+        <Text c="dimmed" mt={6} mb="xl">
+          Add meg a hitelesítő alkalmazásod 6 jegyű kódját. Ha nincs nálad a telefon, használhatsz helyreállító kódot.
+        </Text>
+        <form onSubmit={submitCode}>
+          <Stack gap="md">
+            <TextInput
+              size="md"
+              label="Kód"
+              placeholder="123456"
+              value={code}
+              onChange={(e) => setCode(e.currentTarget.value)}
+              autoComplete="one-time-code"
+              inputMode="text"
+              maxLength={20}
+              data-autofocus
+              autoFocus
+            />
+            {error && (
+              <Alert color="red" role="alert">
+                {error}
+              </Alert>
+            )}
+            <Button type="submit" size="md" fullWidth loading={busy} disabled={code.trim() === ''}>
+              Belépés
+            </Button>
+            <Text size="sm" ta="center">
+              <Anchor
+                component="button"
+                type="button"
+                onClick={() => {
+                  setChallenge(null);
+                  setCode('');
+                  setError(null);
+                }}
+              >
+                Vissza
+              </Anchor>
+            </Text>
+          </Stack>
+        </form>
+      </div>
+    );
   }
 
   return (

@@ -1,5 +1,6 @@
 package io.tickoff.project;
 
+import io.tickoff.activity.ActivityLog;
 import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.CommentRepository.RoundCommentCount;
 import io.tickoff.domain.Project;
@@ -44,11 +45,14 @@ public class RoundController {
     private final ProjectAccess access;
     private final RoundRepository rounds;
     private final CommentRepository comments;
+    private final ActivityLog activity;
 
-    public RoundController(ProjectAccess access, RoundRepository rounds, CommentRepository comments) {
+    public RoundController(ProjectAccess access, RoundRepository rounds, CommentRepository comments,
+                           ActivityLog activity) {
         this.access = access;
         this.rounds = rounds;
         this.comments = comments;
+        this.activity = activity;
     }
 
     @GetMapping
@@ -78,6 +82,8 @@ public class RoundController {
         int number = latest == null ? 1 : latest.getNumber() + 1;
         try {
             Round created = rounds.saveAndFlush(new Round(project, number));
+            activity.byUser(project, Long.valueOf(jwt.getSubject()), "round.opened", null,
+                "Megnyitotta a " + number + ". kört" + (carryOver ? " (a nem kész kommentek átvitelével)" : ""));
             if (carryOver && latest != null) {
                 comments.moveUnresolved(latest.getId(), created.getId());
             }
@@ -122,6 +128,8 @@ public class RoundController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A kör már le van zárva");
         }
         round.close();
+        activity.byUser(project, Long.valueOf(jwt.getSubject()), "round.closed", null,
+            "Lezárta a " + round.getNumber() + ". kört");
         return RoundDto.of(round, counts(project).get(round.getId()));
     }
 

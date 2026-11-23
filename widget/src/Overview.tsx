@@ -1,3 +1,4 @@
+import { t, locale } from './i18n';
 import { useEffect, useState } from 'react';
 import type { CommentStatus, HistoryRound, RoundInfo, WidgetComment } from './api';
 import { displayPath } from './page';
@@ -9,16 +10,16 @@ const LABEL: Record<CommentStatus, string> = {
 };
 
 const snippet = (s: string) => (s.length > 90 ? s.slice(0, 90).trimEnd() + '…' : s);
-const date = (iso: string) => new Date(iso).toLocaleDateString('hu-HU');
+const date = (iso: string) => new Date(iso).toLocaleDateString(locale());
 
 /** A határidő feliratra: dátum és hátralévő idő. A nap végéig érvényes (a helyi idő szerint). */
 function dueLabel(dueDate: string): { text: string; overdue: boolean } {
   const end = new Date(dueDate + 'T23:59:59');
   const days = Math.ceil((end.getTime() - Date.now()) / 86_400_000);
-  const when = new Date(dueDate + 'T12:00:00').toLocaleDateString('hu-HU');
-  if (days < 0) return { text: `Határidő: ${when} (lejárt)`, overdue: true };
-  if (days === 0) return { text: `Határidő: ${when} (ma)`, overdue: false };
-  return { text: `Határidő: ${when} (még ${days} nap)`, overdue: false };
+  const when = new Date(dueDate + 'T12:00:00').toLocaleDateString(locale());
+  if (days < 0) return { text: t('Határidő: {when} (lejárt)', { when }), overdue: true };
+  if (days === 0) return { text: t('Határidő: {when} (ma)', { when }), overdue: false };
+  return { text: t('Határidő: {when} (még {days} nap)', { when, days }), overdue: false };
 }
 
 type Tab = 'current' | 'history';
@@ -60,20 +61,20 @@ export function Overview({
   }, [tab, history, loadHistory]);
 
   return (
-    <div class="panel list" role="dialog" aria-label="Összes visszajelzés">
+    <div class="panel list" role="dialog" aria-label={t('Összes visszajelzés')}>
       <div class="list-head">
-        <h2>Visszajelzések</h2>
-        <button class="x" onClick={onClose} aria-label="Bezárás">
+        <h2>{t('Visszajelzések')}</h2>
+        <button class="x" onClick={onClose} aria-label={t('Bezárás')}>
           ×
         </button>
       </div>
 
       <div class="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'current'} class={tab === 'current' ? 'on' : ''} onClick={() => setTab('current')}>
-          {round ? `${round.number}. kör` : 'Aktuális kör'}
+          {round ? t('{n}. kör', { n: round.number }) : t('Aktuális kör')}
         </button>
         <button role="tab" aria-selected={tab === 'history'} class={tab === 'history' ? 'on' : ''} onClick={() => setTab('history')}>
-          Korábbi körök
+          {t('Korábbi körök')}
         </button>
       </div>
 
@@ -98,7 +99,7 @@ export function Overview({
 }
 
 function Dot({ status }: { status: CommentStatus }) {
-  return <i class={`dot ${status}`} title={LABEL[status]} />;
+  return <i class={`dot ${status}`} title={t(LABEL[status])} />;
 }
 
 function Current({
@@ -125,7 +126,7 @@ function Current({
   const pages = [...byPage.entries()].sort(([a], [b]) => Number(b === currentPage) - Number(a === currentPage));
 
   if (comments.length === 0) {
-    return <p class="empty">Még nincs visszajelzés ebben a körben.</p>;
+    return <p class="empty">{t('Még nincs visszajelzés ebben a körben.')}</p>;
   }
 
   return (
@@ -134,7 +135,7 @@ function Current({
         {(['OPEN', 'IN_PROGRESS', 'DONE'] as const).map((s) => (
           <span class="chip" key={s}>
             <Dot status={s} />
-            {LABEL[s]} {count(s)}
+            {t(LABEL[s])} {count(s)}
           </span>
         ))}
       </div>
@@ -146,7 +147,7 @@ function Current({
               <span class="path" title={url}>
                 {displayPath(url)}
               </span>
-              {url === currentPage && <span class="here">ez az oldal</span>}
+              {url === currentPage && <span class="here">{t('ez az oldal')}</span>}
             </div>
             {items.map((c) => (
               <button class="item" key={c.id} onClick={() => onGo(c)}>
@@ -154,8 +155,8 @@ function Current({
                 <span class="txt">
                   <span class="who">
                     {c.authorName}
-                    {c.approved && <span class="ok"> · elfogadva ✓</span>}
-                    {c.replies.length > 0 && <span class="rc"> · {c.replies.length} válasz</span>}
+                    {c.approved && <span class="ok">{t(' · elfogadva ✓')}</span>}
+                    {c.replies.length > 0 && <span class="rc">{t(' · {n} válasz', { n: c.replies.length })}</span>}
                   </span>
                   <span class="snip">{snippet(c.body)}</span>
                 </span>
@@ -194,13 +195,13 @@ function RoundApproval({
   if (round.approved) {
     return (
       <div class="approval done" role="status">
-        ✓ Jóváhagyva{round.approvedBy ? `: ${round.approvedBy}` : ''}. Köszönjük!
+        ✓ {t('Jóváhagyva')}{round.approvedBy ? `: ${round.approvedBy}` : ''}. {t('Köszönjük!')}
       </div>
     );
   }
 
   if (!allDone) {
-    return <div class="approval muted">A kör jóváhagyható, ha minden visszajelzés kész.</div>;
+    return <div class="approval muted">{t('A kör jóváhagyható, ha minden visszajelzés kész.')}</div>;
   }
 
   async function submit(e: Event) {
@@ -215,18 +216,18 @@ function RoundApproval({
 
   return (
     <form class="approval" onSubmit={submit}>
-      <p class="hint">Minden visszajelzés kész. Ha elégedett vagy, hagyd jóvá a kört.</p>
+      <p class="hint">{t('Minden visszajelzés kész. Ha elégedett vagy, hagyd jóvá a kört.')}</p>
       <div class="row">
         <input
           type="text"
           value={name}
           maxLength={120}
-          placeholder="A neved"
-          aria-label="A neved"
+          placeholder={t('A neved')}
+          aria-label={t('A neved')}
           onInput={(e) => setName(e.currentTarget.value)}
         />
         <button type="submit" class="btn primary small" disabled={busy || name.trim() === ''}>
-          {busy ? 'Küldés…' : 'Kör jóváhagyása'}
+          {busy ? t('Küldés…') : t('Kör jóváhagyása')}
         </button>
       </div>
       {error && (
@@ -239,20 +240,20 @@ function RoundApproval({
 }
 
 function History({ history, failed }: { history: HistoryRound[] | null; failed: boolean }) {
-  if (failed) return <p class="empty">A korábbi körök betöltése nem sikerült.</p>;
-  if (!history) return <p class="empty">Betöltés…</p>;
-  if (history.length === 0) return <p class="empty">Még nincs lezárt kör.</p>;
+  if (failed) return <p class="empty">{t('A korábbi körök betöltése nem sikerült.')}</p>;
+  if (!history) return <p class="empty">{t('Betöltés…')}</p>;
+  if (history.length === 0) return <p class="empty">{t('Még nincs lezárt kör.')}</p>;
 
   return (
     <div class="list-body history">
       {history.map((r) => (
         <section key={r.number}>
           <div class="page-title">
-            <span class="round-title">{r.number}. kör</span>
-            <span class="muted-s">lezárva: {date(r.closedAt)}</span>
-            {r.approved && <span class="here">jóváhagyva{r.approvedBy ? `: ${r.approvedBy}` : ''}</span>}
+            <span class="round-title">{t('{n}. kör', { n: r.number })}</span>
+            <span class="muted-s">{t('lezárva: {date}', { date: date(r.closedAt) })}</span>
+            {r.approved && <span class="here">{t('jóváhagyva')}{r.approvedBy ? `: ${r.approvedBy}` : ''}</span>}
           </div>
-          {r.comments.length === 0 && <p class="empty-s">Nem volt visszajelzés.</p>}
+          {r.comments.length === 0 && <p class="empty-s">{t('Nem volt visszajelzés.')}</p>}
           {r.comments.map((c) => (
             <div class="item static" key={c.id}>
               <Dot status={c.status} />

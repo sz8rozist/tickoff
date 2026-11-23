@@ -37,6 +37,23 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
         """)
     List<StatusCount> countOpenRoundByStatus(@Param("projectIds") java.util.Collection<Long> projectIds);
 
+    /** Projektenkénti darabszám. */
+    interface ProjectCount {
+        Long getProjectId();
+
+        Long getTotal();
+    }
+
+    /** A megadott időpont után érkezett kommentek projektenként (az összefoglalóhoz). */
+    @Query("""
+        select r.project.id as projectId, count(c) as total
+        from Comment c join c.round r
+        where r.project.id in :projectIds and c.createdAt > :since
+        group by r.project.id
+        """)
+    List<ProjectCount> countCreatedSince(@Param("projectIds") java.util.Collection<Long> projectIds,
+                                         @Param("since") java.time.Instant since);
+
     // A felelőst együtt töltjük be: a listában minden komment nevét kiírjuk (nincs kérésenkénti betöltés)
     @EntityGraph(attributePaths = "assignee")
     List<Comment> findByRoundIdOrderByCreatedAtAsc(Long roundId);

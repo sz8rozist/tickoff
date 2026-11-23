@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 
 export interface ComposerValues {
@@ -55,9 +56,9 @@ export function Composer({
     let next = [...files];
     let problem: string | null = null;
     for (const f of Array.from(list)) {
-      if (!ALLOWED_TYPES.includes(f.type)) problem = 'Csak PNG, JPEG, GIF vagy WebP kép csatolható.';
-      else if (f.size > MAX_FILE_BYTES) problem = `"${f.name}" túl nagy (legfeljebb 3 MB).`;
-      else if (next.length >= MAX_FILES) problem = `Legfeljebb ${MAX_FILES} kép csatolható.`;
+      if (!ALLOWED_TYPES.includes(f.type)) problem = t('Csak PNG, JPEG, GIF vagy WebP kép csatolható.');
+      else if (f.size > MAX_FILE_BYTES) problem = t('"{name}" túl nagy (legfeljebb 3 MB).', { name: f.name });
+      else if (next.length >= MAX_FILES) problem = t('Legfeljebb {max} kép csatolható.', { max: MAX_FILES });
       else next.push(f);
     }
     setFiles(next);
@@ -70,13 +71,13 @@ export function Composer({
   }
 
   return (
-    <form class="panel" role="dialog" aria-label="Új visszajelzés" onSubmit={submit}>
-      <h2>Új visszajelzés</h2>
+    <form class="panel" role="dialog" aria-label={t('Új visszajelzés')} onSubmit={submit}>
+      <h2>{t('Új visszajelzés')}</h2>
       <p class="sel" title={selector}>
         {selector}
       </p>
 
-      <label for="tk-name">A neved</label>
+      <label for="tk-name">{t('A neved')}</label>
       <input
         id="tk-name"
         type="text"
@@ -87,33 +88,33 @@ export function Composer({
         onInput={(e) => setName(e.currentTarget.value)}
       />
 
-      <label for="tk-body">Mit szeretnél módosítani?</label>
+      <label for="tk-body">{t('Mit szeretnél módosítani?')}</label>
       <textarea
         id="tk-body"
         ref={bodyRef}
         value={body}
         maxLength={4000}
-        placeholder="Pl.: ez a gomb mobilon kilóg a képből"
+        placeholder={t('Pl.: ez a gomb mobilon kilóg a képből')}
         onInput={(e) => setBody(e.currentTarget.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submit(e);
         }}
       />
 
-      <label for="tk-email">E-mail (nem kötelező)</label>
+      <label for="tk-email">{t('E-mail (nem kötelező)')}</label>
       <input
         id="tk-email"
         type="email"
         value={email}
         maxLength={254}
         autocomplete="email"
-        placeholder="Ide írunk, ha válaszolunk"
+        placeholder={t('Ide írunk, ha válaszolunk')}
         aria-invalid={!emailOk}
         onInput={(e) => setEmail(e.currentTarget.value)}
       />
-      {!emailOk && <p class="hint bad">Ez nem tűnik érvényes e-mail-címnek.</p>}
+      {!emailOk && <p class="hint bad">{t('Ez nem tűnik érvényes e-mail-címnek.')}</p>}
 
-      <label for="tk-files">Képek csatolása (nem kötelező)</label>
+      <label for="tk-files">{t('Képek csatolása (nem kötelező)')}</label>
       <input
         id="tk-files"
         type="file"
@@ -135,7 +136,7 @@ export function Composer({
               <button
                 type="button"
                 class="x"
-                aria-label={`Eltávolítás: ${f.name}`}
+                aria-label={t('Eltávolítás: {name}', { name: f.name })}
                 onClick={() => setFiles(files.filter((_, j) => j !== i))}
               >
                 ×
@@ -148,7 +149,7 @@ export function Composer({
 
       <label class="check">
         <input type="checkbox" checked={shot} onChange={(e) => setShot(e.currentTarget.checked)} />
-        Képernyőkép csatolása
+        {t('Képernyőkép csatolása')}
       </label>
 
       {error && (
@@ -159,10 +160,10 @@ export function Composer({
 
       <div class="actions">
         <button type="button" class="btn" onClick={onCancel} disabled={busy}>
-          Mégse
+          {t('Mégse')}
         </button>
         <button type="submit" class="btn primary" disabled={!valid || busy}>
-          {busy ? 'Küldés…' : 'Küldés'}
+          {busy ? t('Küldés…') : t('Küldés')}
         </button>
       </div>
     </form>

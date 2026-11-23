@@ -1,3 +1,4 @@
+import { setLang, t } from './i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { ApiError, createApi, type ProjectInfo, type RoundInfo, type WidgetComment } from './api';
 import type { Config } from './config';
@@ -76,11 +77,11 @@ const clampPct = (v: number) => (Number.isFinite(v) ? Math.min(100, Math.max(0, 
 
 function sendError(e: unknown): string {
   if (e instanceof ApiError) {
-    if (e.status === 409) return 'Jelenleg nincs nyitott visszajelzési kör.';
-    if (e.status === 429) return 'Túl sok kérés érkezett tőled, várj egy kicsit, és próbáld újra.';
-    if (e.status === 400) return 'Ellenőrizd az adatokat: a név és a szöveg kötelező.';
+    if (e.status === 409) return t('Jelenleg nincs nyitott visszajelzési kör.');
+    if (e.status === 429) return t('Túl sok kérés érkezett tőled, várj egy kicsit, és próbáld újra.');
+    if (e.status === 400) return t('Ellenőrizd az adatokat: a név és a szöveg kötelező.');
   }
-  return 'Nem sikerült elküldeni, próbáld újra.';
+  return t('Nem sikerült elküldeni, próbáld újra.');
 }
 
 export function Widget({ config, host }: { config: Config; host: HTMLElement }) {
@@ -115,7 +116,11 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
   useEffect(() => {
     api
       .project()
-      .then(setProject)
+      .then((info) => {
+        // A nyelv beállítása az első megjelenítés előtt, hogy minden szöveg a projekt nyelvén jelenjen meg
+        setLang(info.lang);
+        setProject(info);
+      })
       .catch((e) => {
         // Rossz token (404) vagy nem engedélyezett origin (403): a vendégoldalon nem mutatunk hibát, csak a konzolban.
         const reason =
@@ -190,8 +195,8 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
 
   useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 5000);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timer);
   }, [toast]);
 
   // Elemkiválasztás: az oldal eseményeit elkapjuk, de a widget saját felületére érkezőket békén hagyjuk.
@@ -330,7 +335,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       return;
     }
     if (!project?.openRound) {
-      setNotice('Jelenleg nincs nyitott visszajelzési kör, ezért most nem tudsz észrevételt küldeni.');
+      setNotice(t('Jelenleg nincs nyitott visszajelzési kör, ezért most nem tudsz észrevételt küldeni.'));
       return;
     }
     setNotice(null);
@@ -384,7 +389,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         }
       }
 
-      setToast(failedFiles > 0 ? `A visszajelzés elküldve, de ${failedFiles} kép csatolása nem sikerült.` : shotOk ? 'Köszönjük, a visszajelzés elküldve.' : 'A visszajelzés elküldve, de a képernyőképet nem sikerült csatolni.');
+      setToast(failedFiles > 0 ? t('A visszajelzés elküldve, de {n} kép csatolása nem sikerült.', { n: failedFiles }) : shotOk ? t('Köszönjük, a visszajelzés elküldve.') : t('A visszajelzés elküldve, de a képernyőképet nem sikerült csatolni.'));
       setAll(await api.comments().catch(() => all));
       cancel();
     } catch (e) {
@@ -402,7 +407,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       setAll(await api.comments().catch(() => all));
       return null;
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) return 'Ehhez már nem lehet válaszolni (lezárt kör vagy betelt szál).';
+      if (e instanceof ApiError && e.status === 409) return t('Ehhez már nem lehet válaszolni (lezárt kör vagy betelt szál).');
       return sendError(e);
     }
   }
@@ -410,14 +415,14 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
   /** A saját komment szövegének módosítása (a szerkesztési határidőn belül). */
   async function editComment(commentId: number, body: string): Promise<string | null> {
     const token = ownToken(commentId);
-    if (!token) return 'A szerkesztési idő lejárt.';
+    if (!token) return t('A szerkesztési idő lejárt.');
     try {
       const updated = await api.editComment(commentId, token, body);
       setAll((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
       return null;
     } catch (e) {
       if (e instanceof ApiError && (e.status === 409 || e.status === 403)) {
-        return 'A szerkesztési idő lejárt, vagy a komment már feldolgozás alatt áll.';
+        return t('A szerkesztési idő lejárt, vagy a komment már feldolgozás alatt áll.');
       }
       return sendError(e);
     }
@@ -426,7 +431,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
   /** A saját komment visszavonása (törlése), ha még nem válaszoltak rá. */
   async function withdrawComment(commentId: number): Promise<string | null> {
     const token = ownToken(commentId);
-    if (!token) return 'A visszavonási idő lejárt.';
+    if (!token) return t('A visszavonási idő lejárt.');
     try {
       await api.withdrawComment(commentId, token);
       forgetOwn(commentId);
@@ -436,7 +441,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       return null;
     } catch (e) {
       if (e instanceof ApiError && (e.status === 409 || e.status === 403)) {
-        return 'Már nem vonható vissza (lejárt az idő, vagy válaszoltak rá).';
+        return t('Már nem vonható vissza (lejárt az idő, vagy válaszoltak rá).');
       }
       return sendError(e);
     }
@@ -450,7 +455,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       return null;
     } catch (e) {
       return e instanceof ApiError && e.status === 409
-        ? 'Ez a visszajelzés közben megváltozott, frissítsd az oldalt.'
+        ? t('Ez a visszajelzés közben megváltozott, frissítsd az oldalt.')
         : sendError(e);
     }
   }
@@ -465,7 +470,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       return null;
     } catch (e) {
       return e instanceof ApiError && e.status === 409
-        ? 'Ez a visszajelzés közben megváltozott, frissítsd az oldalt.'
+        ? t('Ez a visszajelzés közben megváltozott, frissítsd az oldalt.')
         : sendError(e);
     }
   }
@@ -480,7 +485,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
       return null;
     } catch (e) {
       return e instanceof ApiError && e.status === 409
-        ? 'Jóváhagyás előtt minden visszajelzésnek késznek kell lennie.'
+        ? t('Jóváhagyás előtt minden visszajelzésnek késznek kell lennie.')
         : sendError(e);
     }
   }
@@ -518,7 +523,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
 
       {mode === 'pick' && (
         <div class="banner">
-          {touchDevice ? 'Koppints egy elemre, vagy húzz ujjal területet · Mégse: a gombbal' : 'Kattints egy elemre, vagy húzz egy téglalapot a területre · Esc: mégse'}
+          {touchDevice ? t('Koppints egy elemre, vagy húzz ujjal területet · Mégse: a gombbal') : t('Kattints egy elemre, vagy húzz egy téglalapot a területre · Esc: mégse')}
         </div>
       )}
 
@@ -539,7 +544,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
           <p style={{ margin: 0 }}>{notice}</p>
           <div class="actions">
             <button class="btn" onClick={() => setNotice(null)}>
-              Rendben
+              {t('Rendben')}
             </button>
           </div>
         </div>
@@ -568,12 +573,12 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
         <div class="dock">
           {mode === 'idle' && (all.length > 0 || project?.openRound) && (
             <button class="fab ghost" onClick={toggleList} aria-expanded={listOpen}>
-              Lista
+              {t('Lista')}
               <span class="count">{all.length}</span>
             </button>
           )}
           <button class="fab" onClick={toggle}>
-            {mode === 'idle' ? 'Visszajelzés' : 'Mégse'}
+            {mode === 'idle' ? t('Visszajelzés') : t('Mégse')}
           </button>
         </div>
       )}

@@ -49,6 +49,10 @@ public final class RateLimits {
     // E-mail-megerősítés: a token találgatása és a levélküldés ellen
     private static final Limit VERIFY_EMAIL_IP = new Limit("verify-email-ip", 10, 10);
     private static final Limit RESEND_VERIFICATION_IP = new Limit("resend-verification-ip", 5, 5);
+    // A nyilvános API olvasása (API-kulccsal): az IP-nkénti korlát védi a lekérdezéseket
+    private static final Limit API_V1_IP = new Limit("api-v1-ip", 60, 60);
+    // A második lépés kódjának találgatása ellen (fiókonként is korlátozunk, lásd TwoFactorService)
+    private static final Limit LOGIN_2FA_IP = new Limit("login-2fa-ip", 10, 10);
     private static final Limit UNSUBSCRIBE_IP = new Limit("unsubscribe-ip", 10, 10);
     // A teszt-webhook kimenő kérést indít a szerverről, ezért szigorúan korlátozzuk.
     private static final Limit WEBHOOK_TEST_IP = new Limit("webhook-test-ip", 5, 5);
@@ -74,6 +78,7 @@ public final class RateLimits {
             Rule.of(HttpMethod.GET, "/api/widget/{token}/**",
                 new Scoped(Scope.IP, WIDGET_READ_IP), new Scoped(Scope.TOKEN, WIDGET_READ_TOKEN)),
             Rule.of(HttpMethod.POST, "/api/auth/login", new Scoped(Scope.IP, LOGIN_IP)),
+            Rule.of(HttpMethod.POST, "/api/auth/login/2fa", new Scoped(Scope.IP, LOGIN_2FA_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/register", new Scoped(Scope.IP, REGISTER_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/forgot-password", new Scoped(Scope.IP, FORGOT_PASSWORD_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/verify-email", new Scoped(Scope.IP, VERIFY_EMAIL_IP)),
@@ -81,6 +86,7 @@ public final class RateLimits {
             Rule.of(HttpMethod.POST, "/api/projects/{id}/members/invites", new Scoped(Scope.IP, INVITE_IP)),
             Rule.of(HttpMethod.POST, "/api/auth/reset-password", new Scoped(Scope.IP, RESET_PASSWORD_IP)),
             Rule.of(HttpMethod.POST, "/api/projects/{id}/webhook/test", new Scoped(Scope.IP, WEBHOOK_TEST_IP)),
+            Rule.of(HttpMethod.GET, "/api/v1/**", new Scoped(Scope.IP, API_V1_IP)),
             Rule.of(HttpMethod.GET, "/api/notifications/unsubscribe/{token}", new Scoped(Scope.IP, UNSUBSCRIBE_IP)),
             Rule.of(HttpMethod.DELETE, "/api/me", new Scoped(Scope.IP, DELETE_ACCOUNT_IP)),
             Rule.of(HttpMethod.POST, "/api/projects/{id}/members", new Scoped(Scope.IP, INVITE_IP))));

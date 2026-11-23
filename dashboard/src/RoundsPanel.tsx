@@ -77,6 +77,23 @@ export function RoundsPanel({
     }
   }
 
+  /** A riportot lekérjük (JWT kell hozzá), és új lapon nyitjuk meg; onnan nyomtatható vagy PDF-be menthető. */
+  async function openReport(roundId: number, internal: boolean) {
+    setError(null);
+    // Az új lapot a kattintás pillanatában nyitjuk (a böngésző a háttérből indított ablakot blokkolná)
+    const tab = window.open('', '_blank');
+    try {
+      const blob = await api.rounds.report(projectId, roundId, internal);
+      const url = URL.createObjectURL(new Blob([blob], { type: 'text/html;charset=utf-8' }));
+      if (tab) tab.location.href = url;
+      else window.open(url, '_blank');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      tab?.close();
+      setError('A riport elkészítése nem sikerült, próbáld újra később.');
+    }
+  }
+
   async function exportCsv(roundId: number) {
     setError(null);
     try {
@@ -133,9 +150,17 @@ export function RoundsPanel({
                 {expanded.has(r.id) ? 'Kommentek elrejtése' : 'Kommentek'}
               </Button>
               {r.commentCount > 0 && (
-                <Button size="compact-xs" variant="subtle" color="gray" disabled={busy} onClick={() => exportCsv(r.id)}>
-                  Export (CSV)
-                </Button>
+                <>
+                  <Button size="compact-xs" variant="subtle" color="gray" disabled={busy} onClick={() => exportCsv(r.id)}>
+                    Export (CSV)
+                  </Button>
+                  <Button size="compact-xs" variant="subtle" onClick={() => void openReport(r.id, false)}>
+                    Riport
+                  </Button>
+                  <Button size="compact-xs" variant="subtle" color="gray" onClick={() => void openReport(r.id, true)}>
+                    Belső riport
+                  </Button>
+                </>
               )}
               {r.status === 'OPEN' && (
                 <Button size="compact-xs" variant="default" disabled={busy} onClick={() => run(() => api.rounds.close(projectId, r.id))}>

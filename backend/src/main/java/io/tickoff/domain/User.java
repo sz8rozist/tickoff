@@ -43,6 +43,26 @@ public class User {
     @Column(name = "email_verify_sent_at")
     private Instant emailVerifySentAt;
 
+    /** OFF, DAILY vagy WEEKLY: összefoglaló e-mail a projektekről. */
+    @Column(name = "digest_frequency", nullable = false, length = 10)
+    private String digestFrequency = "OFF";
+
+    @Column(name = "digest_last_sent_at")
+    private Instant digestLastSentAt;
+
+    /** A TOTP megosztott titka (base32); amíg a totp_enabled_at üres, a beállítás nincs megerősítve. */
+    @Column(name = "totp_secret", length = 64)
+    private String totpSecret;
+
+    @Column(name = "totp_enabled_at")
+    private Instant totpEnabledAt;
+
+    @Column(name = "totp_last_step")
+    private Long totpLastStep;
+
+    @Column(name = "totp_recovery_hashes", length = 700)
+    private String totpRecoveryHashes;
+
     protected User() {
     }
 
@@ -59,6 +79,36 @@ public class User {
     }
 
     public void setNotifyEmail(boolean notifyEmail) { this.notifyEmail = notifyEmail; }
+
+    public void setDigestFrequency(String frequency) { this.digestFrequency = frequency; }
+    public String getDigestFrequency() { return digestFrequency; }
+    public Instant getDigestLastSentAt() { return digestLastSentAt; }
+    public void markDigestSent(Instant now) { this.digestLastSentAt = now; }
+
+    public boolean isTotpEnabled() { return totpEnabledAt != null; }
+    public String getTotpSecret() { return totpSecret; }
+    public Long getTotpLastStep() { return totpLastStep; }
+    public void setTotpLastStep(Long step) { this.totpLastStep = step; }
+    public String getTotpRecoveryHashes() { return totpRecoveryHashes; }
+    public void setTotpRecoveryHashes(String hashes) { this.totpRecoveryHashes = hashes; }
+
+    /** Új (még nem megerősített) titok; a korábbi, megerősítetlen titok lecserélődik. */
+    public void startTotpSetup(String secret) {
+        this.totpSecret = secret;
+    }
+
+    public void enableTotp(Instant now, long step, String recoveryHashes) {
+        this.totpEnabledAt = now;
+        this.totpLastStep = step;
+        this.totpRecoveryHashes = recoveryHashes;
+    }
+
+    public void clearTotp() {
+        this.totpSecret = null;
+        this.totpEnabledAt = null;
+        this.totpLastStep = null;
+        this.totpRecoveryHashes = null;
+    }
 
     public boolean isEmailVerified() { return emailVerifiedAt != null; }
 

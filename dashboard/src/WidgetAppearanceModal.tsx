@@ -19,6 +19,7 @@ export function WidgetAppearanceModal({
 }) {
   const [color, setColor] = useState(DEFAULT_COLOR);
   const [position, setPosition] = useState<'RIGHT' | 'LEFT'>('RIGHT');
+  const [lang, setLang] = useState<'hu' | 'en'>('hu');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,9 +27,10 @@ export function WidgetAppearanceModal({
     if (opened) {
       setColor(project?.widgetColor ?? DEFAULT_COLOR);
       setPosition(project?.widgetPosition ?? 'RIGHT');
+      setLang(project?.widgetLang ?? 'hu');
       setError(null);
     }
-  }, [opened, project?.id, project?.widgetColor, project?.widgetPosition]);
+  }, [opened, project?.id, project?.widgetColor, project?.widgetPosition, project?.widgetLang]);
 
   if (!project) return null;
 
@@ -37,7 +39,7 @@ export function WidgetAppearanceModal({
     setBusy(true);
     setError(null);
     try {
-      onChanged(await api.projects.setWidgetAppearance(project.id, nextColor, position));
+      onChanged(await api.projects.setWidgetAppearance(project.id, nextColor, position, lang));
       onClose();
     } catch (e) {
       setError(
@@ -53,7 +55,7 @@ export function WidgetAppearanceModal({
   const valid = /^#[0-9a-fA-F]{6}$/.test(color);
 
   return (
-    <Modal opened={opened} onClose={onClose} title="A widget megjelenése" centered>
+    <Modal opened={opened} onClose={onClose} title="A widget megjelenése és nyelve" centered>
       <Stack>
         <Text size="sm">A widget az ügyfeled oldalán a te arculatodhoz igazodik: a gomb és a kiemelések színe, valamint a gombok oldala.</Text>
 
@@ -80,6 +82,24 @@ export function WidgetAppearanceModal({
               { value: 'LEFT', label: 'Bal alul' },
             ]}
           />
+        </div>
+
+        <div>
+          <Text size="sm" fw={500} mb={4}>
+            Nyelv
+          </Text>
+          <SegmentedControl
+            fullWidth
+            value={lang}
+            onChange={(v) => setLang(v as 'hu' | 'en')}
+            data={[
+              { value: 'hu', label: 'Magyar' },
+              { value: 'en', label: 'English' },
+            ]}
+          />
+          <Text size="xs" c="dimmed" mt={4}>
+            A widget felülete és az ügyfélnek küldött e-mailek (válasz, kész javítás, leiratkozás) ezen a nyelven szólnak.
+          </Text>
         </div>
 
         {/* Előnézet: a widget fő gombja a választott színnel és oldallal */}

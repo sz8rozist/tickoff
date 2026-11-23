@@ -43,6 +43,10 @@ public class Project {
     @Column(name = "widget_color", length = 7)
     private String widgetColor;
 
+    /** A widget és az ügyfélnek küldött levelek nyelve: hu vagy en. */
+    @Column(name = "widget_lang", nullable = false, length = 2)
+    private String widgetLang = "hu";
+
     /** A widget gombjainak oldala: RIGHT (alapértelmezett) vagy LEFT. */
     @Column(name = "widget_position", nullable = false, length = 5)
     private String widgetPosition = "RIGHT";
@@ -92,10 +96,16 @@ public class Project {
 
     public Instant getArchivedAt() { return archivedAt; }
 
-    public void setWidgetAppearance(String color, String position) {
+    public void setWidgetAppearance(String color, String position, String lang) {
         this.widgetColor = color;
         this.widgetPosition = position;
+        this.widgetLang = lang;
     }
+
+    public String getWidgetLang() { return widgetLang; }
+
+    /** Angol nyelvű-e az ügyfél felé menő kommunikáció. */
+    public boolean isEnglish() { return "en".equals(widgetLang); }
 
     /** Webhook beállítása; üres cím kikapcsolja. A titok az első beállításkor jön létre, és megmarad. */
     public void setWebhook(String url) {

@@ -116,6 +116,12 @@ public class NotificationService {
 
     /** A csapat válaszolt: ha az ügyfél megadta az e-mail-címét, értesítjük. */
     public void designerReply(Project project, Comment comment, Reply reply) {
+        if (project.isEnglish()) {
+            notifyCustomer(comment, "Reply to your feedback: " + project.getName(),
+                reply.getAuthorName() + " (from the team) replied to your feedback on the \"" + project.getName()
+                    + "\" project:\n\n" + excerpt(reply.getBody()));
+            return;
+        }
         notifyCustomer(comment, "Válasz a visszajelzésedre: " + project.getName(),
             reply.getAuthorName() + " (a csapatból) válaszolt a visszajelzésedre a(z) „" + project.getName()
                 + "” projektben:\n\n" + excerpt(reply.getBody()));
@@ -123,6 +129,12 @@ public class NotificationService {
 
     /** A csapat késznek jelölte a kommentet: az ügyfél megnézheti, elfogadhatja vagy visszanyithatja. */
     public void commentDone(Project project, Comment comment) {
+        if (project.isEnglish()) {
+            notifyCustomer(comment, "A fix is ready: " + project.getName(),
+                "The team marked your feedback as done in the \"" + project.getName() + "\" project:\n\n"
+                    + excerpt(comment.getBody()) + "\n\nYou can review it on the page, where you can also approve it or reopen it.");
+            return;
+        }
         notifyCustomer(comment, "Elkészült a javítás: " + project.getName(),
             "A csapat késznek jelölte a visszajelzésedet a(z) „" + project.getName() + "” projektben:\n\n"
                 + excerpt(comment.getBody()) + "\n\nMegnézheted az oldalon, ott el is fogadhatod, vagy visszanyithatod.");
@@ -137,6 +149,22 @@ public class NotificationService {
         String token = comment.getNotifyToken();
         if (!mail.isEnabled() || email == null || token == null) return;
 
+        boolean en = comment.getRound().getProject().isEnglish();
+        if (en) {
+            String textEn = "Hi " + comment.getAuthorName() + "!\n\n" + message
+                + "\n\nOpen on the page: " + deepLink(comment.getPageUrl(), comment.getId())
+                + "\n\nYou received this email because you gave your email address when submitting your feedback. "
+                + "If you do not want more notifications, you can unsubscribe here: "
+                + baseUrl + "/api/notifications/unsubscribe/" + token + "\n";
+            afterCommit(() -> {
+                if (limiter.tryAcquire("c" + email.toLowerCase(), PER_RECIPIENT) == 0) {
+                    mail.send(email, "[Tickoff] " + subject, textEn);
+                } else {
+                    log.info("Customer notification skipped (per-address limit), comment: {}", comment.getId());
+                }
+            });
+            return;
+        }
         String text = "Szia " + comment.getAuthorName() + "!\n\n" + message
             + "\n\nMegnyitás az oldalon: " + deepLink(comment.getPageUrl(), comment.getId())
             + "\n\nEzt a levelet azért kaptad, mert a visszajelzésed beküldésekor megadtad az e-mail-címedet. "
