@@ -4,7 +4,6 @@
 
 Ügyfél-visszajelzések kezelése weboldal-projektekben, javítási körökre (rounds) bontva. Az ügyfél regisztráció nélkül, közvetlenül a lapon kommentel egy beágyazott widgeten keresztül (rákattint egy elemre, leírja, mit változtatna); a designer egy helyen látja a visszajelzéseket körönként, oldalanként csoportosítva, státusszal és képernyőképpel.
 
-> **Két változat van.** A `backend/` + `dashboard/` a régi (Java + Vite) változat; a `web/` az új, egységes Next.js változat ugyanazzal az API-val és funkciókkal, lásd [A Next.js változat](#a-nextjs-változat-web) és az átállási leírást. Új fejlesztés a `web/` mappába kerül.
 
 ## Funkciók
 
@@ -68,8 +67,8 @@
 - **Token + origin-ellenőrzés**: a widget csak azon az origin-en működik, amit a projektnél megadtál; a CORS-fejléceket is csak erre adjuk, tokenenként feloldva.
 - **Hozzáférés-védelem**: a designer csak a saját és a hozzá meghívott projekteket éri el (idegen erőforrásra `404`; a tag az owner-only műveletekre `403`-at kap), a képernyőképek JWT-vel védettek, a feltöltés típusát és méretét ellenőrizzük (PNG/JPEG, max. 3 MB, a fájl tartalmát is).
 - **Kérésszám-korlát** a widget és a belépés/regisztráció végpontjain (komment-spam, jelszó-találgatás, preflight-árasztás ellen).
-- **Production stack**: Docker Compose, Caddy automatikus HTTPS-sel, szigorú CSP és biztonsági fejlécek, titkok nélkül nem induló `prod` profil, nem root backend, mentő szkript.
-- **CI**: GitHub Actions minden pushnál és pull requestnél: backend build és tesztek, dashboard és widget típusellenőrzés és build, Docker image-ek és compose-fájlok ellenőrzése.
+- **Production stack**: Docker Compose, Caddy automatikus HTTPS-sel, szigorú CSP és biztonsági fejlécek, titkok nélkül nem induló konfiguráció, nem root alkalmazás-konténer, mentő szkript.
+- **CI**: GitHub Actions minden pushnál és pull requestnél: widget és alkalmazás típusellenőrzése és build, Docker image és compose-fájlok ellenőrzése.
 
 ### Még nincs meg
 
@@ -77,37 +76,46 @@
 - A csapat felülete (dashboard) és a csapatnak küldött értesítések csak magyarul érhetők el (az ügyfél felé a widget és a levelek magyarul és angolul is mennek).
 - A webhook-kézbesítésnek nincs újrapróbálkozása, és az ügyfél e-mail-címe nincs megerősítve (leiratkozó linkkel és korláttal védett).
 
-## Felépítés (monorepo)
+## Felépítés
 
-| Mappa | Tartalom |
+| Hely | Tartalom |
 |---|---|
-| `backend/` | Spring Boot 4 (Java 21), Spring Data JPA, Spring Security, Flyway, MySQL |
-| `dashboard/` | Vite + React 19 + TypeScript + [Mantine](https://mantine.dev) 9 (a designer felülete) |
-| `widget/` | Beágyazható widget: React-szintaxis, buildkor Preactre aliasolva, Shadow DOM, egyetlen IIFE fájl |
-| `docker-compose.yml` | Fejlesztői stack: MySQL 8.4 (port: `3307`) és a backend (port: `8080`) |
-| `docker-compose.prod.yml`, `Dockerfile.web`, `deploy/` | Production stack: MySQL, backend, Caddy (HTTPS, dashboard, widget, proxy), lásd az Üzemeltetés szakaszt |
+| `web/` | A Tickoff alkalmazás: **Next.js 16** (App Router, Node szerver), TypeScript, **Drizzle ORM** + **MySQL 8.4**, a felület React 19 + [Mantine](https://mantine.dev) 9 |
+| `web/src/app/api/` | Az API végpontjai (route handlerek): auth, fiók, projektek, tagok, körök, kommentek, widget API, nyilvános `/api/v1` |
+| `web/src/lib/` | Az üzleti logika: hozzáférés, JWT, jelszavak, TOTP, e-mail, webhook (SSRF-védelemmel), összefoglaló, riport, CSV, kérésszám-korlát |
+| `web/src/db/`, `web/drizzle/` | Séma, kapcsolat, migrációk futtatója és maguk a migrációk |
+| `web/src/ui/` | A felület (landing, belépés, dashboard), kliens oldalon renderelve |
+| `web/src/proxy.ts` | Kérésenként nonce-os, szigorú Content-Security-Policy (production) |
+| `web/src/instrumentation.ts` | Induláskor elindítja az ütemezőt (összefoglaló e-mailek reggel 8-kor) |
+| `widget/` | Beágyazható widget: React-szintaxis, buildkor Preactre aliasolva, Shadow DOM, egyetlen IIFE fájl; az alkalmazás a `/widget/tickoff-widget.js` alatt szolgálja ki |
+| `docker-compose.yml` | Fejlesztői szolgáltatások: MySQL (port: `3308`) és a Mailpit levelezés-csapda |
+| `web/Dockerfile`, `docker-compose.prod.yml`, `deploy/`, `.env.example` | Production stack: MySQL, az alkalmazás, Caddy (HTTPS), lásd az Üzemeltetés szakaszt |
 | `scripts/backup.sh` | Mentés az éles stackről |
 
 ## Indítás
 
 ```bash
-# 1) Adatbázis + backend (http://localhost:8080) + Mailpit levelezés-csapda (http://127.0.0.1:8025)
-#    A Flyway induláskor lefuttatja a migrációkat. A Mailpit elkapja a backend összes levelét
-#    (jelszó-visszaállítás, értesítések), valódi címzettnek semmi nem megy el.
-docker compose up -d --build
+# 1) MySQL (3308) + Mailpit levelezés-csapda (http://127.0.0.1:8025, SMTP: 127.0.0.1:1025).
+#    A Mailpit elkapja az alkalmazás összes levelét, valódi címzettnek semmi nem megy el.
+docker compose up -d
 
-# (csak az adatbázis: docker compose up -d mysql, majd cd backend && ./mvnw spring-boot:run)
-
-# 3) Dashboard (http://localhost:5173)
+# 2) Függőségek (a gyökérben a widgeté), majd az alkalmazás
 npm install
-npm run dev:dashboard
+cd web
+cp .env.example .env.local                # DATABASE_URL, SMTP_HOST=127.0.0.1 stb.
+npm install
+npm run db:migrate                        # az adatbázis-séma létrehozása
+npm run build:widget                      # a widget lefordítása és a /widget/tickoff-widget.js alá másolása (a gyökér npm install után)
+npm run dev                               # http://localhost:3000
 
-# 4) Widget demo oldal (http://localhost:5174/?token=PROJEKT_TOKEN)
-#    Single-page demo három "oldallal" (Főoldal, Étlap, Kapcsolat): az útvonalváltás kipróbálására.
+# 3) Widget demo oldal (http://localhost:5174/?token=PROJEKT_TOKEN), a gyökérből
 npm run dev:widget
 ```
 
+Ellenőrzés: `npm run typecheck` és `npm run build` a `web/` mappában. Séma-módosítás után: `npm run db:generate` (új migráció a `drizzle/` mappába), majd `npm run db:migrate`.
+
 A widget kipróbálásához a projekt oldalának címe a dashboardon `http://localhost:5174` legyen, mert a CORS és az origin-ellenőrzés ehhez köti a kéréseket.
+
 
 ## Widget beágyazása
 
@@ -135,13 +143,13 @@ A `data-api` elhagyható, ilyenkor a script saját origin-je az API címe. A wid
 - A képernyőkép a görgetést eltolással kezeli, ezért görgetett oldalon a `position: fixed` elemek (pl. rögzített fejléc) elcsúszhatnak a képen. A kép best effort: ha nem sikerül (idegen domainről érkező képek, 10 mp időtúllépés, a böngészőlap a háttérben van), a komment akkor is mentődik, és az ügyfél jelzést kap.
 - A widget mérete kb. 19,3 KB gzip.
 
-## Adatmodell (V1 migráció)
+## Adatmodell
 
-`users` → `projects` (share token) → `rounds` → `comments` (selector, pozíció, viewport, user agent, státusz, képernyőkép útvonal).
+`users` → `projects` (share token) → `rounds` → `comments` (selector, pozíció, viewport, user agent, státusz, képernyőkép útvonal) → `replies`, `attachments`; mellettük `project_members`, `project_invites`, `activity`, `api_keys` és a jelszó-visszaállító / megerősítő tokenek. A séma a [web/src/db/schema.ts](web/src/db/schema.ts) fájlban van, a migrációk a `web/drizzle/` mappában.
 
 ## Auth
 
-JWT (HS256, Spring Security OAuth2 resource server), állapotmentes. A designerek e-mail + jelszóval regisztrálnak és lépnek be, az ügyfelek nem (nekik a projekt share tokenje elég).
+JWT (HS256), állapotmentes. A designerek e-mail + jelszóval regisztrálnak és lépnek be, az ügyfelek nem (nekik a projekt share tokenje elég).
 
 | Végpont | Leírás |
 |---|---|
@@ -157,11 +165,11 @@ JWT (HS256, Spring Security OAuth2 resource server), állapotmentes. A designere
 | `POST /api/auth/reset-password` | `{token, password (8–72)}` → `204`; `400`, ha a token ismeretlen, lejárt vagy már használt |
 | `DELETE /api/me` | `{password}` → `204`: a fiók **és a saját projektjei** (körökkel, kommentekkel, képernyőképekkel) véglegesen törlődnek. Hibás jelszóra `403` (nem 401, hogy a kliens ne tekintse lejárt munkamenetnek) |
 
-A jelszavak bcrypt hash-ként tárolódnak. Konfiguráció: `TICKOFF_JWT_SECRET` (legalább 32 bájt, **élesben kötelező felülírni**), `TICKOFF_JWT_TTL` (alapérték: `12h`).
+A jelszavak bcrypt hash-ként tárolódnak. Konfiguráció: `TICKOFF_JWT_SECRET` (legalább 32 karakter, **élesben kötelező felülírni**), `TICKOFF_JWT_TTL` (alapérték: `12h`).
 
 ## Projektek
 
-Minden `/api/projects` végpont tokent kér. Egy projekthez két szerepkör tartozik (a hozzáférést egyetlen helyen, a `ProjectAccess` szolgáltatás ellenőrzi):
+Minden `/api/projects` végpont tokent kér. Egy projekthez két szerepkör tartozik (a hozzáférést egyetlen helyen, a `src/lib/access.ts` ellenőrzi):
 
 | | **Tulajdonos** | **Meghívott tag** |
 |---|---|---|
@@ -280,16 +288,16 @@ A képernyőképek a `TICKOFF_STORAGE_DIR` könyvtárban vannak (Dockerben a `sc
 
 ## E-mail
 
-A backend két célra küld levelet: **jelszó-visszaállítás** és **értesítés** az ügyfelektől érkező új kommentről és válaszról (a csapat minden olyan tagjának, aki nem kapcsolta ki). A levelek egyszerű szöveges üzenetek.
+Az alkalmazás két célra küld levelet: **jelszó-visszaállítás** és **értesítés** az ügyfelektől érkező új kommentről és válaszról (a csapat minden olyan tagjának, aki nem kapcsolta ki). A levelek egyszerű szöveges üzenetek.
 
-**Beállítás** (környezeti változók, éles üzemben a `.env`-ben): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_AUTH`, `SMTP_STARTTLS`, `TICKOFF_MAIL_FROM`. **`SMTP_HOST` nélkül a levelek nem mennek el** (induláskor figyelmeztetés van a naplóban): az elfelejtett jelszó nem állítható vissza, és nincs értesítés. Fejlesztéskor a `docker compose` Mailpit-et indít, amely minden levelet elkap, és a http://127.0.0.1:8025 címen mutatja.
+**Beállítás** (környezeti változók, éles üzemben a `.env`-ben): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_STARTTLS`, `TICKOFF_MAIL_FROM`. **`SMTP_HOST` nélkül a levelek nem mennek el** (induláskor figyelmeztetés van a naplóban): az elfelejtett jelszó nem állítható vissza, és nincs értesítés. Fejlesztéskor a `docker compose` Mailpit-et indít, amely minden levelet elkap, és a http://127.0.0.1:8025 címen mutatja.
 
 **Jelszó-visszaállítás:**
 
 - A link tokenje véletlen (256 bit), az adatbázisban **csak az SHA-256 hash-e** van, egy óráig érvényes, és egyszer használható. Újabb kérés érvényteleníti a korábbi linkeket.
 - A kérés válasza mindig ugyanaz (`204`): nem derül ki, hogy létezik-e a fiók. Fiókonként óránként legfeljebb 3 levél megy (levélbombázás ellen), IP-nként 5 kérés/perc.
 - A dashboard a tokent azonnal eltávolítja a címsorból (előzmények, Referer, megosztott képernyő ellen).
-- Sikeres visszaállítás után a fiók **minden korábbi bejelentkezése érvénytelen** (a `PasswordChangedValidator` minden kérésnél ellenőrzi, hogy a token a jelszócsere előtt készült-e). Ez a törölt felhasználók tokenjeire is igaz.
+- Sikeres visszaállítás után a fiók **minden korábbi bejelentkezése érvénytelen** (minden kérésnél ellenőrzi az alkalmazás, hogy a token a jelszócsere előtt készült-e). Ez a törölt felhasználók tokenjeire is igaz.
 
 **Értesítések:** a levél a komment mentésének sikeres lezárása után megy el, külön szálon (a widget kérése nem vár az SMTP-szerverre, és annak hibája nem bukatja el), a sor korlátos. Címzettenként legfeljebb 10 levél egyszerre, utána percenként 1, így egy támadó sem tudja a csapat postafiókját és az SMTP-hírnevet elárasztani. A tárgy sortörés-mentesített (a projektnév nem injektálhat levélfejlécet).
 
@@ -307,7 +315,7 @@ Regisztrációkor a fiók megerősítetlen, és levelet kap egy egyszer használ
 
 ## Kérésszám-korlát
 
-A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás) a backend memóriabeli **token bucket** korlátozót használ (`io.tickoff.ratelimit`). Túllépéskor `429 Too Many Requests` jön `Retry-After` fejléccel (másodpercben, mikor lesz újra token).
+A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás) az alkalmazás memóriabeli **token bucket** korlátozót használ (`src/lib/rate-limit.ts`). Túllépéskor `429 Too Many Requests` jön `Retry-After` fejléccel (másodpercben, mikor lesz újra token).
 
 | Mire | Kulcs | Kapacitás / feltöltés |
 |---|---|---|
@@ -323,53 +331,20 @@ A visszaélések ellen (komment-spam, jelszó-találgatás, preflight-árasztás
 | `DELETE /api/me` (fiók törlése, jelszót kér) | IP | 5 / 5 percenként |
 | `POST /api/projects/{id}/members` (tag meghívása) | IP | 20 / 20 percenként |
 
-Két szűrő fut: a durva IP-korlát a CORS előtt (minden widget-kérés, a preflight is, adatbázis-lekérdezéssel jár a CORS-beállításhoz, ezt védi), a pontos korlátok a CORS után (így a 429-es válaszban már ott van az `Access-Control-Allow-Origin`, és a widget el tudja olvasni, majd barátságos üzenetet mutat). A durva korlát 429-es válasza CORS-fejléc nélkül megy, ez csak támadásszerű forgalomnál fordul elő.
-
-A kulcsok száma korlátos (LRU, 50 000), így véletlen tokenekkel sem lehet elfogyasztani a memóriát. Az IP-korlátokat vizsgáljuk előbb, mint a token-korlátokat. Kikapcsolás: `TICKOFF_RATE_LIMIT_ENABLED=false`.
+A korlát memóriában él, a kulcsok száma korlátos. Kikapcsolás: `TICKOFF_RATE_LIMIT_ENABLED=false`. A widget a `429`-es válaszra barátságos üzenetet mutat.
 
 **Üzemeltetési tudnivalók:**
 
-- **Proxy mögött** a korlát az alkalmazás által látott távoli címre épül. Ha a szerver egy reverse proxy mögött fut, minden kliens ugyanazzal az IP-vel látszik, és közös vödörbe kerül. A `prod` profil ezt kezeli: `server.forward-headers-strategy=native`, így a backend a **belső hálózati** (privát címtartományú) proxy `X-Forwarded-For` fejlécéből olvassa a kliens-IP-t, bármi mástól érkezőt figyelmen kívül hagy. A mellékelt Caddy a kapott kérések fejlécét felülírja, tehát a kliens által hamisított `X-Forwarded-For` hatástalan. Ha saját proxyt használsz, ami nem privát címtartományban van, add meg a címét: `server.tomcat.remoteip.internal-proxies`.
+- **Proxy mögött** a kliens IP-je az `X-Forwarded-For` fejlécből jön (`src/lib/http.ts`). A mellékelt Caddy a kapott kérések fejlécét felülírja, tehát a kliens által hamisított érték hatástalan; az alkalmazás portja nincs kiadva, így a proxyt nem lehet megkerülni. Saját proxynál ugyanezt biztosítsd.
 - **Egy példányra** működik. Több példányos telepítésnél minden példánynak saját vödrei vannak, ezért a hatékony korlát a példányszám-szorosa; pontos korláthoz közös tároló (pl. Redis) kell.
-- Az egységtesztek (`RateLimiterTest`, `RateLimitFilterTest`) adatbázis nélkül futnak: `./mvnw test -Dtest='RateLimiterTest,RateLimitFilterTest'` (ezen a gépen Dockerben, lásd az Ismert problémát).
 
-## A Next.js változat (`web/`)
-
-A Tickoff új, egységes változata: **egyetlen Next.js alkalmazás** (felület, API és a widget kiszolgálása), **MySQL**-lel (Drizzle ORM), Node szerverként futtatva Dockerben. A Java backend és a Vite-s dashboard (lásd fent) a régi változat; az új változat ugyanazt az API-szerződést követi, minden funkciója megvan, és az adataik átvihetők (lásd az átállási szakaszt).
-
-| Mappa / fájl | Tartalom |
-|---|---|
-| `web/src/app/api/` | Az API végpontjai (route handlerek): auth, fiók, projektek, tagok, körök, kommentek, widget API, nyilvános `/api/v1` |
-| `web/src/lib/` | Az üzleti logika: hozzáférés, JWT, jelszavak, TOTP, e-mail, webhook (SSRF-védelemmel), összefoglaló, riport, CSV, kérésszám-korlát |
-| `web/src/db/` | Drizzle séma ([schema.ts](web/src/db/schema.ts)), kapcsolat, migrációk futtatója; a migrációk a `web/drizzle/` mappában |
-| `web/src/ui/` | A felület (landing, belépés, dashboard) React + Mantine, kliens oldalon renderelve |
-| `web/src/proxy.ts` | Szigorú, kérésenként nonce-os Content-Security-Policy (production) |
-| `web/src/instrumentation.ts` | Induláskor elindítja az ütemezőt (összefoglaló e-mailek reggel 8-kor) |
-| `web/Dockerfile`, `docker-compose.next.yml`, `deploy/Caddyfile.next`, `.env.next.example` | Production stack: MySQL, az alkalmazás, Caddy (automatikus HTTPS) |
-| `web/scripts/import-from-java.ts` | Egyszeri adatátvitel a régi (Java) változat adatbázisából |
-
-### Fejlesztés
-
-```bash
-docker compose up -d mysql-web mailpit    # MySQL (3308) és a levelezés-csapda (http://127.0.0.1:8025, SMTP: 127.0.0.1:1025)
-cd web
-cp .env.example .env.local                # DATABASE_URL, SMTP_HOST=127.0.0.1 stb.
-npm install
-npm run db:migrate                        # az adatbázis-séma létrehozása
-npm run build:widget                      # a widget lefordítása és a /widget/tickoff-widget.js alá másolása
-npm run dev                               # http://localhost:3000
-```
-
-Ellenőrzés: `npm run typecheck`, `npm run build`. Séma-módosítás után: `npm run db:generate` (új migráció a `drizzle/` mappába), majd `npm run db:migrate`.
-
-A widget kipróbálásához a projekt oldalának címe az legyen, ahol a widgetet kipróbálod (pl. egy `web/public/` alatti tesztoldal: `http://localhost:3000`), mert a CORS és az origin-ellenőrzés ehhez köti a kéréseket.
-
-### Beállítások (környezeti változók)
+## Beállítások (környezeti változók)
 
 | Változó | Jelentés |
 |---|---|
 | `DATABASE_URL` | MySQL kapcsolat (`mysql://user:jelszó@host:3306/tickoff`) |
 | `TICKOFF_JWT_SECRET` | A tokenek aláírása, legalább 32 karakter; production módban a fejlesztői alapérték nem használható |
+| `TICKOFF_JWT_TTL` | A bejelentkezés érvényessége (alapból `12h`) |
 | `DASHBOARD_ORIGIN` | A nyilvános cím (a levelekben szereplő linkekhez) |
 | `TICKOFF_STORAGE_DIR` | A képernyőképek és mellékletek helye (Dockerben kötet) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_STARTTLS`, `TICKOFF_MAIL_FROM` | E-mail; `SMTP_HOST` nélkül nem megy levél |
@@ -378,43 +353,24 @@ A widget kipróbálásához a projekt oldalának címe az legyen, ahol a widgete
 | `TICKOFF_RATE_LIMIT_ENABLED` | A kérésszám-korlát (alapból be van kapcsolva) |
 | `TICKOFF_WEBHOOK_ALLOW_PRIVATE` | **Csak fejlesztéshez**: helyi (privát) webhook-címek engedélyezése; élesben ne állítsd be |
 
-### Production
+## Adatátvétel a régi (Java) változatból
+
+A Tickoff korábban Spring Boot + Vite alapú volt; ennek utolsó állapota a `java-legacy` git címkén érhető el. A mostani alkalmazás ugyanazt az API-szerződést követi, és a régi adatbázis átvihető: a jelszó-hash-ek, a kétlépcsős belépés adatai és a tokenek formátuma azonos, így a felhasználók a jelszavukkal lépnek be, a beágyazott widgetek pedig módosítás nélkül működnek tovább (ha a `TICKOFF_JWT_SECRET` is ugyanaz, a bejelentkezett munkamenetek is megmaradnak).
+
+1. Töltsd be a régi adatbázis dumpját egy ideiglenes adatbázisba az új MySQL-ben (pl. `tickoff_java`).
+2. Indítsd az alkalmazást egyszer, hogy a migrációk létrehozzák a sémát (az adatbázis üres marad).
+3. Futtasd az importot (a cél üres kell legyen, különben megáll; a forrás nem módosul):
 
 ```bash
-cp .env.next.example .env.next            # töltsd ki (domain, jelszavak, JWT-titok, SMTP)
-docker compose -f docker-compose.next.yml --env-file .env.next up -d --build
+docker compose -f docker-compose.prod.yml run --rm -e SOURCE_DATABASE_URL="mysql://root:ROOT_JELSZÓ@mysql:3306/tickoff_java" app node import.cjs
 ```
 
-Az alkalmazás indításkor lefuttatja a függő adatbázis-migrációkat, aztán elindul. Az adatbázis és az alkalmazás nem ad ki portot, kívülről csak a Caddy éri el (HTTPS, tanúsítvány a Let's Encrypttől). A CSP-t az alkalmazás állítja be nonce-szal. Mentés: `scripts/backup-next.sh` (adatbázis-dump + képek, ugyanúgy időzíthető, mint a régi).
-
-**Amit tudni kell:** a kérésszám-korlát és az ütemező folyamaton belüli, ezért az alkalmazásból egyetlen példány fusson (több példányhoz közös tároló és külső ütemező kellene). A felület kliens oldalon renderelődik, így a landing keresőoptimalizálása korlátozott.
-
-### Átállás a Java változatról
-
-Az átállás előtt a régi stack érintetlen marad, így bármikor vissza lehet térni rá. Az új stack a régivel egy gépen is futhat (más projektnévvel), de a 80/443-as portot egyszerre csak az egyik használhatja.
-
-1. **Mentés a régiről:** `scripts/backup.sh` (adatbázis-dump + képek). Ettől a ponttól ne legyen új írás a régi rendszerben (állítsd le a Java backendet, vagy időzítsd az átállást egy csendes időszakra).
-2. **Új stack induló állapota:** töltsd ki a `.env.next`-et; **a `TICKOFF_JWT_SECRET` legyen ugyanaz, mint a réginél**, akkor a bejelentkezett munkamenetek is megmaradnak (a jelszavak, a kétlépcsős belépés és minden token formátuma azonos). Indítsd az adatbázist és az alkalmazást (a migráció lefut, az adatbázis üres): `docker compose -f docker-compose.next.yml --env-file .env.next up -d mysql app`.
-3. **A régi adatbázis betöltése egy ideiglenes adatbázisba** az új MySQL-ben:
-   ```bash
-   docker compose -f docker-compose.next.yml --env-file .env.next exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "create database tickoff_java"'
-   gunzip -c backups/db-ÉÉÉÉHHNN-ÓÓPPMM.sql.gz | docker compose -f docker-compose.next.yml --env-file .env.next exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" tickoff_java'
-   ```
-4. **Az adatok átvitele** (a cél üres kell legyen, különben megáll; a forrás nem módosul):
-   ```bash
-   docker compose -f docker-compose.next.yml --env-file .env.next run --rm -e SOURCE_DATABASE_URL="mysql://root:ROOT_JELSZÓ@mysql:3306/tickoff_java" app node import.cjs
-   ```
-   A script táblánként kiírja a sorszámokat, és megáll, ha az átvitel után bármelyik nem egyezik.
-5. **A képek másolása** (ugyanaz a könyvtárszerkezet és ugyanaz a felhasználó, 10001):
-   ```bash
-   docker run --rm -v tickoff-prod_screenshots:/from:ro -v tickoff-next_screenshots:/to alpine sh -c 'cp -a /from/. /to/'
-   ```
-6. **Ellenőrzés, majd átállás:** próbálj belépni, nézd át a projekteket és a képeket, a widget egy próbaoldalon. Ha rendben van, állítsd le a régi stacket (`docker compose -f docker-compose.prod.yml down`, az adatok a köteteken megmaradnak), és indítsd a Caddyt az új stackben (`up -d`). A beágyazott widgeteket nem kell módosítani: a megosztó tokenek és a widget címe (`/widget/tickoff-widget.js`) változatlan.
-7. **Visszalépés:** ha gond van, állítsd le az újat, és indítsd a régit (`docker compose -f docker-compose.prod.yml up -d`). Az új stackben közben keletkezett adat nem kerül vissza a régibe.
+   A script táblánként kiírja a sorszámokat, és megáll, ha az átvitel után bármelyik nem egyezik. Fejlesztésben: `cd web && SOURCE_DATABASE_URL=… npx tsx scripts/import-from-java.ts`.
+4. A képernyőképek könyvtárát (`/data/screenshots`) ugyanazzal a szerkezettel és a 10001-es felhasználóval másold át az új kötetre.
 
 ## Üzemeltetés (production)
 
-A production stack három konténer: **MySQL** (csak belső hálózaton), **backend** (`prod` profil, nem root felhasználó, csak belső hálózaton) és **web** (Caddy: automatikus HTTPS, a lefordított dashboard és widget kiszolgálása, az `/api` proxyja). Kívülről egyedül a Caddy érhető el, a 80-as és 443-as porton.
+A production stack három konténer: **MySQL** (csak belső hálózaton), **app** (a Next.js alkalmazás: felület, API és a widget kiszolgálása; nem root felhasználó, csak belső hálózaton) és **caddy** (automatikus HTTPS, a kéréseket az alkalmazásnak adja tovább). Kívülről egyedül a Caddy érhető el, a 80-as és 443-as porton.
 
 ### Első indítás
 
@@ -426,12 +382,12 @@ cp .env.example .env
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-A kötelező változók hiányában a compose érthető hibával megáll (és a backend a `prod` profillal sem indul el titok nélkül, a fejlesztői JWT-titkot pedig kifejezetten elutasítja). Az első indításkor a tanúsítvány kérése pár másodpercet vesz igénybe; az állapot: `https://<domain>/actuator/health`.
+A kötelező változók hiányában a compose érthető hibával megáll, az alkalmazás pedig production módban a fejlesztői JWT-titkkal nem indul el. Indításkor az alkalmazás előbb lefuttatja a függő adatbázis-migrációkat, aztán elindul. Az első indításkor a tanúsítvány kérése pár másodpercet vesz igénybe; az állapot: `https://<domain>/api/health`.
 
 **SMTP-szerver nélkül a jelszó-visszaállítás és az értesítések nem működnek** (lásd az E-mail szakaszt): add meg az `SMTP_*` változókat a `.env`-ben, és a feladó domainjére állítsd be az SPF/DKIM rekordokat, különben a levelek spamként érkeznek.
 
 1. Nyisd meg a `https://<domain>` címet, és **regisztráld a saját fiókodat**.
-2. Állítsd a `.env`-ben `TICKOFF_REGISTRATION_ENABLED=false` értékre, és `docker compose -f docker-compose.prod.yml up -d` (újraindul a backend). Így idegenek nem tudnak fiókot létrehozni. Ha egy kolléga is kell, kapcsold vissza ideiglenesen.
+2. Állítsd a `.env`-ben `TICKOFF_REGISTRATION_ENABLED=false` értékre, és `docker compose -f docker-compose.prod.yml up -d` (újraindul az alkalmazás). Így idegenek nem tudnak fiókot létrehozni. Ha egy kolléga is kell, kapcsold vissza ideiglenesen.
 3. Hozz létre egy projektet, és ágyazd be a widgetet az ügyfél oldalába:
 
 ```html
@@ -447,7 +403,7 @@ git pull
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Az adatbázis-séma a backend indulásakor automatikusan frissül (Flyway). A dashboard `index.html`-je mindig frissen töltődik, a fájlnevekbe hash kerül, ezért egy új kiadás azonnal érvényesül a böngészőkben.
+Az adatbázis-séma az alkalmazás indulásakor automatikusan frissül (Drizzle-migrációk, `web/drizzle/`). A felület fájljainak nevébe hash kerül, ezért egy új kiadás azonnal érvényesül a böngészőkben.
 
 ### Mentés és visszaállítás
 
@@ -458,27 +414,26 @@ scripts/backup.sh /var/backups/tickoff     # adatbázis-dump + képernyőképek 
 A mentés ideiglenes fájlba készül, és csak ép állapotban kerül a helyére, hibánál nem marad töredék. **Másold a mentéseket a szerveren kívülre is**, és időnként próbáld ki a visszaállítást.
 
 ```bash
-# adatbázis (a dump DROP TABLE-lel kezdi a táblákat, tehát meglévő adatra is visszaállítható; előtte érdemes leállítani a backendet)
+# adatbázis (a dump DROP TABLE-lel kezdi a táblákat, tehát meglévő adatra is visszaállítható; előtte érdemes leállítani az alkalmazást)
 gunzip -c db-ÉÉÉÉHHNN-ÓÓPPMM.sql.gz | docker compose -f docker-compose.prod.yml exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot tickoff'
 # képernyőképek
-docker compose -f docker-compose.prod.yml exec -T backend sh -c 'tar -C /data -xzf -' < screenshots-ÉÉÉÉHHNN-ÓÓPPMM.tar.gz
+docker compose -f docker-compose.prod.yml exec -T app sh -c 'tar -C /data -xzf -' < screenshots-ÉÉÉÉHHNN-ÓÓPPMM.tar.gz
 ```
 
 ### Mi van beállítva
 
 - **HTTPS** automatikusan (Let's Encrypt), HSTS, `nosniff`, `Referrer-Policy`; a `Server` fejléc elrejtve. A tanúsítványok kötetben vannak, újraindításkor nem vesznek el.
-- **Dashboard**: szigorú Content-Security-Policy (`script-src 'self'`, nincs beágyazás: `frame-ancestors 'none'`), a hash-elt assetek `immutable` gyorsítótárral.
-- **Actuator**: kívülről csak a `/actuator/health` érhető el, a többi `404`; a backend sem teszi ki a többit.
+- **Content-Security-Policy**: az alkalmazás kérésenként új nonce-szal állítja be (`src/proxy.ts`), nincs beágyazás (`frame-ancestors 'none'`); a hash-elt statikus fájlok `immutable` gyorsítótárral mennek.
 - **Kérésméret**: az `/api` kérések legfeljebb 4 MB-osak (a képernyőkép 3 MB), a nagyobbat a Caddy `413`-mal elutasítja.
-- **Backend**: nem root felhasználóval fut, kíméletes leállítás (graceful shutdown: a folyamatban lévő kéréseket befejezi), a JVM a konténer memóriakorlátjához igazodik. A MySQL és a backend portja nincs kiadva.
+- **Alkalmazás**: nem root felhasználóval fut, az adatbázis és az alkalmazás portja nincs kiadva.
 - **Kérésszám-korlát** és a valódi kliens-IP kezelése proxy mögött: lásd a Kérésszám-korlát szakaszt.
 
 ### Amit érdemes tudni
 
 - A widget **az ügyfél saját oldalán fut**: ha annak szigorú Content-Security-Policy-ja van, engedélyeznie kell a `<domain>` script-forrást és `connect-src`-t.
-- Egy szerveren, egy példányban gondolkodik (a kérésszám-korlát memóriában él, a képernyőképek helyi köteten). Több példányhoz közös tároló (Redis, objektumtároló) kell.
+- Egy szerveren, egy példányban gondolkodik (a kérésszám-korlát és az ütemező folyamaton belüli, a képernyőképek helyi köteten vannak). Több példányhoz közös tároló és külső ütemező kell.
+- A felület kliens oldalon renderelődik, így a landing keresőoptimalizálása korlátozott.
 - A JWT-titok cseréje mindenkit kijelentkeztet. A `MYSQL_*` jelszavakat csak úgy lehet utólag cserélni, ha az adatbázisban is átírod őket (a változó csak az első létrehozáskor érvényesül).
-- Ha egy korábban rootként létrehozott `screenshots` kötetet használnál tovább, a tartalmát a nem root backendnek adni kell: `docker compose -f docker-compose.prod.yml run --rm --user root --entrypoint chown backend -R 10001:10001 /data`.
 
 ## CI (GitHub Actions)
 
@@ -486,19 +441,15 @@ A `.github/workflows/ci.yml` minden `main`-re érkező pushnál és minden pull 
 
 | Job | Mit csinál |
 |---|---|
-| **Backend** | MySQL 8.4 service mellett `./mvnw verify`: fordítás, a kérésszám-korlát egységtesztjei és a Spring-kontextus betöltése a valódi Flyway-migrációkkal. Hibánál feltölti a teszt-jelentéseket. |
-| **Frontend** | `npm ci`, majd `npm run build`: mindkét workspace típusellenőrzése (`tsc`) és `vite build` |
-| **Docker** | A backend és a web image építése (a `Dockerfile.web` a Caddyfile-t is érvényesíti), a dev és a prod compose-fájl ellenőrzése |
+| **Widget** | `npm ci`, majd `npm run build`: típusellenőrzés (`tsc`) és `vite build` |
+| **Alkalmazás** | `web/`: `npm ci`, `npm run typecheck`, `npm run build` |
+| **Docker** | Az alkalmazás image-ének építése (`web/Dockerfile`), a dev és a prod compose-fájl ellenőrzése |
 
-Titkot nem használ. Egy ágon egyszerre csak a legfrissebb futás számít (a régebbit megszakítja). Helyben ugyanez: `npm ci && npm run build`, a backendhez futó MySQL mellett `cd backend && DB_URL=jdbc:mysql://localhost:3307/tickoff ./mvnw verify`.
+Titkot nem használ. Egy ágon egyszerre csak a legfrissebb futás számít (a régebbit megszakítja).
 
 ## Következő lépések
 
 A "Még nincs meg" lista (a Funkciók szakasz végén) a hátralévő ötletek gyűjtője. Nagyobb, még nem megoldott tervek:
 
-- Éles levélküldés: a Brevo API-s küldő beépítése (az API-kulcs IP-engedélyezése még hiányzik a Brevo fiókban), lásd az E-mail szakaszt.
-- Több példányos üzemeltetés: közös kérésszám-korlát tároló (Redis) és objektumtároló a képernyőképeknek.
-
-## Ismert probléma
-
-A fejlesztői Windows gépen a Java NIO `Selector.open()` hibával elszáll (`Unable to establish loopback connection`, `UnixDomainSockets.connect0: Invalid argument`), ezért a beágyazott Tomcat helyben nem indul. JDK 21 és JDK 26 alatt is reprodukálható, a temp könyvtár átirányítása nem segít. Ezért a backend a `docker-compose.yml`-ben Linux-konténerként fut, ott nincs ilyen gond.
+- Éles levélküldés: a Brevo beállítása (SMTP-belépés, igazolt feladó), lásd az E-mail szakaszt.
+- Több példányos üzemeltetés: közös kérésszám-korlát tároló (Redis), külső ütemező és objektumtároló a képernyőképeknek.

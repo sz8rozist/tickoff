@@ -2,10 +2,6 @@
 node_modules/
 dist/
 
-# Java / Maven
-target/
-*.class
-
 # IDE
 .idea/
 .vscode/
@@ -19,4 +15,3 @@ target/
 # Helyi képernyőkép-tároló (fejlesztés)
 data/
 
-.env.next

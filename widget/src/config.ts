@@ -22,9 +22,9 @@ export function readConfig(): Config | null {
   let apiBase = script?.dataset.api ?? '';
 
   if (import.meta.env.DEV) {
-    // Fejlesztői demo oldal: ?token=… az URL-ben, az API alapból a helyi backend.
+    // Fejlesztői demo oldal: ?token=… az URL-ben, az API alapból a helyi alkalmazás (localhost:3000).
     token = token || new URLSearchParams(location.search).get('token') || '';
-    apiBase = apiBase || 'http://127.0.0.1:8080';
+    apiBase = apiBase || 'http://localhost:3000';
   }
 
   if (!apiBase && script?.src) {

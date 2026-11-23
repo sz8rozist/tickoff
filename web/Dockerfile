@@ -5,9 +5,8 @@
 FROM node:22-slim AS widget
 WORKDIR /app
 COPY package.json package-lock.json ./
-COPY dashboard/package.json dashboard/
 COPY widget/package.json widget/
-RUN npm ci --workspace=widget --include-workspace-root
+RUN npm ci
 COPY widget widget
 RUN npm run build -w widget
 

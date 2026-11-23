@@ -1,10 +1,12 @@
 {
   "name": "tickoff",
   "private": true,
-  "workspaces": ["dashboard", "widget"],
+  "workspaces": [
+    "widget"
+  ],
   "scripts": {
-    "dev:dashboard": "npm run dev -w dashboard",
     "dev:widget": "npm run dev -w widget",
-    "build": "npm run build -w dashboard && npm run build -w widget"
+    "build:widget": "npm run build -w widget",
+    "build": "npm run build -w widget"
   }
 }

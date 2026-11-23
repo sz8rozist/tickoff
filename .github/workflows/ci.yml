@@ -14,55 +14,8 @@ permissions:
   contents: read
 
 jobs:
-  backend:
-    name: Backend (build + tesztek)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: backend
-    # A generált Spring-kontextus teszt (contextLoads) valódi adatbázist és a Flyway-migrációkat kéri
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_DATABASE: tickoff
-          MYSQL_USER: tickoff
-          MYSQL_PASSWORD: tickoff
-          MYSQL_ROOT_PASSWORD: root
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
-    env:
-      DB_URL: jdbc:mysql://localhost:3306/tickoff
-      DB_USER: tickoff
-      DB_PASSWORD: tickoff
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: maven
-
-      - name: Build és tesztek
-        run: ./mvnw -B verify
-
-      - name: Teszt-jelentések feltöltése hiba esetén
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: surefire-reports
-          path: backend/target/surefire-reports
-          if-no-files-found: ignore
-
-  frontend:
-    name: Dashboard és widget (típusellenőrzés + build)
+  widget:
+    name: Widget (típusellenőrzés + build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -75,11 +28,11 @@ jobs:
 
       - run: npm ci
 
-      # Mindkét workspace: tsc --noEmit, majd vite build
+      # tsc --noEmit, majd vite build
       - run: npm run build
 
   web:
-    name: Next.js alkalmazás (típusellenőrzés + build)
+    name: Alkalmazás (típusellenőrzés + build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -102,20 +55,13 @@ jobs:
       - run: npm run build
 
   docker:
-    name: Docker image-ek és compose-fájlok
+    name: Docker image és compose-fájlok
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      - name: Backend image
-        run: docker build -t tickoff-backend backend
-
-      # A Dockerfile.web a Caddyfile-t is érvényesíti építéskor
-      - name: Web image (dashboard + widget + Caddy)
-        run: docker build -f Dockerfile.web -t tickoff-web .
-
-      - name: Next.js alkalmazás image (felület + API + widget)
+      - name: Alkalmazás image (felület + API + widget)
         run: docker build -f web/Dockerfile -t tickoff-app .
 
       - name: Compose-fájlok érvényesek
@@ -130,4 +76,3 @@ jobs:
         run: |
           docker compose -f docker-compose.yml config -q
           docker compose -f docker-compose.prod.yml config -q
-          docker compose -f docker-compose.next.yml config -q

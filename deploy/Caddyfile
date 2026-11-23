@@ -1,6 +1,7 @@
-# Production bejárat: automatikus HTTPS (Let's Encrypt), a dashboard és a widget statikus kiszolgálása,
-# az API reverse proxyja. A címet a TICKOFF_SITE_ADDRESS adja meg (pl. app.pelda.hu).
+# Production bejárat: automatikus HTTPS (Let's Encrypt) és reverse proxy az alkalmazás elé.
+# A címet a TICKOFF_SITE_ADDRESS adja meg (pl. app.pelda.hu).
 # Helyi próbához: TICKOFF_SITE_ADDRESS=http://localhost (ilyenkor nincs HTTPS és nincs tanúsítvány).
+# A Content-Security-Policy-t az alkalmazás (src/proxy.ts) állítja be kérésenként új nonce-szal, itt nem kell.
 
 {
 	# Nem tesszük ki a Caddy admin API-ját
@@ -19,49 +20,15 @@
 		-Server
 	}
 
-	# --- API ---
-	handle /api/* {
-		# A legnagyobb kérés a 3 MB-os képernyőkép
-		request_body {
-			max_size 4MB
-		}
-		reverse_proxy backend:8080
+	# A legnagyobb kérés a 3 MB-os kép
+	request_body {
+		max_size 4MB
 	}
 
-	# Csak az állapotjelző érhető el kívülről, a többi actuator végpont nem
-	handle /actuator/health {
-		reverse_proxy backend:8080
-	}
-	handle /actuator/* {
-		respond 404
-	}
-
-	# --- Widget: az ügyfelek oldalaira beágyazott script ---
-	handle /widget/* {
-		root * /srv
-		header Cache-Control "public, max-age=300"
-		# Más origin-ről betöltött <script> miatt
-		header Cross-Origin-Resource-Policy "cross-origin"
-		file_server
-	}
-
-	# --- Dashboard (SPA) ---
-	handle {
-		root * /srv/dashboard
-
-		header {
-			X-Frame-Options "DENY"
-			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-		}
-
-		# A fájlnevekbe hash kerül, ezért örökre gyorsítótárazhatók. Minden más (index.html) mindig frissen töltődik,
-		# így egy új kiadás azonnal érvényesül. (Külön matcher kell: egy közös header-blokk felülírná az assetekét.)
-		@assets path /assets/*
-		@notassets not path /assets/*
-		header @assets Cache-Control "public, max-age=31536000, immutable"
-		header @notassets Cache-Control "no-cache"
-
-		try_files {path} /index.html
-		file_server
+	# Az alkalmazás a valódi kliens-IP-t az X-Forwarded-For fejlécből veszi (kérésszám-korlát): ezt a Caddy tölti ki
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-For {remote_host}
+		health_uri /api/health
+		health_interval 15s
 	}
 }

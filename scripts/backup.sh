@@ -24,7 +24,7 @@ trap cleanup EXIT
   | gzip > "$DB_FILE.partial"
 
 # A parancs sh -c-ben van, hogy a /data útvonalat egy Windowsos shell se írja át
-"${COMPOSE[@]}" exec -T backend sh -c 'tar -C /data -czf - screenshots' > "$SHOTS_FILE.partial"
+"${COMPOSE[@]}" exec -T app sh -c 'tar -C /data -czf - screenshots' > "$SHOTS_FILE.partial"
 
 # Csak épnek bizonyult mentés kerül a végleges helyére
 gzip -t "$DB_FILE.partial"
