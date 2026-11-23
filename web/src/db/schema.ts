@@ -205,3 +205,20 @@ export const apiKeys = mysqlTable(
   },
   (t) => [index('idx_api_keys_user').on(t.userId)],
 );
+
+/** A webhook-kézbesítések naplója: eseményenként egy sor, a végeredménnyel (sikerült / nem) és a próbálkozások számával. */
+export const webhookDeliveries = mysqlTable(
+  'webhook_deliveries',
+  {
+    id: id(),
+    projectId: int('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    event: varchar('event', { length: 40 }).notNull(),
+    ok: boolean('ok').notNull(),
+    attempts: int('attempts').notNull(),
+    /** Az utolsó próbálkozás HTTP-státusza; 0, ha nem jött válasz. */
+    lastStatus: int('last_status').notNull(),
+    lastError: varchar('last_error', { length: 300 }),
+    createdAt: ts('created_at').notNull().$defaultFn(() => new Date()),
+  },
+  (t) => [index('idx_webhook_deliveries_project').on(t.projectId, t.id)],
+);

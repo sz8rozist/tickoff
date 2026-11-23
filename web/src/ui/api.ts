@@ -108,6 +108,16 @@ export interface ProjectStats {
   approved: boolean;
 }
 
+export interface WebhookDelivery {
+  id: number;
+  event: string;
+  ok: boolean;
+  attempts: number;
+  status: number;
+  error: string | null;
+  createdAt: string;
+}
+
 export interface WebhookTestResult {
   ok: boolean;
   status: number;
@@ -282,6 +292,7 @@ export const api = {
         body: JSON.stringify({ color, position, lang }),
       }),
     /** Teszt-üzenet a beállított webhookra; az eredményt azonnal visszaadja. */
+    webhookDeliveries: (id: number) => request<WebhookDelivery[]>(`/api/projects/${id}/webhook/deliveries`),
     testWebhook: (id: number) => request<WebhookTestResult>(`/api/projects/${id}/webhook/test`, { method: 'POST' }),
     /** Új megosztó token: a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak. */
     regenerateToken: (id: number) => request<Project>(`/api/projects/${id}/share-token`, { method: 'POST' }),

@@ -74,7 +74,7 @@
 
 - Éles levélküldés (Brevo): az SMTP-beállítás és a feladó igazolása még hátra van, addig a levelek csak a fejlesztői Mailpitbe mennek.
 - A csapat felülete (dashboard) és a csapatnak küldött értesítések csak magyarul érhetők el (az ügyfél felé a widget és a levelek magyarul és angolul is mennek).
-- A webhook-kézbesítésnek nincs újrapróbálkozása, és az ügyfél e-mail-címe nincs megerősítve (leiratkozó linkkel és korláttal védett).
+- Az ügyfél e-mail-címe nincs megerősítve (leiratkozó linkkel és korláttal védett).
 
 ## Felépítés
 
@@ -305,7 +305,7 @@ Az alkalmazás két célra küld levelet: **jelszó-visszaállítás** és **ér
 
 ## Webhook
 
-Események: `comment.created`, `reply.created` (ügyfél-válasz), `comment.reopened`, `round.approved`, `test`. A kérés `POST`, `Content-Type: application/json`, fejlécei: `X-Tickoff-Event`, `X-Tickoff-Signature` (`sha256=` + a nyers törzs HMAC-SHA256-ja a projekt titkával), `User-Agent: Tickoff-Webhook`. A küldés a mentés után, külön szálon történik, **újrapróbálkozás nincs** (legjobb szándékú értesítés), a hibákat csak naplózzuk (a címet nem: abban titok lehet).
+Események: `comment.created`, `reply.created` (ügyfél-válasz), `comment.reopened`, `round.approved`, `test`. A kérés `POST`, `Content-Type: application/json`, fejlécei: `X-Tickoff-Event`, `X-Tickoff-Signature` (`sha256=` + a nyers törzs HMAC-SHA256-ja a projekt titkával), `User-Agent: Tickoff-Webhook`. A küldés a mentés után, a háttérben történik. **Átmeneti hibánál** (nincs válasz, időtúllépés, `408`, `429`, `5xx`) a rendszer 10 mp, 1 perc és 5 perc múlva újrapróbálja (összesen 4 kísérlet); végleges hibánál (más `4xx`, érvénytelen cím) nem. A végeredmény a **kézbesítési naplóba** kerül (`webhook_deliveries`, 30 napig őrzi), a tulajdonos a webhook-ablakban látja a legutóbbi 20-at (`GET /api/projects/{id}/webhook/deliveries`). A várakozó újrapróbálkozások a folyamat memóriájában élnek, újraindításkor elvesznek (a naplóba ilyenkor nem kerül bejegyzés), ezért a webhook továbbra is legjobb szándékú értesítés. A címet nem naplózzuk: abban titok lehet. Fogadóként számíts arra, hogy ugyanaz az esemény többször is megérkezhet.
 
 **Biztonság (SSRF):** a szerver a felhasználó által megadott címre küld kérést, ezért a cím csak **nyilvános https-cím** lehet, nem tartalmazhat felhasználónevet, és a név minden feloldott címe nyilvános kell legyen (nem loopback, privát, link-local, CGNAT, többesküldéses, IPv6 egyedi helyi). Az ellenőrzés mentéskor és minden küldés előtt újra lefut, a küldő nem követ átirányítást, a kapcsolat és a válasz ideje korlátos, a válasz törzsét nem olvassuk. Fejlesztéshez a `TICKOFF_WEBHOOK_ALLOW_PRIVATE=true` engedélyezi a helyi http-címeket (a dev `docker-compose.yml`-ben be van kapcsolva, élesben nem szabad). Ismert korlát: a feloldás és a kapcsolódás között a DNS elméletileg megváltozhat (DNS-rebinding), ezt a küldés előtti újraellenőrzés csökkenti, de nem zárja ki teljesen; magasabb biztonsági igénynél kimenő proxy mögé érdemes tenni.
 

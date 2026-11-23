@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Code, CopyButton, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
-import { api, ApiError, type Project } from './api';
+import { Alert, Badge, Button, Code, CopyButton, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
+import { api, ApiError, type Project, type WebhookDelivery } from './api';
+
+const EVENT_LABEL: Record<string, string> = {
+  'comment.created': 'új visszajelzés',
+  'reply.created': 'ügyfél-válasz',
+  'comment.reopened': 'újranyitás',
+  'round.approved': 'kör jóváhagyása',
+};
 
 function saveError(e: unknown): string {
   if (e instanceof ApiError) {
@@ -30,6 +37,19 @@ export function WebhookModal({
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [deliveries, setDeliveries] = useState<WebhookDelivery[] | null>(null);
+
+  const loadDeliveries = (id: number) =>
+    api.projects
+      .webhookDeliveries(id)
+      .then(setDeliveries)
+      .catch(() => setDeliveries([]));
+
+  // A kézbesítési napló a megnyitáskor töltődik (csak beállított webhooknál)
+  useEffect(() => {
+    if (opened && project?.webhookUrl) void loadDeliveries(project.id);
+    else setDeliveries(null);
+  }, [opened, project?.id, project?.webhookUrl]);
 
   // Megnyitáskor a mentett címmel indulunk
   useEffect(() => {
@@ -63,6 +83,7 @@ export function WebhookModal({
     setResult(null);
     try {
       const r = await api.projects.testWebhook(project.id);
+      if (project.webhookUrl) void loadDeliveries(project.id);
       setResult(
         r.ok
           ? { ok: true, text: 'A teszt-üzenet megérkezett a fogadóhoz.' }
@@ -121,6 +142,39 @@ export function WebhookModal({
             </>
           )}
         </Group>
+
+        {configured && deliveries && (
+          <Stack gap={6}>
+            <Text size="sm" fw={600}>
+              Legutóbbi kézbesítések
+            </Text>
+            {deliveries.length === 0 ? (
+              <Text size="xs" c="dimmed">
+                Még nem volt kézbesítés. A sikertelen küldést a rendszer háromszor újrapróbálja (10 mp, 1 perc, 5 perc múlva).
+              </Text>
+            ) : (
+              <Stack gap={4}>
+                {deliveries.map((d) => (
+                  <Group key={d.id} gap="xs" wrap="nowrap" justify="space-between">
+                    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                      <Badge size="sm" variant="light" color={d.ok ? 'green' : 'red'}>
+                        {d.ok ? 'sikerült' : 'nem sikerült'}
+                      </Badge>
+                      <Text size="xs" truncate>
+                        {EVENT_LABEL[d.event] ?? d.event}
+                        {d.attempts > 1 ? ` · ${d.attempts}. próbálkozásra` : ''}
+                        {!d.ok && d.error ? ` · ${d.error}` : ''}
+                      </Text>
+                    </Group>
+                    <Text size="xs" c="dimmed" style={{ flex: 'none' }}>
+                      {new Date(d.createdAt).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' })}
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            )}
+          </Stack>
+        )}
 
         {configured && project.webhookSecret && (
           <Stack gap={4}>
