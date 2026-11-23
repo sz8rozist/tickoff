@@ -1,5 +1,6 @@
-import { rm } from 'node:fs/promises';
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { randomHex } from './crypto';
 import { storageDir } from './env';
 
 /**
@@ -36,4 +37,29 @@ export async function deleteStored(relative: string | null): Promise<void> {
   } catch (e) {
     console.warn('[storage] A fájl nem törölhető:', relative, String(e));
   }
+}
+
+async function writeAtomic(relative: string, data: Buffer): Promise<string> {
+  const target = resolveStored(relative);
+  await mkdir(path.dirname(target), { recursive: true });
+  // Előbb ideiglenes fájlba írunk, aztán átnevezzük: félbeszakadt írás nem hagy csonka képet
+  const tmp = `${target}.${randomHex(6)}.tmp`;
+  try {
+    await writeFile(tmp, data);
+    await rename(tmp, target);
+  } catch (e) {
+    await rm(tmp, { force: true });
+    throw e;
+  }
+  return relative;
+}
+
+/** A képernyőkép mentése; a tárolóhoz viszonyított útvonalat adja vissza (pl. `3/17.png`). */
+export function saveScreenshot(projectId: number, commentId: number, extension: string, data: Buffer): Promise<string> {
+  return writeAtomic(`${projectId}/${commentId}.${extension}`, data);
+}
+
+/** Melléklet mentése: véletlen fájlnév (a komment azonosítója + 128 bit), így több melléklet nem ütközik, és a név nem találgatható. */
+export function saveAttachment(projectId: number, commentId: number, extension: string, data: Buffer): Promise<string> {
+  return writeAtomic(`${projectId}/c${commentId}-${randomHex(16)}.${extension}`, data);
 }

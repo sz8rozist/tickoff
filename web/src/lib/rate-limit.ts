@@ -62,6 +62,13 @@ export const LIMITS = {
   invite: { name: 'invite-ip', burst: 20, perMinute: 20 },
   /** Címzettenként legfeljebb 10 levél egyszerre, utána percenként 1 (inbox- és SMTP-hírnév védelem). */
   notifyRecipient: { name: 'notify-recipient', burst: 10, perMinute: 1 },
+  // Widget: durva IP-korlát minden kérésre; írás (komment, kép, válasz stb.); olvasás (projekt, kommentek)
+  widgetCoarse: { name: 'widget-coarse-ip', burst: 200, perMinute: 300 },
+  widgetWriteIp: { name: 'widget-write-ip', burst: 20, perMinute: 20 },
+  widgetWriteToken: { name: 'widget-write-token', burst: 120, perMinute: 120 },
+  widgetReadIp: { name: 'widget-read-ip', burst: 60, perMinute: 120 },
+  widgetReadToken: { name: 'widget-read-token', burst: 120, perMinute: 600 },
+  unsubscribe: { name: 'unsubscribe-ip', burst: 10, perMinute: 10 },
   login2fa: { name: 'login-2fa-ip', burst: 10, perMinute: 10 },
 } satisfies Record<string, Limit>;
 

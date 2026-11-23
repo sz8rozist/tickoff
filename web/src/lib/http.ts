@@ -45,20 +45,25 @@ export function validate<T>(schema: ZodType<T>, data: unknown): T {
 
 type Handler<C> = (req: NextRequest, ctx: C) => Promise<Response>;
 
-/** Egységes hibakezelés: a HttpError a megfelelő státuszt kapja, minden más 500 (a részletek csak a naplóba kerülnek). */
+/** Egy kivétel HTTP-válasza: a HttpError a megfelelő státuszt kapja, minden más 500 (a részletek csak a naplóba kerülnek). */
+export function errorResponse(e: unknown): NextResponse {
+  if (e instanceof HttpError) {
+    return NextResponse.json({ error: e.message }, { status: e.status, headers: e.headers });
+  }
+  if (e instanceof ZodError) {
+    return NextResponse.json({ error: 'Érvénytelen kérés' }, { status: 400 });
+  }
+  console.error('[api] Váratlan hiba:', e);
+  return NextResponse.json({ error: 'Szerverhiba' }, { status: 500 });
+}
+
+/** Egységes hibakezelés minden végpontra. */
 export function api<C = unknown>(handler: Handler<C>): Handler<C> {
   return async (req, ctx) => {
     try {
       return await handler(req, ctx);
     } catch (e) {
-      if (e instanceof HttpError) {
-        return NextResponse.json({ error: e.message }, { status: e.status, headers: e.headers });
-      }
-      if (e instanceof ZodError) {
-        return NextResponse.json({ error: 'Érvénytelen kérés' }, { status: 400 });
-      }
-      console.error('[api] Váratlan hiba:', e);
-      return NextResponse.json({ error: 'Szerverhiba' }, { status: 500 });
+      return errorResponse(e);
     }
   };
 }
