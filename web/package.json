@@ -8,7 +8,8 @@
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "build:widget": "npm run build --prefix ../widget && node scripts/copy-widget.mjs"
   },
   "dependencies": {
     "@mantine/core": "^9.8.2",
