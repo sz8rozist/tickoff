@@ -80,6 +80,9 @@ export interface Project {
   webhookSecret: string | null;
   /** A nyitott kör összesítője (roundNumber null, ha nincs nyitott kör). */
   stats: ProjectStats;
+  /** A widget megjelenése: márkaszín (#rrggbb vagy null) és a gombok oldala. */
+  widgetColor: string | null;
+  widgetPosition: 'RIGHT' | 'LEFT';
 }
 
 export interface ProjectStats {
@@ -210,6 +213,12 @@ export const api = {
     /** Webhook beállítása; `null` kikapcsolja. Érvénytelen (pl. belső hálózati) címre 400. */
     setWebhook: (id: number, url: string | null) =>
       request<Project>(`/api/projects/${id}/webhook`, { method: 'PUT', body: JSON.stringify({ url }) }),
+    /** A widget márkaszíne és oldala (csak a tulajdonos); túl világos színre 400. */
+    setWidgetAppearance: (id: number, color: string | null, position: 'RIGHT' | 'LEFT') =>
+      request<Project>(`/api/projects/${id}/widget-appearance`, {
+        method: 'PUT',
+        body: JSON.stringify({ color, position }),
+      }),
     /** Teszt-üzenet a beállított webhookra; az eredményt azonnal visszaadja. */
     testWebhook: (id: number) => request<WebhookTestResult>(`/api/projects/${id}/webhook/test`, { method: 'POST' }),
     /** Új megosztó token: a régi azonnal érvénytelen, a vele beágyazott widgetek leállnak. */

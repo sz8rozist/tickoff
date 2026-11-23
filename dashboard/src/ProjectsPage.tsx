@@ -25,6 +25,7 @@ import { saveBlob } from './download';
 import { MembersPanel } from './MembersPanel';
 import { RoundsPanel } from './RoundsPanel';
 import { WebhookModal } from './WebhookModal';
+import { WidgetAppearanceModal } from './WidgetAppearanceModal';
 
 function describe(e: unknown): string {
   if (e instanceof ApiError) {
@@ -217,6 +218,8 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
   // A webhook-ablak a bezáródó animáció alatt is a projektet mutatja
   const [webhookFor, setWebhookFor] = useState<Project | null>(null);
   const [webhookOpen, setWebhookOpen] = useState(false);
+  const [appearanceFor, setAppearanceFor] = useState<Project | null>(null);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
 
   useEffect(() => {
     api.projects.list().then(setProjects).catch(() => setLoadError(true));
@@ -354,6 +357,14 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                       </Menu.Item>
                       <Menu.Item
                         onClick={() => {
+                          setAppearanceFor(p);
+                          setAppearanceOpen(true);
+                        }}
+                      >
+                        A widget megjelenése
+                      </Menu.Item>
+                      <Menu.Item
+                        onClick={() => {
                           setWebhookFor(p);
                           setWebhookOpen(true);
                         }}
@@ -440,6 +451,13 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
           )}
         </Card>
       ))}
+
+      <WidgetAppearanceModal
+        project={projects?.find((x) => x.id === appearanceFor?.id) ?? appearanceFor}
+        opened={appearanceOpen}
+        onClose={() => setAppearanceOpen(false)}
+        onChanged={(updated) => setProjects((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null)}
+      />
 
       <WebhookModal
         project={projects?.find((x) => x.id === webhookFor?.id) ?? webhookFor}

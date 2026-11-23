@@ -35,6 +35,14 @@ public class Project {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** A widget márkaszíne (#rrggbb), vagy null: az alapértelmezett. */
+    @Column(name = "widget_color", length = 7)
+    private String widgetColor;
+
+    /** A widget gombjainak oldala: RIGHT (alapértelmezett) vagy LEFT. */
+    @Column(name = "widget_position", nullable = false, length = 5)
+    private String widgetPosition = "RIGHT";
+
     /** Ide küldjük a projekt eseményeit (Slack, Discord, saját fogadó), vagy null. */
     @Column(name = "webhook_url", length = 500)
     private String webhookUrl;
@@ -74,6 +82,11 @@ public class Project {
         this.siteUrl = siteUrl;
     }
 
+    public void setWidgetAppearance(String color, String position) {
+        this.widgetColor = color;
+        this.widgetPosition = position;
+    }
+
     /** Webhook beállítása; üres cím kikapcsolja. A titok az első beállításkor jön létre, és megmarad. */
     public void setWebhook(String url) {
         if (url == null || url.isBlank()) {
@@ -101,6 +114,8 @@ public class Project {
     public String getSiteUrl() { return siteUrl; }
     public String getShareToken() { return shareToken; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getWidgetColor() { return widgetColor; }
+    public String getWidgetPosition() { return widgetPosition; }
     public String getWebhookUrl() { return webhookUrl; }
     public String getWebhookSecret() { return webhookSecret; }
 }

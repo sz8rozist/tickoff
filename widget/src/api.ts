@@ -6,6 +6,10 @@ export interface ProjectInfo {
   name: string;
   siteUrl: string;
   openRound: RoundInfo | null;
+  /** A projekt márkaszíne (#rrggbb), vagy null: az alapértelmezett. */
+  color: string | null;
+  /** A gombok oldala. */
+  position: 'RIGHT' | 'LEFT';
 }
 
 export interface RoundInfo {

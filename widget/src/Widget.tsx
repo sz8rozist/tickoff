@@ -10,7 +10,7 @@ import { deepLinkTo, pageUrl, readFocusId, stripFocusParam } from './page';
 import { Pins } from './Pins';
 import { captureViewport } from './screenshot';
 import { cssSelectorFor, resolve } from './selector';
-import { styles } from './styles';
+import { styles, themeCss } from './styles';
 import { useTick } from './useTick';
 
 type Mode = 'idle' | 'pick' | 'compose';
@@ -495,6 +495,7 @@ export function Widget({ config, host }: { config: Config; host: HTMLElement }) 
   return (
     <>
       <style>{styles}</style>
+      <style>{themeCss(project?.color ?? null, project?.position ?? null)}</style>
 
       {project && (
         <Pins

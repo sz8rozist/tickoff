@@ -65,7 +65,7 @@ public class WidgetController {
         }
     }
 
-    public record ProjectInfo(String name, String siteUrl, RoundInfo openRound) {
+    public record ProjectInfo(String name, String siteUrl, RoundInfo openRound, String color, String position) {
     }
 
     public record CommentRequest(
@@ -150,7 +150,8 @@ public class WidgetController {
     public ProjectInfo project(@PathVariable String token, HttpServletRequest request) {
         Project project = authorize(token, request);
         RoundInfo open = openRound(project).map(RoundInfo::of).orElse(null);
-        return new ProjectInfo(project.getName(), project.getSiteUrl(), open);
+        return new ProjectInfo(project.getName(), project.getSiteUrl(), open, project.getWidgetColor(),
+            project.getWidgetPosition());
     }
 
     /** A nyitott kör kommentjei (opcionálisan egy oldalra szűrve), hogy a widget ki tudja rajzolni a jelöléseket. */

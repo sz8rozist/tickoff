@@ -51,6 +51,12 @@ public class ProjectController {
     public record WebhookRequest(@Size(max = 500) String url) {
     }
 
+    /** A widget megjelenése: {@code color} #rrggbb (vagy null: alapértelmezett), {@code position} RIGHT vagy LEFT. */
+    public record WidgetAppearanceRequest(
+        @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "#rrggbb szín kell") String color,
+        @NotBlank @Pattern(regexp = "^(RIGHT|LEFT)$") String position) {
+    }
+
     /** A projekt nyitott körének összesítője: kommentek státuszonként és az ügyfél jóváhagyása. */
     public record ProjectStats(Integer roundNumber, long open, long inProgress, long done, boolean approved) {
         static final ProjectStats NONE = new ProjectStats(null, 0, 0, 0, false);
@@ -59,11 +65,12 @@ public class ProjectController {
     /** A webhook adatai (cím, titok) csak a tulajdonosnak látszanak: a cím gyakran titkot tartalmaz. */
     public record ProjectDto(Long id, String name, String siteUrl, String shareToken, Instant createdAt,
                              ProjectAccess.Role role, String ownerName, String webhookUrl, String webhookSecret,
-                             ProjectStats stats) {
+                             ProjectStats stats, String widgetColor, String widgetPosition) {
         static ProjectDto of(Project p, ProjectAccess.Role role, String ownerName, ProjectStats stats) {
             boolean owner = role == ProjectAccess.Role.OWNER;
             return new ProjectDto(p.getId(), p.getName(), p.getSiteUrl(), p.getShareToken(), p.getCreatedAt(),
-                role, ownerName, owner ? p.getWebhookUrl() : null, owner ? p.getWebhookSecret() : null, stats);
+                role, ownerName, owner ? p.getWebhookUrl() : null, owner ? p.getWebhookSecret() : null, stats,
+                p.getWidgetColor(), p.getWidgetPosition());
         }
     }
 
@@ -159,6 +166,34 @@ public class ProjectController {
         }
         project.setWebhook(url);
         return dto(project, userId(jwt));
+    }
+
+    /**
+     * A widget megjelenése (csak a tulajdonos): márkaszín és a gombok oldala. Túl világos színt elutasítunk (400), mert a
+     * gombokon fehér szöveg van, és olvashatatlan lenne.
+     */
+    @PutMapping("/{id}/widget-appearance")
+    @Transactional
+    public ProjectDto setWidgetAppearance(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                          @Valid @RequestBody WidgetAppearanceRequest req) {
+        Project project = access.owner(id, userId(jwt));
+        String color = req.color() == null ? null : req.color().toLowerCase();
+        if (color != null && !hasEnoughContrastWithWhite(color)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Túl világos szín: a gombokon fehér szöveg van");
+        }
+        project.setWidgetAppearance(color, req.position());
+        return dto(project, userId(jwt));
+    }
+
+    /** WCAG-kontraszt a fehér szöveggel: legalább 3:1 (nagy, félkövér szöveghez elég). */
+    static boolean hasEnoughContrastWithWhite(String hex) {
+        double[] c = new double[3];
+        for (int i = 0; i < 3; i++) {
+            double v = Integer.parseInt(hex.substring(1 + 2 * i, 3 + 2 * i), 16) / 255.0;
+            c[i] = v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        }
+        double luminance = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        return 1.05 / (luminance + 0.05) >= 3.0;
     }
 
     /** Teszt-üzenet a beállított webhookra (csak a tulajdonos); az eredményt azonnal visszaadja. */

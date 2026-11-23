@@ -1,6 +1,8 @@
 /** A widget stílusai: Shadow DOM-ban élnek, így az oldal CSS-e nem érinti őket, és ők sem az oldalt. */
 export const styles = `
   :host { all: initial; }
+  /* Márkaszínek: a projekt beállításából felülírhatók (lásd themeCss) */
+  :host { --b: #5b64e3; --b2: #4a52c9; --g1: #6b75e6; --g2: #8b5cf6; }
   * {
     box-sizing: border-box;
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -10,15 +12,15 @@ export const styles = `
   .fab, .dock, .banner, .panel, .toast, .pin, .pop, .hl { z-index: 2147483647; }
 
   /* Márkaszínek: egyeznek a dashboardéval */
-  .fab, .btn.primary { --brand: #5b64e3; --brand-dark: #4a52c9; }
+  .fab, .btn.primary { --brand: var(--b); --brand-dark: var(--b2); }
 
   .dock { position: fixed; right: 20px; bottom: 20px; display: flex; gap: 8px; align-items: center; }
   .fab {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 11px 18px 11px 14px; border: 0; border-radius: 999px;
-    background: linear-gradient(135deg, #6b75e6 0%, #8b5cf6 100%); color: #fff;
+    background: linear-gradient(135deg, var(--g1) 0%, var(--g2) 100%); color: #fff;
     font-size: 14px; font-weight: 600; cursor: pointer;
-    box-shadow: 0 6px 20px rgba(107,117,230,.45);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--b) 45%, transparent);
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .fab::before {
@@ -33,10 +35,10 @@ export const styles = `
   .fab.ghost:hover { box-shadow: 0 6px 20px rgba(31,33,64,.28); }
   .count {
     min-width: 20px; padding: 1px 6px; border-radius: 999px; text-align: center;
-    background: #eef0ff; color: #4a52c9; font-size: 12px; font-weight: 700;
+    background: color-mix(in srgb, var(--b) 12%, white); color: var(--b2); font-size: 12px; font-weight: 700;
   }
-  .fab:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(107,117,230,.55); }
-  .fab:focus-visible, .btn:focus-visible, .pin:focus-visible { outline: 3px solid rgba(91,100,227,.45); outline-offset: 2px; }
+  .fab:hover { transform: translateY(-1px); box-shadow: 0 8px 26px color-mix(in srgb, var(--b) 55%, transparent); }
+  .fab:focus-visible, .btn:focus-visible, .pin:focus-visible { outline: 3px solid color-mix(in srgb, var(--b) 45%, transparent); outline-offset: 2px; }
 
   .banner {
     position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
@@ -48,14 +50,14 @@ export const styles = `
 
   .hl {
     position: fixed; pointer-events: none;
-    border: 2px solid #5b64e3; background: rgba(91,100,227,.12); border-radius: 4px;
+    border: 2px solid var(--b); background: color-mix(in srgb, var(--b) 12%, transparent); border-radius: 4px;
   }
 
   /* A mélylinkkel megnyitott komment elemének kiemelése: pulzáló keret */
   .hl.spot { border-width: 3px; animation: tk-pulse 1.1s ease-in-out 3; }
   @keyframes tk-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(91, 100, 227, .55); }
-    50% { box-shadow: 0 0 0 12px rgba(91, 100, 227, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--b) 55%, transparent); }
+    50% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--b) 0%, transparent); }
   }
 
   .panel {
@@ -80,7 +82,7 @@ export const styles = `
   }
   .panel textarea { min-height: 88px; resize: vertical; }
   .panel input:focus, .panel textarea:focus {
-    outline: none; border-color: #5b64e3; box-shadow: 0 0 0 3px rgba(91,100,227,.2);
+    outline: none; border-color: var(--b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--b) 20%, transparent);
   }
   .panel .check { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; font-weight: 400; font-size: 13px; }
   .panel .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
@@ -92,8 +94,8 @@ export const styles = `
     transition: background .12s ease, border-color .12s ease;
   }
   .btn:hover { background: #f5f6fb; }
-  .btn.primary { background: #5b64e3; border-color: #5b64e3; color: #fff; }
-  .btn.primary:hover { background: #4a52c9; border-color: #4a52c9; }
+  .btn.primary { background: var(--b); border-color: var(--b); color: #fff; }
+  .btn.primary:hover { background: var(--b2); border-color: var(--b2); }
   .btn:disabled { opacity: .55; cursor: default; }
 
   .toast {
@@ -113,7 +115,7 @@ export const styles = `
   }
   .pin:hover { transform: scale(1.12); }
   .pin.OPEN { background: #f76707; }
-  .pin.IN_PROGRESS { background: #5b64e3; }
+  .pin.IN_PROGRESS { background: var(--b); }
   .pin.DONE { background: #12b886; }
   .pin.inert { pointer-events: none; }
 
@@ -135,7 +137,7 @@ export const styles = `
   .pop .reply + .reply { margin-top: 10px; }
   .pop .badge {
     margin-left: 6px; padding: 1px 8px; border-radius: 999px;
-    background: #eef0ff; color: #4a52c9; font-size: 11px; font-weight: 600;
+    background: color-mix(in srgb, var(--b) 12%, white); color: var(--b2); font-size: 11px; font-weight: 600;
   }
 
   .pop .btn.small { padding: 5px 12px; font-size: 12px; margin-top: 8px; border-radius: 8px; }
@@ -146,7 +148,7 @@ export const styles = `
   }
   .reply-form textarea { min-height: 64px; resize: vertical; }
   .reply-form input:focus, .reply-form textarea:focus {
-    outline: none; border-color: #5b64e3; box-shadow: 0 0 0 3px rgba(91,100,227,.2);
+    outline: none; border-color: var(--b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--b) 20%, transparent);
   }
   .reply-form .actions { margin-top: 2px; display: flex; gap: 6px; justify-content: flex-end; }
   .reply-form .actions .btn.small { margin-top: 0; }
@@ -162,12 +164,12 @@ export const styles = `
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: #f1f2fa; color: #3b3f66; font-size: 12px; font-weight: 600; }
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
   .dot.OPEN { background: #f76707; }
-  .dot.IN_PROGRESS { background: #5b64e3; }
+  .dot.IN_PROGRESS { background: var(--b); }
   .dot.DONE { background: #12b886; }
   .empty { margin: 0; padding: 8px 18px 18px; color: #6b7094; font-size: 13px; }
   .list-body { overflow-y: auto; padding: 0 10px 12px; border-top: 1px solid #eceef8; }
   .page-title { display: flex; align-items: center; gap: 8px; margin: 12px 8px 4px; }
-  .page-title .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 12px ui-monospace, Consolas, monospace; color: #4a52c9; }
+  .page-title .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 12px ui-monospace, Consolas, monospace; color: var(--b2); }
   .here { flex: none; padding: 1px 8px; border-radius: 999px; background: #e6fcf5; color: #0b7a5a; font-size: 11px; font-weight: 600; }
   .item {
     display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
@@ -198,7 +200,7 @@ export const styles = `
     border: 0; background: none; padding: 7px 10px; font-size: 13px; font-weight: 600; color: #6b7094;
     border-bottom: 2px solid transparent; cursor: pointer;
   }
-  .tabs button.on { color: #4a52c9; border-bottom-color: #5b64e3; }
+  .tabs button.on { color: var(--b2); border-bottom-color: var(--b); }
   .item .ok { font-weight: 600; color: #0b7a5a; }
   .item.static { cursor: default; align-items: flex-start; }
   .item.static .dot { margin-top: 5px; }
@@ -214,7 +216,7 @@ export const styles = `
   .approval input[type=text] {
     flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid #d5d8ec; border-radius: 8px; font-size: 13px;
   }
-  .approval input:focus { outline: none; border-color: #5b64e3; box-shadow: 0 0 0 3px rgba(91,100,227,.2); }
+  .approval input:focus { outline: none; border-color: var(--b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--b) 20%, transparent); }
   .approval .btn.small { white-space: nowrap; margin-top: 0; }
   .approval.done { color: #0b7a5a; font-weight: 600; background: #e6fcf5; border-radius: 0 0 16px 16px; }
   .approval.muted { color: #6b7094; font-size: 12px; }
@@ -229,7 +231,7 @@ export const styles = `
   .panel .files .fsize { color: #6b7094; }
 
   /* Kijelölt terület: szaggatott keret */
-  .hl.area { border-style: dashed; background: rgba(91,100,227,.10); }
+  .hl.area { border-style: dashed; background: color-mix(in srgb, var(--b) 10%, transparent); }
 
   /* Mobil és érintőképernyő */
   .dock { right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); }
@@ -255,3 +257,15 @@ export const styles = `
   .due { margin: 8px 18px 0; padding: 6px 10px; border-radius: 8px; background: #fff4e6; color: #a84300; font-size: 12px; font-weight: 600; }
   .due.late { background: #fdecee; color: #b3261e; }
 `;
+
+/** A projekt beállításai szerinti színek és elhelyezés; az alapstílus után kerül be, ezért felülírja azt. */
+export function themeCss(color: string | null, position: string | null): string {
+  let css = '';
+  if (color && /^#[0-9a-fA-F]{6}$/.test(color)) {
+    css += `:host { --b: ${color}; --b2: color-mix(in srgb, ${color}, black 18%); --g1: ${color}; --g2: color-mix(in srgb, ${color}, black 28%); }`;
+  }
+  if (position === 'LEFT') {
+    css += ` .dock { right: auto; left: max(20px, env(safe-area-inset-left)); } .panel { right: auto; left: 20px; } .toast { left: auto; right: 20px; } @media (max-width: 600px) { .panel { right: auto; left: 12px; } }`;
+  }
+  return css;
+}
