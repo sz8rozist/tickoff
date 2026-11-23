@@ -78,6 +78,16 @@ export interface Project {
   /** Csak a tulajdonosnak jön vissza (a cím gyakran titkot tartalmaz). */
   webhookUrl: string | null;
   webhookSecret: string | null;
+  /** A nyitott kör összesítője (roundNumber null, ha nincs nyitott kör). */
+  stats: ProjectStats;
+}
+
+export interface ProjectStats {
+  roundNumber: number | null;
+  open: number;
+  inProgress: number;
+  done: number;
+  approved: boolean;
 }
 
 export interface WebhookTestResult {
@@ -189,6 +199,7 @@ export const api = {
     request<void>('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
   projects: {
     list: () => request<Project[]>('/api/projects'),
+    get: (id: number) => request<Project>(`/api/projects/${id}`),
     create: (input: ProjectInput) =>
       request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
     update: (id: number, input: ProjectInput) =>

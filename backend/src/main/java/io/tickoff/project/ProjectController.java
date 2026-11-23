@@ -1,5 +1,7 @@
 package io.tickoff.project;
 
+import io.tickoff.domain.Comment;
+import io.tickoff.domain.CommentRepository;
 import io.tickoff.domain.Project;
 import io.tickoff.domain.ProjectRepository;
 import io.tickoff.domain.Round;
@@ -30,7 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -45,13 +51,19 @@ public class ProjectController {
     public record WebhookRequest(@Size(max = 500) String url) {
     }
 
+    /** A projekt nyitott körének összesítője: kommentek státuszonként és az ügyfél jóváhagyása. */
+    public record ProjectStats(Integer roundNumber, long open, long inProgress, long done, boolean approved) {
+        static final ProjectStats NONE = new ProjectStats(null, 0, 0, 0, false);
+    }
+
     /** A webhook adatai (cím, titok) csak a tulajdonosnak látszanak: a cím gyakran titkot tartalmaz. */
     public record ProjectDto(Long id, String name, String siteUrl, String shareToken, Instant createdAt,
-                             ProjectAccess.Role role, String ownerName, String webhookUrl, String webhookSecret) {
-        static ProjectDto of(Project p, ProjectAccess.Role role, String ownerName) {
+                             ProjectAccess.Role role, String ownerName, String webhookUrl, String webhookSecret,
+                             ProjectStats stats) {
+        static ProjectDto of(Project p, ProjectAccess.Role role, String ownerName, ProjectStats stats) {
             boolean owner = role == ProjectAccess.Role.OWNER;
             return new ProjectDto(p.getId(), p.getName(), p.getSiteUrl(), p.getShareToken(), p.getCreatedAt(),
-                role, ownerName, owner ? p.getWebhookUrl() : null, owner ? p.getWebhookSecret() : null);
+                role, ownerName, owner ? p.getWebhookUrl() : null, owner ? p.getWebhookSecret() : null, stats);
         }
     }
 
@@ -62,10 +74,11 @@ public class ProjectController {
     private final ScreenshotStorage storage;
     private final WebhookService webhooks;
     private final WebhookSender webhookSender;
+    private final CommentRepository comments;
 
     public ProjectController(ProjectRepository projects, RoundRepository rounds, UserRepository users,
                              ProjectAccess access, ScreenshotStorage storage, WebhookService webhooks,
-                             WebhookSender webhookSender) {
+                             WebhookSender webhookSender, CommentRepository comments) {
         this.projects = projects;
         this.rounds = rounds;
         this.users = users;
@@ -73,14 +86,19 @@ public class ProjectController {
         this.storage = storage;
         this.webhooks = webhooks;
         this.webhookSender = webhookSender;
+        this.comments = comments;
     }
 
     /** A felhasználó saját és a hozzá meghívott projektjei, újabb elöl. */
     @GetMapping
     public List<ProjectDto> list(@AuthenticationPrincipal Jwt jwt) {
         Long userId = userId(jwt);
-        return projects.findAccessible(userId).stream()
-            .map(p -> ProjectDto.of(p, access.roleOf(p, userId), p.getOwner().getName()))
+        List<Project> accessible = projects.findAccessible(userId);
+        // Az összesítők két lekérdezéssel, nem projektenként
+        Map<Long, ProjectStats> stats = statsFor(accessible.stream().map(Project::getId).toList());
+        return accessible.stream()
+            .map(p -> ProjectDto.of(p, access.roleOf(p, userId), p.getOwner().getName(),
+                stats.getOrDefault(p.getId(), ProjectStats.NONE)))
             .toList();
     }
 
@@ -166,7 +184,29 @@ public class ProjectController {
 
     private ProjectDto dto(Project project, Long userId) {
         String ownerName = users.findById(project.getOwnerId()).map(User::getName).orElse("");
-        return ProjectDto.of(project, access.roleOf(project, userId), ownerName);
+        ProjectStats stats = statsFor(List.of(project.getId())).getOrDefault(project.getId(), ProjectStats.NONE);
+        return ProjectDto.of(project, access.roleOf(project, userId), ownerName, stats);
+    }
+
+    /** A projektek nyitott körének összesítője (ahol nincs nyitott kör, nincs bejegyzés). */
+    private Map<Long, ProjectStats> statsFor(Collection<Long> projectIds) {
+        if (projectIds.isEmpty()) return Map.of();
+        Map<Long, Round> open = rounds.findByProjectIdInAndStatus(projectIds, Round.Status.OPEN).stream()
+            .collect(Collectors.toMap(r -> r.getProject().getId(), r -> r, (a, b) -> a));
+        Map<Long, Map<Comment.Status, Long>> counts = new HashMap<>();
+        for (CommentRepository.StatusCount c : comments.countOpenRoundByStatus(projectIds)) {
+            counts.computeIfAbsent(c.getProjectId(), k -> new HashMap<>()).put(c.getStatus(), c.getTotal());
+        }
+        Map<Long, ProjectStats> result = new HashMap<>();
+        open.forEach((projectId, round) -> {
+            Map<Comment.Status, Long> byStatus = counts.getOrDefault(projectId, Map.of());
+            result.put(projectId, new ProjectStats(round.getNumber(),
+                byStatus.getOrDefault(Comment.Status.OPEN, 0L),
+                byStatus.getOrDefault(Comment.Status.IN_PROGRESS, 0L),
+                byStatus.getOrDefault(Comment.Status.DONE, 0L),
+                round.getApprovedAt() != null));
+        });
+        return result;
     }
 
     private static Long userId(Jwt jwt) {

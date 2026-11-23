@@ -10,5 +10,7 @@ public interface RoundRepository extends JpaRepository<Round, Long> {
 
     Optional<Round> findTopByProjectIdOrderByNumberDesc(Long projectId);
 
+    List<Round> findByProjectIdInAndStatus(java.util.Collection<Long> projectIds, Round.Status status);
+
     Optional<Round> findByIdAndProjectId(Long id, Long projectId);
 }

@@ -106,6 +106,47 @@ function ProjectForm({
   );
 }
 
+/** A nyitott kör összesítője egy sorban: kommentek státuszonként és az ügyfél jóváhagyása. */
+function StatsRow({ stats }: { stats: Project['stats'] }) {
+  if (stats.roundNumber === null) {
+    return (
+      <Text size="xs" c="dimmed">
+        Nincs nyitott kör. Nyiss egyet, hogy az ügyfél visszajelzést küldhessen.
+      </Text>
+    );
+  }
+  const total = stats.open + stats.inProgress + stats.done;
+  return (
+    <Group gap="xs">
+      <Badge variant="outline" color="gray">
+        {stats.roundNumber}. kör
+      </Badge>
+      {total === 0 ? (
+        <Text size="xs" c="dimmed">
+          még nincs komment
+        </Text>
+      ) : (
+        <>
+          <Badge variant="light" color="orange">
+            {stats.open} nyitott
+          </Badge>
+          <Badge variant="light" color="brand">
+            {stats.inProgress} folyamatban
+          </Badge>
+          <Badge variant="light" color="teal">
+            {stats.done} kész
+          </Badge>
+        </>
+      )}
+      {stats.approved && (
+        <Badge color="teal" variant="filled">
+          ✓ az ügyfél jóváhagyta
+        </Badge>
+      )}
+    </Group>
+  );
+}
+
 function DotsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -113,6 +154,51 @@ function DotsIcon() {
       <circle cx="12" cy="12" r="2" />
       <circle cx="19" cy="12" r="2" />
     </svg>
+  );
+}
+
+/** Az összes projekt összesítője: mennyi dolog vár a csapatra. */
+function Overview({ projects }: { projects: Project[] }) {
+  const open = projects.reduce((n, p) => n + p.stats.open, 0);
+  const inProgress = projects.reduce((n, p) => n + p.stats.inProgress, 0);
+  const awaiting = projects.filter((p) => p.stats.approved).length;
+  const withOpen = projects.filter((p) => p.stats.open > 0).length;
+  return (
+    <SimpleGrid cols={{ base: 1, sm: 3 }}>
+      <Paper withBorder p="md" shadow="xs">
+        <Text size="xs" c="dimmed" fw={600}>
+          NYITOTT VISSZAJELZÉS
+        </Text>
+        <Text fz={28} fw={800} lh={1.2}>
+          {open}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {withOpen} projektben
+        </Text>
+      </Paper>
+      <Paper withBorder p="md" shadow="xs">
+        <Text size="xs" c="dimmed" fw={600}>
+          FOLYAMATBAN
+        </Text>
+        <Text fz={28} fw={800} lh={1.2}>
+          {inProgress}
+        </Text>
+        <Text size="xs" c="dimmed">
+          dolgozunk rajta
+        </Text>
+      </Paper>
+      <Paper withBorder p="md" shadow="xs">
+        <Text size="xs" c="dimmed" fw={600}>
+          JÓVÁHAGYOTT KÖR
+        </Text>
+        <Text fz={28} fw={800} lh={1.2}>
+          {awaiting}
+        </Text>
+        <Text size="xs" c="dimmed">
+          lezárásra vár
+        </Text>
+      </Paper>
+    </SimpleGrid>
   );
 }
 
@@ -215,6 +301,7 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
           A projektek betöltése nem sikerült.
         </Alert>
       )}
+      {projects && projects.length > 0 && <Overview projects={projects} />}
       {projects && projects.length === 0 && (
         <Paper withBorder p="xl" style={{ borderStyle: 'dashed' }}>
           <Text c="dimmed" ta="center">
@@ -298,6 +385,8 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                 )}
               </Group>
 
+              <StatsRow stats={p.stats} />
+
               <div className="token-bar">
                 <Text size="xs" c="dimmed" fw={600}>
                   Megosztó token
@@ -321,7 +410,16 @@ export function ProjectsPage({ currentUserId }: { currentUserId: number }) {
                   <Tabs.Tab value="members">Tagok</Tabs.Tab>
                 </Tabs.List>
                 <Tabs.Panel value="rounds" pt="sm">
-                  <RoundsPanel projectId={p.id} currentUserId={currentUserId} />
+                  <RoundsPanel
+                    projectId={p.id}
+                    currentUserId={currentUserId}
+                    onActivity={() =>
+                      void api.projects
+                        .get(p.id)
+                        .then((fresh) => setProjects((prev) => prev?.map((x) => (x.id === fresh.id ? { ...x, stats: fresh.stats } : x)) ?? null))
+                        .catch(() => undefined)
+                    }
+                  />
                 </Tabs.Panel>
                 <Tabs.Panel value="members" pt="sm">
                   <MembersPanel

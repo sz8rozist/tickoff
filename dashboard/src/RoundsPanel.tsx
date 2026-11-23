@@ -13,7 +13,16 @@ function describe(e: unknown): string {
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString('hu-HU');
 
-export function RoundsPanel({ projectId, currentUserId }: { projectId: number; currentUserId: number }) {
+export function RoundsPanel({
+  projectId,
+  currentUserId,
+  onActivity,
+}: {
+  projectId: number;
+  currentUserId: number;
+  /** A körök vagy kommentek állapota megváltozott: a projekt összesítőjét frissíteni kell. */
+  onActivity?: () => void;
+}) {
   const [rounds, setRounds] = useState<Round[] | null>(null);
   // A felelős-választóhoz: a csapat tagjai (egyszer töltjük le, minden kör kommentjei ezt használják)
   const [team, setTeam] = useState<Member[]>([]);
@@ -23,7 +32,11 @@ export function RoundsPanel({ projectId, currentUserId }: { projectId: number; c
   const [newRoundOpen, setNewRoundOpen] = useState(false);
   const [carryOver, setCarryOver] = useState(true);
 
-  const reload = () => api.rounds.list(projectId).then(setRounds);
+  const reload = () =>
+    api.rounds.list(projectId).then((list) => {
+      setRounds(list);
+      onActivity?.();
+    });
 
   useEffect(() => {
     api.members.list(projectId).then(setTeam).catch(() => undefined);
