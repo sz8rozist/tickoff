@@ -19,6 +19,7 @@ import { useDisclosure } from '@mantine/hooks';
 import type { User } from './api';
 import { useDashboard } from './DashboardContext';
 import { Wordmark } from './Logo';
+import { t } from './i18n';
 
 export const PATH_PROJECTS = '/';
 export const PATH_FEEDBACK = '/visszajelzesek';
@@ -81,11 +82,11 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   }
 }
 
-const NAV: { path: string; label: string; icon: IconName }[] = [
-  { path: PATH_PROJECTS, label: 'Projektek', icon: 'folder' },
-  { path: PATH_FEEDBACK, label: 'Visszajelzések', icon: 'inbox' },
-  { path: PATH_CUSTOMERS, label: 'Ügyfelek', icon: 'users' },
-  { path: PATH_SETTINGS, label: 'Beállítások', icon: 'settings' },
+const NAV = (): { path: string; label: string; icon: IconName }[] => [
+  { path: PATH_PROJECTS, label: t('Projektek'), icon: 'folder' },
+  { path: PATH_FEEDBACK, label: t('Visszajelzések'), icon: 'inbox' },
+  { path: PATH_CUSTOMERS, label: t('Ügyfelek'), icon: 'users' },
+  { path: PATH_SETTINGS, label: t('Beállítások'), icon: 'settings' },
 ];
 
 function initials(name: string): string {
@@ -99,11 +100,11 @@ function initials(name: string): string {
   );
 }
 
-const SEARCH_PLACEHOLDER: Record<string, string> = {
-  [PATH_PROJECTS]: 'Keresés a projektek között…',
-  [PATH_FEEDBACK]: 'Keresés a visszajelzésekben…',
-  [PATH_CUSTOMERS]: 'Keresés az ügyfelek között…',
-};
+const SEARCH_PLACEHOLDER = (): Record<string, string> => ({
+  [PATH_PROJECTS]: t('Keresés a projektek között…'),
+  [PATH_FEEDBACK]: t('Keresés a visszajelzésekben…'),
+  [PATH_CUSTOMERS]: t('Keresés az ügyfelek között…'),
+});
 
 /** A dashboard váza: bal oldali navigáció, felső sáv (projektválasztó, keresés, téma, profil) és a tartalom. */
 export function Shell({
@@ -124,7 +125,7 @@ export function Shell({
   const { setColorScheme } = useMantineColorScheme();
   const computed = useComputedColorScheme('light');
   const active = (projects ?? []).filter((p) => p.archivedAt === null);
-  const searchable = path in SEARCH_PLACEHOLDER;
+  const searchable = path in SEARCH_PLACEHOLDER();
 
   return (
     <AppShell
@@ -135,29 +136,29 @@ export function Shell({
     >
       <AppShell.Header className="shell-header">
         <Group h="100%" px="md" gap="sm" wrap="nowrap">
-          <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" aria-label="Menü" />
+          <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" aria-label={t('Menü')} />
           <Box visibleFrom="md" w={200} style={{ flex: 'none' }}>
-            <UnstyledButton onClick={() => navigate(PATH_PROJECTS)} aria-label="Tickoff">
+            <UnstyledButton onClick={() => navigate(PATH_PROJECTS)} aria-label={t('Tickoff')}>
               <Wordmark size={30} />
             </UnstyledButton>
           </Box>
           <Select
-            aria-label="Projekt választása"
-            placeholder={projects === null ? 'Betöltés…' : 'Nincs projekt'}
+            aria-label={t('Projekt választása')}
+            placeholder={projects === null ? t('Betöltés…') : t('Nincs projekt')}
             data={active.map((p) => ({ value: String(p.id), label: p.name }))}
             value={selected ? String(selected.id) : null}
             onChange={(v) => v && select(Number(v))}
             allowDeselect={false}
             searchable
-            nothingFoundMessage="Nincs ilyen projekt"
+            nothingFoundMessage={t('Nincs ilyen projekt')}
             disabled={active.length === 0}
             w={{ base: 140, sm: 220 }}
             style={{ flex: 'none' }}
           />
           {searchable && (
             <TextInput
-              aria-label="Keresés"
-              placeholder={SEARCH_PLACEHOLDER[path]}
+              aria-label={t('Keresés')}
+              placeholder={SEARCH_PLACEHOLDER()[path]}
               leftSection={<Icon name="search" size={16} />}
               value={query}
               onChange={(e) => setQuery(e.currentTarget.value)}
@@ -170,14 +171,14 @@ export function Shell({
               variant="subtle"
               color="gray"
               size="lg"
-              aria-label={computed === 'dark' ? 'Világos téma' : 'Sötét téma'}
+              aria-label={computed === 'dark' ? t('Világos téma') : t('Sötét téma')}
               onClick={() => setColorScheme(computed === 'dark' ? 'light' : 'dark')}
             >
               <Icon name={computed === 'dark' ? 'sun' : 'moon'} />
             </ActionIcon>
             <Menu position="bottom-end" width={240} withinPortal>
               <Menu.Target>
-                <UnstyledButton aria-label="Fiók menü">
+                <UnstyledButton aria-label={t('Fiók menü')}>
                   <Avatar color="brand" variant="filled" radius="xl" size={34}>
                     {initials(user.name)}
                   </Avatar>
@@ -193,8 +194,8 @@ export function Shell({
                   </Text>
                 </Box>
                 <Menu.Divider />
-                <Menu.Item onClick={() => navigate(PATH_SETTINGS)}>Beállítások</Menu.Item>
-                <Menu.Item onClick={onLogout}>Kilépés</Menu.Item>
+                <Menu.Item onClick={() => navigate(PATH_SETTINGS)}>{t('Beállítások')}</Menu.Item>
+                <Menu.Item onClick={onLogout}>{t('Kilépés')}</Menu.Item>
               </Menu.Dropdown>
             </Menu>
           </Group>
@@ -202,8 +203,8 @@ export function Shell({
       </AppShell.Header>
 
       <AppShell.Navbar p="sm" className="shell-nav">
-        <nav aria-label="Fő navigáció" className="nav-list">
-          {NAV.map((item) => {
+        <nav aria-label={t('Fő navigáció')} className="nav-list">
+          {NAV().map((item) => {
             const current = item.path === PATH_PROJECTS ? path === PATH_PROJECTS : path.startsWith(item.path);
             const openCount = item.path === PATH_FEEDBACK && selected ? selected.stats.open : 0;
             return (

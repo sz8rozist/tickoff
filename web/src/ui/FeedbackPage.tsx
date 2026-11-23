@@ -6,6 +6,7 @@ import { saveBlob } from './download';
 import { ActivityPanel } from './ActivityPanel';
 import { MembersPanel } from './MembersPanel';
 import { RoundsPanel } from './RoundsPanel';
+import { t } from './i18n';
 
 /** A kiválasztott projekt munkafelülete: összesítő csempék, körök és kommentek, tagok, tevékenység. */
 export function FeedbackPage({ currentUserId, onGoProjects }: { currentUserId: number; onGoProjects: () => void }) {
@@ -15,11 +16,10 @@ export function FeedbackPage({ currentUserId, onGoProjects }: { currentUserId: n
   if (!p) {
     return (
       <div className="empty">
-        <Text fw={600}>Nincs kiválasztott projekt</Text>
+        <Text fw={600}>{t('Nincs kiválasztott projekt')}</Text>
         <Text size="sm" c="dimmed" mb="sm">
-          Hozz létre egy projektet, vagy válassz egyet a felső sávban.
-        </Text>
-        <Button onClick={onGoProjects}>Projektek megnyitása</Button>
+          {t('Hozz létre egy projektet, vagy válassz egyet a felső sávban.')}</Text>
+        <Button onClick={onGoProjects}>{t('Projektek megnyitása')}</Button>
       </div>
     );
   }
@@ -30,7 +30,7 @@ export function FeedbackPage({ currentUserId, onGoProjects }: { currentUserId: n
       const { blob, filename } = await api.comments.exportCsv(project.id);
       saveBlob(blob, filename);
     } catch {
-      setError('Az export nem sikerült, próbáld újra később.');
+      setError(t('Az export nem sikerült, próbáld újra később.'));
     }
   }
 
@@ -53,19 +53,17 @@ export function FeedbackPage({ currentUserId, onGoProjects }: { currentUserId: n
         </Group>
         <div className="token-bar">
           <Text size="xs" c="dimmed" fw={500}>
-            Megosztó token
-          </Text>
+            {t('Megosztó token')}</Text>
           <Code>{p.shareToken}</Code>
           <CopyButton value={p.shareToken}>
             {({ copied, copy }) => (
               <Button variant="light" size="compact-xs" onClick={copy}>
-                {copied ? 'Másolva' : 'Másolás'}
+                {copied ? t('Másolva') : t('Másolás')}
               </Button>
             )}
           </CopyButton>
           <Button variant="subtle" color="gray" size="compact-xs" onClick={() => void exportAll(p)}>
-            CSV export
-          </Button>
+            {t('CSV export')}</Button>
         </div>
       </Group>
 
@@ -77,30 +75,29 @@ export function FeedbackPage({ currentUserId, onGoProjects }: { currentUserId: n
 
       <div className="bento bento-4">
         <div className="tile">
-          <Text className="tile-label">Nyitott</Text>
+          <Text className="tile-label">{t('Nyitott')}</Text>
           <div className="tile-value" style={{ color: s.open > 0 ? 'var(--mantine-color-orange-6)' : undefined }}>
             {s.open}
           </div>
         </div>
         <div className="tile">
-          <Text className="tile-label">Folyamatban</Text>
+          <Text className="tile-label">{t('Folyamatban')}</Text>
           <div className="tile-value" style={{ color: 'var(--mantine-color-brand-6)' }}>
             {s.inProgress}
           </div>
         </div>
         <div className="tile">
-          <Text className="tile-label">Megoldott</Text>
+          <Text className="tile-label">{t('Megoldott')}</Text>
           <div className="tile-value" style={{ color: 'var(--mantine-color-green-6)' }}>
             {s.done}
           </div>
         </div>
         <div className="tile">
-          <Text className="tile-label">Aktuális kör</Text>
+          <Text className="tile-label">{t('Aktuális kör')}</Text>
           <div className="tile-value">{s.roundNumber === null ? '–' : `${s.roundNumber}.`}</div>
           {s.approved && (
             <Badge color="green" variant="filled" size="sm">
-              ✓ jóváhagyva
-            </Badge>
+              {t('✓ jóváhagyva')}</Badge>
           )}
         </div>
       </div>
@@ -108,9 +105,9 @@ export function FeedbackPage({ currentUserId, onGoProjects }: { currentUserId: n
       <div className="panel-card">
         <Tabs defaultValue="rounds" keepMounted={false} key={p.id}>
           <Tabs.List>
-            <Tabs.Tab value="rounds">Visszajelzések</Tabs.Tab>
-            <Tabs.Tab value="members">Tagok</Tabs.Tab>
-            <Tabs.Tab value="activity">Tevékenység</Tabs.Tab>
+            <Tabs.Tab value="rounds">{t('Visszajelzések')}</Tabs.Tab>
+            <Tabs.Tab value="members">{t('Tagok')}</Tabs.Tab>
+            <Tabs.Tab value="activity">{t('Tevékenység')}</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="rounds" pt="md">
             <RoundsPanel

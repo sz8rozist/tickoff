@@ -14,14 +14,18 @@ export const GET = api(async (req) => {
   return json(userDto(await requireUser(req)));
 });
 
-const Settings = z.object({ notifyEmail: z.boolean() });
+const Settings = z.object({ notifyEmail: z.boolean().optional(), lang: z.enum(['hu', 'en']).optional() });
 
-/** Beállítások: az e-mail értesítések be- és kikapcsolása. */
+/** Beállítások: az e-mail értesítések be- és kikapcsolása, a felület és a levelek nyelve. */
 export const PATCH = api(async (req) => {
   const user = await requireUser(req);
   const body = await parseBody(req, Settings);
-  await db.update(schema.users).set({ notifyEmail: body.notifyEmail }).where(eq(schema.users.id, user.id));
-  return json(userDto({ ...user, notifyEmail: body.notifyEmail }));
+  const changes = {
+    ...(body.notifyEmail === undefined ? {} : { notifyEmail: body.notifyEmail }),
+    ...(body.lang === undefined ? {} : { lang: body.lang }),
+  };
+  if (Object.keys(changes).length > 0) await db.update(schema.users).set(changes).where(eq(schema.users.id, user.id));
+  return json(userDto({ ...user, ...changes }));
 });
 
 const DeleteBody = z.object({ password: z.string().min(1) });

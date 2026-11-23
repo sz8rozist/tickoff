@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Group, Loader, Stack, Text } from '@mantine/core';
 import { api, type ActivityEntry } from './api';
+import { locale, t } from './i18n';
 
-const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' });
+const dateTime = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
 
 /** A projekt tevékenységnaplója: ki mit csinált, újabb elöl. 50 bejegyzésenként tölt tovább. */
 export function ActivityPanel({ projectId }: { projectId: number }) {
@@ -38,16 +39,14 @@ export function ActivityPanel({ projectId }: { projectId: number }) {
   if (error && !entries) {
     return (
       <Alert color="red" role="alert">
-        A tevékenységnapló betöltése nem sikerült.
-      </Alert>
+        {t('A tevékenységnapló betöltése nem sikerült.')}</Alert>
     );
   }
   if (!entries) return <Loader size="xs" />;
   if (entries.length === 0) {
     return (
       <Text size="sm" c="dimmed">
-        Még nincs rögzített tevékenység.
-      </Text>
+        {t('Még nincs rögzített tevékenység.')}</Text>
     );
   }
 
@@ -59,7 +58,7 @@ export function ActivityPanel({ projectId }: { projectId: number }) {
             {dateTime(e.createdAt)}
           </Text>
           <Badge size="xs" variant="light" color={e.actorType === 'CUSTOMER' ? 'gray' : 'brand'} style={{ flex: 'none' }}>
-            {e.actorType === 'CUSTOMER' ? 'ügyfél' : 'csapat'}
+            {e.actorType === 'CUSTOMER' ? t('ügyfél') : 'csapat'}
           </Badge>
           <Text size="sm">
             <b>{e.actorName}</b> {e.summary}
@@ -68,14 +67,12 @@ export function ActivityPanel({ projectId }: { projectId: number }) {
       ))}
       {error && (
         <Alert color="red" role="alert">
-          A további bejegyzések betöltése nem sikerült.
-        </Alert>
+          {t('A további bejegyzések betöltése nem sikerült.')}</Alert>
       )}
       {more && (
         <div>
           <Button size="compact-xs" variant="light" loading={loadingMore} onClick={loadMore}>
-            Régebbiek betöltése
-          </Button>
+            {t('Régebbiek betöltése')}</Button>
         </div>
       )}
     </Stack>

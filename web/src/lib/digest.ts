@@ -32,9 +32,10 @@ export async function sendDueDigests(now = new Date()): Promise<number> {
     if (weekly && !monday) continue;
     if (user.digestLastSentAt && now.getTime() - user.digestLastSentAt.getTime() < MIN_GAP_MS) continue;
     const since = user.digestLastSentAt ?? new Date(now.getTime() - (weekly ? 7 : 1) * 24 * 60 * 60 * 1000);
-    const text = await composeDigest(user.id, user.name, since);
+    const en = user.lang === 'en';
+    const text = await composeDigest(user.id, user.name, since, en);
     if (text) {
-      sendMail(user.email, '[Tickoff] Összefoglaló a projektjeidről', text);
+      sendMail(user.email, en ? '[Tickoff] Summary of your projects' : '[Tickoff] Összefoglaló a projektjeidről', text);
       await db.update(schema.users).set({ digestLastSentAt: now }).where(eq(schema.users.id, user.id));
       sent++;
     }
@@ -43,7 +44,7 @@ export async function sendDueDigests(now = new Date()): Promise<number> {
 }
 
 /** A levél szövege, vagy null, ha nincs mit mondani. */
-export async function composeDigest(userId: number, userName: string, since: Date): Promise<string | null> {
+export async function composeDigest(userId: number, userName: string, since: Date, en = false): Promise<string | null> {
   const active = (await accessibleProjects(userId)).map((r) => r.project).filter((p) => p.archivedAt === null);
   if (active.length === 0) return null;
   const ids = active.map((p) => p.id);
@@ -72,15 +73,18 @@ export async function composeDigest(userId: number, userName: string, since: Dat
     const approved = s?.approved ?? false;
     if (open === 0 && inProgress === 0 && news === 0 && !approved) continue;
 
-    body += `• ${p.name}\n  ${open} nyitott, ${inProgress} folyamatban${news > 0 ? `, ${news} új az utóbbi időben` : ''}\n`;
-    if (approved && s?.roundNumber != null) body += `  Az ügyfél jóváhagyta a ${s.roundNumber}. kört: lezárhatod.\n`;
+    body += en
+      ? `• ${p.name}\n  ${open} open, ${inProgress} in progress${news > 0 ? `, ${news} new recently` : ''}\n`
+      : `• ${p.name}\n  ${open} nyitott, ${inProgress} folyamatban${news > 0 ? `, ${news} új az utóbbi időben` : ''}\n`;
+    if (approved && s?.roundNumber != null) body += en ? `  The customer approved round ${s.roundNumber}: you can close it.\n` : `  Az ügyfél jóváhagyta a ${s.roundNumber}. kört: lezárhatod.\n`;
     const due = openRounds.get(p.id)?.dueDate;
-    if (due) body += `  Határidő: ${due}\n`;
+    if (due) body += en ? `  Due: ${due}\n` : `  Határidő: ${due}\n`;
     body += '\n';
   }
   if (body === '') return null;
-  return (
-    `Szia ${userName}!\n\nÍgy állnak a projektjeid:\n\n${body}Megnyitás: ${dashboardOrigin()}/\n\n` +
-    'Ezt az összefoglalót azért kapod, mert a Tickoffban kérted. A gyakoriságot a fiók menüjében módosíthatod vagy kikapcsolhatod.\n'
-  );
+  return en
+    ? `Hi ${userName}!\n\nHere is where your projects stand:\n\n${body}Open: ${dashboardOrigin()}/\n\n` +
+        'You receive this summary because you asked for it in Tickoff. You can change the frequency or turn it off in Settings.\n'
+    : `Szia ${userName}!\n\nÍgy állnak a projektjeid:\n\n${body}Megnyitás: ${dashboardOrigin()}/\n\n` +
+        'Ezt az összefoglalót azért kapod, mert a Tickoffban kérted. A gyakoriságot a Beállításokban módosíthatod vagy kapcsolhatod ki.\n';
 }

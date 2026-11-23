@@ -1,15 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Alert, Badge, Button, Group, Loader, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { api, ApiError, type Invite, type Member, type ProjectRole } from './api';
+import { t } from './i18n';
 
 function inviteError(e: unknown): string {
   if (e instanceof ApiError) {
-    if (e.status === 409) return 'Őt már meghívtad, vagy már tagja a projektnek, vagy túl sok a függő meghívó.';
-    if (e.status === 503) return 'Még nem regisztrált kolléga meghívásához be kell állítani az e-mail-küldést (SMTP).';
-    if (e.status === 400) return 'Adj meg egy érvényes e-mail címet.';
-    if (e.status === 429) return 'Túl sok próbálkozás. Várj egy percet, és próbáld újra.';
+    if (e.status === 409) return t('Őt már meghívtad, vagy már tagja a projektnek, vagy túl sok a függő meghívó.');
+    if (e.status === 503) return t('Még nem regisztrált kolléga meghívásához be kell állítani az e-mail-küldést (SMTP).');
+    if (e.status === 400) return t('Adj meg egy érvényes e-mail címet.');
+    if (e.status === 429) return t('Túl sok próbálkozás. Várj egy percet, és próbáld újra.');
   }
-  return 'A meghívás nem sikerült, próbáld újra később.';
+  return t('A meghívás nem sikerült, próbáld újra később.');
 }
 
 /**
@@ -46,7 +47,7 @@ export function MembersPanel({
   const isOwner = role === 'OWNER';
 
   useEffect(() => {
-    api.members.list(projectId).then(setMembers).catch(() => setError('A tagok betöltése nem sikerült.'));
+    api.members.list(projectId).then(setMembers).catch(() => setError(t('A tagok betöltése nem sikerült.')));
   }, [projectId]);
 
   // A függő meghívókat csak a tulajdonos látja
@@ -71,7 +72,7 @@ export function MembersPanel({
           const created = await api.members.invite(projectId, email.trim());
           setPending((prev) => [...prev, created]);
           setEmail('');
-          setNotice('Még nincs megerősített fiókja, ezért meghívó levelet küldtünk. Ha regisztrál és megerősíti a címét, automatikusan csatlakozik.');
+          setNotice(t('Még nincs megerősített fiókja, ezért meghívó levelet küldtünk. Ha regisztrál és megerősíti a címét, automatikusan csatlakozik.'));
         } catch (err2) {
           setError(inviteError(err2));
         }
@@ -89,7 +90,7 @@ export function MembersPanel({
       await api.members.cancelInvite(projectId, invite.id);
       setPending((prev) => prev.filter((i) => i.id !== invite.id));
     } catch {
-      setError('A meghívó visszavonása nem sikerült.');
+      setError(t('A meghívó visszavonása nem sikerült.'));
     }
   }
 
@@ -105,7 +106,7 @@ export function MembersPanel({
       await api.members.remove(projectId, member.userId);
       setMembers((prev) => prev?.filter((m) => m.userId !== member.userId) ?? null);
     } catch {
-      setError('Az eltávolítás nem sikerült.');
+      setError(t('Az eltávolítás nem sikerült.'));
     }
   }
 
@@ -118,7 +119,7 @@ export function MembersPanel({
       setMembers(updated);
       onTransferred(transferTarget.name);
     } catch {
-      setError('Az átadás nem sikerült, próbáld újra később.');
+      setError(t('Az átadás nem sikerült, próbáld újra később.'));
     } finally {
       setBusy(false);
       setTransferOpen(false);
@@ -131,7 +132,7 @@ export function MembersPanel({
       await api.members.remove(projectId, currentUserId);
       onLeft();
     } catch {
-      setError('A kilépés nem sikerült, próbáld újra később.');
+      setError(t('A kilépés nem sikerült, próbáld újra később.'));
       setLeaveOpen(false);
     } finally {
       setBusy(false);
@@ -154,7 +155,7 @@ export function MembersPanel({
         <Group key={m.userId} gap="xs">
           <Text size="sm" fw={m.userId === currentUserId ? 600 : 400}>
             {m.name}
-            {m.userId === currentUserId ? ' (te)' : ''}
+            {m.userId === currentUserId ? t(' (te)') : ''}
           </Text>
           <Text size="xs" c="dimmed">
             {m.email}
@@ -172,10 +173,9 @@ export function MembersPanel({
                   setTransferOpen(true);
                 }}
               >
-                Átadás
-              </Button>
+                {t('Átadás')}</Button>
               <Button size="compact-xs" variant="subtle" color="red" onClick={() => remove(m)}>
-                {confirmId === m.userId ? 'Biztosan?' : 'Eltávolítás'}
+                {confirmId === m.userId ? 'Biztosan?' : t('Eltávolítás')}
               </Button>
             </>
           )}
@@ -185,17 +185,14 @@ export function MembersPanel({
       {isOwner && pending.length > 0 && (
         <Stack gap={4}>
           <Text size="xs" c="dimmed" fw={600}>
-            Függő meghívók
-          </Text>
+            {t('Függő meghívók')}</Text>
           {pending.map((i) => (
             <Group key={i.id} gap="xs">
               <Text size="sm">{i.email}</Text>
               <Badge size="xs" variant="light" color="yellow">
-                vár a regisztrációra
-              </Badge>
+                {t('vár a regisztrációra')}</Badge>
               <Button size="compact-xs" variant="subtle" color="red" onClick={() => cancelInvite(i)}>
-                Visszavonás
-              </Button>
+                {t('Visszavonás')}</Button>
             </Group>
           ))}
         </Stack>
@@ -205,8 +202,8 @@ export function MembersPanel({
         <form onSubmit={invite}>
           <Group gap="xs" align="flex-start">
             <TextInput
-              placeholder="kollega@pelda.hu"
-              aria-label="A meghívandó kolléga e-mail címe"
+              placeholder={t('kollega@pelda.hu')}
+              aria-label={t('A meghívandó kolléga e-mail címe')}
               value={email}
               onChange={(e) => setEmail(e.currentTarget.value)}
               size="xs"
@@ -214,19 +211,15 @@ export function MembersPanel({
               type="email"
             />
             <Button type="submit" size="xs" loading={busy} disabled={email.trim() === ''}>
-              Meghívás
-            </Button>
+              {t('Meghívás')}</Button>
           </Group>
           <Text size="xs" c="dimmed" mt={4}>
-            A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), a projekt beállításait nem.
-            Ha a kollégának még nincs fiókja, meghívó levelet kap, és a regisztráció után automatikusan csatlakozik.
-          </Text>
+            {t('A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), a projekt beállításait nem. Ha a kollégának még nincs fiókja, meghívó levelet kap, és a regisztráció után automatikusan csatlakozik.')}</Text>
         </form>
       ) : (
         <div>
           <Button size="compact-xs" variant="subtle" color="red" onClick={() => setLeaveOpen(true)}>
-            Kilépés a projektből
-          </Button>
+            {t('Kilépés a projektből')}</Button>
         </div>
       )}
 
@@ -241,36 +234,28 @@ export function MembersPanel({
         </Alert>
       )}
 
-      <Modal opened={transferOpen} onClose={() => setTransferOpen(false)} title="Projekt átadása" centered>
+      <Modal opened={transferOpen} onClose={() => setTransferOpen(false)} title={t('Projekt átadása')} centered>
         <Stack>
           <Text size="sm">
-            Átadod a projektet neki: <b>{transferTarget?.name}</b> ({transferTarget?.email}). Ő lesz a tulajdonos: ő
-            szerkesztheti és törölheti a projektet, újragenerálhatja a tokent, és kezelheti a tagokat. Te tag maradsz,
-            a visszajelzéseket továbbra is kezelheted, de ezeket már nem. A visszaadást csak ő kezdeményezheti.
-          </Text>
+            {t('Átadod a projektet neki:')}{' '}<b>{transferTarget?.name}</b> ({transferTarget?.email}{t('). Ő lesz a tulajdonos: ő szerkesztheti és törölheti a projektet, újragenerálhatja a tokent, és kezelheti a tagokat. Te tag maradsz, a visszajelzéseket továbbra is kezelheted, de ezeket már nem. A visszaadást csak ő kezdeményezheti.')}</Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setTransferOpen(false)}>
-              Mégse
-            </Button>
+              {t('Mégse')}</Button>
             <Button color="orange" loading={busy} onClick={transfer}>
-              Projekt átadása
-            </Button>
+              {t('Projekt átadása')}</Button>
           </Group>
         </Stack>
       </Modal>
 
-      <Modal opened={leaveOpen} onClose={() => setLeaveOpen(false)} title="Kilépés a projektből" centered>
+      <Modal opened={leaveOpen} onClose={() => setLeaveOpen(false)} title={t('Kilépés a projektből')} centered>
         <Stack>
           <Text size="sm">
-            Biztosan kilépsz a projektből? Utána nem látod a visszajelzéseit, amíg a tulajdonos újra meg nem hív.
-          </Text>
+            {t('Biztosan kilépsz a projektből? Utána nem látod a visszajelzéseit, amíg a tulajdonos újra meg nem hív.')}</Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setLeaveOpen(false)}>
-              Mégse
-            </Button>
+              {t('Mégse')}</Button>
             <Button color="red" loading={busy} onClick={leave}>
-              Kilépés
-            </Button>
+              {t('Kilépés')}</Button>
           </Group>
         </Stack>
       </Modal>

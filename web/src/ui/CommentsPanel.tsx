@@ -22,18 +22,19 @@ import {
 import { api, type Comment, type CommentStatus, type Member, type Priority } from './api';
 import { fold, useDashboard } from './DashboardContext';
 import { Thread } from './Thread';
+import { locale, t } from './i18n';
 
-const STATUS_OPTIONS = [
-  { value: 'OPEN', label: 'Nyitott' },
-  { value: 'IN_PROGRESS', label: 'Folyamatban' },
-  { value: 'DONE', label: 'Kész' },
+const STATUS_OPTIONS = () => [
+  { value: 'OPEN', label: t('Nyitott') },
+  { value: 'IN_PROGRESS', label: t('Folyamatban') },
+  { value: 'DONE', label: t('Kész') },
 ];
 
-const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
-  { value: 'URGENT', label: 'Sürgős' },
-  { value: 'HIGH', label: 'Magas' },
-  { value: 'NORMAL', label: 'Normál' },
-  { value: 'LOW', label: 'Alacsony' },
+const PRIORITY_OPTIONS = (): { value: Priority; label: string }[] => [
+  { value: 'URGENT', label: t('Sürgős') },
+  { value: 'HIGH', label: t('Magas') },
+  { value: 'NORMAL', label: t('Normál') },
+  { value: 'LOW', label: t('Alacsony') },
 ];
 
 const PRIORITY_COLOR: Record<Priority, string> = { URGENT: 'red', HIGH: 'orange', NORMAL: 'gray', LOW: 'gray' };
@@ -41,26 +42,26 @@ const STATUS_COLOR: Record<CommentStatus, string> = { OPEN: 'orange', IN_PROGRES
 
 const PRIORITY_RANK: Record<Priority, number> = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
 
-const SORT_OPTIONS = [
-  { value: 'PRIORITY', label: 'Prioritás szerint' },
-  { value: 'OLDEST', label: 'Legrégebbi elöl' },
-  { value: 'NEWEST', label: 'Legújabb elöl' },
-  { value: 'STATUS', label: 'Státusz szerint' },
-  { value: 'REPLIES', label: 'Legtöbb válasz elöl' },
+const SORT_OPTIONS = () => [
+  { value: 'PRIORITY', label: t('Prioritás szerint') },
+  { value: 'OLDEST', label: t('Legrégebbi elöl') },
+  { value: 'NEWEST', label: t('Legújabb elöl') },
+  { value: 'STATUS', label: t('Státusz szerint') },
+  { value: 'REPLIES', label: t('Legtöbb válasz elöl') },
 ];
 
 /** A "teendő" sorrendje: előbb a nyitott, aztán a folyamatban lévő, végül a kész. */
 const STATUS_RANK: Record<CommentStatus, number> = { OPEN: 0, IN_PROGRESS: 1, DONE: 2 };
 
-const STATUS_FILTER = [{ value: 'ALL', label: 'Mind' }, ...STATUS_OPTIONS];
+const STATUS_FILTER = () => [{ value: 'ALL', label: t('Mind') }, ...STATUS_OPTIONS()];
 
-const ASSIGNEE_FILTER = [
-  { value: 'ALL', label: 'Bárki' },
-  { value: 'ME', label: 'Hozzám rendelt' },
-  { value: 'NONE', label: 'Gazdátlan' },
+const ASSIGNEE_FILTER = () => [
+  { value: 'ALL', label: t('Bárki') },
+  { value: 'ME', label: t('Hozzám rendelt') },
+  { value: 'NONE', label: t('Gazdátlan') },
 ];
 
-const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' });
+const dateTime = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
 
 /** Egy URL "útvonal?lekérdezés" része; érvénytelen URL esetén az eredeti szöveg. */
 function pagePath(url: string): string {
@@ -160,7 +161,7 @@ export function CommentsPanel({
   }
 
   useEffect(() => {
-    api.comments.list(projectId, roundId).then(setComments).catch(() => setError('A kommentek betöltése nem sikerült.'));
+    api.comments.list(projectId, roundId).then(setComments).catch(() => setError(t('A kommentek betöltése nem sikerült.')));
   }, [projectId, roundId]);
 
   // A képernyőkép object URL-jét felszabadítjuk, amikor lecserélődik vagy bezáródik.
@@ -195,7 +196,7 @@ export function CommentsPanel({
       setComments((prev) => prev?.map((x) => (x.id === c.id ? updated : x)) ?? null);
       onChanged();
     } catch {
-      setError('A státusz módosítása nem sikerült.');
+      setError(t('A státusz módosítása nem sikerült.'));
     } finally {
       setBusyId(null);
     }
@@ -225,7 +226,7 @@ export function CommentsPanel({
     setComments((prev) => prev?.map((x) => updated.get(x.id) ?? x) ?? null);
     // A sikeresen módosítottak kikerülnek a kijelölésből, a hibásak megmaradnak az újrapróbáláshoz
     setSelected((prev) => new Set([...prev].filter((id) => !updated.has(id))));
-    if (failed > 0) setError(`${failureMessage} (${failed} komment)`);
+    if (failed > 0) setError(t('{failureMessage} ({failed} komment)', { failureMessage: failureMessage, failed: failed }));
     onChanged();
     setBulkBusy(false);
   }
@@ -237,7 +238,7 @@ export function CommentsPanel({
       const updated = await api.comments.triage(projectId, c.id, priority, labels);
       setComments((prev) => prev?.map((x) => (x.id === c.id ? updated : x)) ?? null);
     } catch {
-      setError('A prioritás vagy a címkék mentése nem sikerült.');
+      setError(t('A prioritás vagy a címkék mentése nem sikerült.'));
     } finally {
       setBusyId(null);
     }
@@ -250,7 +251,7 @@ export function CommentsPanel({
       const updated = await api.comments.assign(projectId, c.id, userId);
       setComments((prev) => prev?.map((x) => (x.id === c.id ? updated : x)) ?? null);
     } catch {
-      setError('A felelős kijelölése nem sikerült.');
+      setError(t('A felelős kijelölése nem sikerült.'));
     } finally {
       setBusyId(null);
     }
@@ -277,7 +278,7 @@ export function CommentsPanel({
       setComments((prev) => prev?.filter((x) => x.id !== deleting.id) ?? null);
       onChanged();
     } catch {
-      setError('A komment törlése nem sikerült.');
+      setError(t('A komment törlése nem sikerült.'));
     } finally {
       setBusyId(null);
       setDeleteOpen(false);
@@ -307,8 +308,7 @@ export function CommentsPanel({
   if (comments.length === 0) {
     return (
       <Text size="sm" c="dimmed">
-        Ebben a körben még nincs komment.
-      </Text>
+        {t('Ebben a körben még nincs komment.')}</Text>
     );
   }
 
@@ -356,7 +356,7 @@ export function CommentsPanel({
                   <Group gap="xs" wrap="nowrap">
                     <Checkbox
                       size="xs"
-                      aria-label={`Kijelölés: ${c.authorName} kommentje`}
+                      aria-label={t('Kijelölés: {authorName} kommentje', { authorName: c.authorName })}
                       checked={selected.has(c.id)}
                       onChange={() => toggleSelected(c.id)}
                     />
@@ -374,11 +374,11 @@ export function CommentsPanel({
                   </Group>
                   <SegmentedControl
                     size="xs"
-                    data={STATUS_OPTIONS}
+                    data={STATUS_OPTIONS()}
                     value={c.status}
                     disabled={busyId === c.id}
                     onChange={(v) => changeStatus(c, v as CommentStatus)}
-                    aria-label="Státusz"
+                    aria-label={t('Státusz')}
                   />
                 </Group>
                 <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
@@ -388,9 +388,9 @@ export function CommentsPanel({
                 <Select
                   size="xs"
                   w={130}
-                  aria-label="Prioritás"
+                  aria-label={t('Prioritás')}
                   allowDeselect={false}
-                  data={PRIORITY_OPTIONS}
+                  data={PRIORITY_OPTIONS()}
                   value={c.priority}
                   disabled={busyId === c.id}
                   onChange={(v) => v && void triage(c, v as Priority, c.labels)}
@@ -398,8 +398,8 @@ export function CommentsPanel({
                 <TagsInput
                   size="xs"
                   w={260}
-                  placeholder="Címkék (Enter)"
-                  aria-label="Címkék"
+                  placeholder={t('Címkék (Enter)')}
+                  aria-label={t('Címkék')}
                   maxTags={5}
                   data={allLabels}
                   value={c.labels}
@@ -409,11 +409,11 @@ export function CommentsPanel({
                 <Select
                   size="xs"
                   w={220}
-                  placeholder="Nincs felelős"
-                  aria-label="Felelős"
+                  placeholder={t('Nincs felelős')}
+                  aria-label={t('Felelős')}
                   clearable
                   searchable
-                  nothingFoundMessage="Nincs ilyen tag"
+                  nothingFoundMessage={t('Nincs ilyen tag')}
                   disabled={busyId === c.id}
                   data={team.map((m) => ({
                     value: String(m.userId),
@@ -427,28 +427,24 @@ export function CommentsPanel({
                   {c.cssSelector && <Code>{c.cssSelector}</Code>}
                   {(c.priority === 'URGENT' || c.priority === 'HIGH') && (
                     <Badge size="sm" color={c.priority === 'URGENT' ? 'red' : 'orange'} variant="filled">
-                      {c.priority === 'URGENT' ? 'sürgős' : 'magas'}
+                      {c.priority === 'URGENT' ? t('sürgős') : 'magas'}
                     </Badge>
                   )}
                   {c.editedAt && (
-                    <Badge size="sm" color="yellow" variant="light" title={`Módosítva: ${dateTime(c.editedAt)}`}>
-                      szerkesztve
-                    </Badge>
+                    <Badge size="sm" color="yellow" variant="light" title={t('Módosítva: {editedAt}', { editedAt: dateTime(c.editedAt) })}>
+                      {t('szerkesztve')}</Badge>
                   )}
                   {c.areaWidth !== null && (
-                    <Badge size="sm" color="gray" variant="light" title="Az ügyfél téglalappal jelölte ki a területet">
-                      kijelölt terület
-                    </Badge>
+                    <Badge size="sm" color="gray" variant="light" title={t('Az ügyfél téglalappal jelölte ki a területet')}>
+                      {t('kijelölt terület')}</Badge>
                   )}
                   {c.customerApprovedAt && (
                     <Badge size="sm" color="green" variant="light">
-                      ✓ az ügyfél elfogadta
-                    </Badge>
+                      {t('✓ az ügyfél elfogadta')}</Badge>
                   )}
                   {c.notifiesCustomer && (
-                    <Badge size="sm" color="gray" variant="light" title="Az ügyfél e-mailben értesül a válaszokról és a kész állapotról">
-                      értesítést kér
-                    </Badge>
+                    <Badge size="sm" color="gray" variant="light" title={t('Az ügyfél e-mailben értesül a válaszokról és a kész állapotról')}>
+                      {t('értesítést kér')}</Badge>
                   )}
                   {environment(c) && (
                     <Text size="xs" c="dimmed">
@@ -457,12 +453,11 @@ export function CommentsPanel({
                   )}
                   {c.hasScreenshot && (
                     <Button size="compact-xs" variant="light" onClick={() => showScreenshot(c)}>
-                      Képernyőkép
-                    </Button>
+                      {t('Képernyőkép')}</Button>
                   )}
                   {c.attachments.length > 0 && (
                     <Button size="compact-xs" variant="light" onClick={() => showAttachments(c)}>
-                      Mellékletek ({c.attachments.length})
+                      {t('Mellékletek (')}{c.attachments.length})
                     </Button>
                   )}
                   {roundOpen && deepLink(c.pageUrl, c.id) && (
@@ -474,8 +469,7 @@ export function CommentsPanel({
                       size="compact-xs"
                       variant="light"
                     >
-                      Megnyitás az oldalon
-                    </Button>
+                      {t('Megnyitás az oldalon')}</Button>
                   )}
                   <Button
                     size="compact-xs"
@@ -486,8 +480,7 @@ export function CommentsPanel({
                       setDeleteOpen(true);
                     }}
                   >
-                    Törlés
-                  </Button>
+                    {t('Törlés')}</Button>
                 </Group>
                 <Thread
                   replies={c.replies}
@@ -506,9 +499,9 @@ export function CommentsPanel({
         <Select
           size="xs"
           w={170}
-          aria-label="Rendezés"
+          aria-label={t('Rendezés')}
           allowDeselect={false}
-          data={SORT_OPTIONS}
+          data={SORT_OPTIONS()}
           value={sort}
           onChange={(v) => setSort(v ?? 'OLDEST')}
         />
@@ -516,43 +509,42 @@ export function CommentsPanel({
           <Select
             size="xs"
             w={150}
-            placeholder="Címke"
-            aria-label="Szűrés címkére"
+            placeholder={t('Címke')}
+            aria-label={t('Szűrés címkére')}
             clearable
             data={allLabels}
             value={labelFilter}
             onChange={setLabelFilter}
           />
         )}
-        <SegmentedControl size="xs" data={STATUS_FILTER} value={statusFilter} onChange={setStatusFilter} aria-label="Szűrés státuszra" />
-        <SegmentedControl size="xs" data={ASSIGNEE_FILTER} value={assigneeFilter} onChange={setAssigneeFilter} aria-label="Szűrés felelősre" />
+        <SegmentedControl size="xs" data={STATUS_FILTER()} value={statusFilter} onChange={setStatusFilter} aria-label={t('Szűrés státuszra')} />
+        <SegmentedControl size="xs" data={ASSIGNEE_FILTER()} value={assigneeFilter} onChange={setAssigneeFilter} aria-label={t('Szűrés felelősre')} />
         <Select
           size="xs"
           w={140}
-          placeholder="Prioritás"
-          aria-label="Szűrés prioritásra"
+          placeholder={t('Prioritás')}
+          aria-label={t('Szűrés prioritásra')}
           clearable
-          data={PRIORITY_OPTIONS}
+          data={PRIORITY_OPTIONS()}
           value={priorityFilter}
           onChange={setPriorityFilter}
         />
         <SegmentedControl
           size="xs"
           ml="auto"
-          aria-label="Nézet"
+          aria-label={t('Nézet')}
           value={view}
           onChange={(v) => setView(v as 'cards' | 'table')}
           data={[
-            { value: 'cards', label: 'Kártyák' },
-            { value: 'table', label: 'Táblázat' },
+            { value: 'cards', label: t('Kártyák') },
+            { value: 'table', label: t('Táblázat') },
           ]}
         />
       </Group>
       {filtering && (
         <Group gap="xs">
           <Text size="xs" c="dimmed">
-            {visible.length} / {comments.length} komment
-          </Text>
+            {visible.length} / {comments.length} {t('komment')}</Text>
           <Button
             size="compact-xs"
             variant="subtle"
@@ -564,15 +556,14 @@ export function CommentsPanel({
               setPriorityFilter(null);
             }}
           >
-            Szűrők törlése
-          </Button>
+            {t('Szűrők törlése')}</Button>
         </Group>
       )}
       {visible.length > 0 && (
         <Group gap="xs" align="center">
           <Checkbox
             size="xs"
-            label={selectedCount > 0 ? `${selectedCount} kijelölve` : 'Kijelölés'}
+            label={selectedCount > 0 ? t('{selectedCount} kijelölve', { selectedCount: selectedCount }) : t('Kijelölés')}
             checked={selectedCount > 0 && visible.every((c) => selected.has(c.id))}
             indeterminate={selectedCount > 0 && !visible.every((c) => selected.has(c.id))}
             onChange={(e) =>
@@ -582,9 +573,8 @@ export function CommentsPanel({
           {selectedCount > 0 && (
             <>
               <Text size="xs" c="dimmed">
-                Státusz:
-              </Text>
-              {STATUS_OPTIONS.map((o) => (
+                {t('Státusz:')}</Text>
+              {STATUS_OPTIONS().map((o) => (
                 <Button
                   key={o.value}
                   size="compact-xs"
@@ -600,8 +590,8 @@ export function CommentsPanel({
               <Select
                 size="xs"
                 w={180}
-                placeholder="Felelős kijelölése…"
-                aria-label="Felelős a kijelölteknek"
+                placeholder={t('Felelős kijelölése…')}
+                aria-label={t('Felelős a kijelölteknek')}
                 clearable
                 disabled={bulkBusy}
                 data={team.map((m) => ({ value: String(m.userId), label: m.userId === currentUserId ? `${m.name} (te)` : m.name }))}
@@ -611,16 +601,14 @@ export function CommentsPanel({
                 }
               />
               <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setSelected(new Set())}>
-                Kijelölés törlése
-              </Button>
+                {t('Kijelölés törlése')}</Button>
             </>
           )}
         </Group>
       )}
       {visible.length === 0 && (
         <Text size="sm" c="dimmed">
-          Nincs a szűrésnek megfelelő komment.
-        </Text>
+          {t('Nincs a szűrésnek megfelelő komment.')}</Text>
       )}
       {error && (
         <Alert color="red" role="alert">
@@ -634,12 +622,12 @@ export function CommentsPanel({
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th w={36} />
-                  <Table.Th>Visszajelzés</Table.Th>
-                  <Table.Th>Oldal</Table.Th>
-                  <Table.Th>Prioritás</Table.Th>
-                  <Table.Th>Státusz</Table.Th>
-                  <Table.Th>Felelős</Table.Th>
-                  <Table.Th>Idő</Table.Th>
+                  <Table.Th>{t('Visszajelzés')}</Table.Th>
+                  <Table.Th>{t('Oldal')}</Table.Th>
+                  <Table.Th>{t('Prioritás')}</Table.Th>
+                  <Table.Th>{t('Státusz')}</Table.Th>
+                  <Table.Th>{t('Felelős')}</Table.Th>
+                  <Table.Th>{t('Idő')}</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -648,7 +636,7 @@ export function CommentsPanel({
                     <Table.Td onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         size="xs"
-                        aria-label={`Kijelölés: ${c.authorName} kommentje`}
+                        aria-label={t('Kijelölés: {authorName} kommentje', { authorName: c.authorName })}
                         checked={selected.has(c.id)}
                         onChange={() => toggleSelected(c.id)}
                       />
@@ -659,7 +647,7 @@ export function CommentsPanel({
                       </Text>
                       <Text size="xs" c="dimmed">
                         {c.authorName}
-                        {c.replies.length > 0 ? ` · ${c.replies.length} válasz` : ''}
+                        {c.replies.length > 0 ? t(' · {length} válasz', { length: c.replies.length }) : ''}
                       </Text>
                     </Table.Td>
                     <Table.Td maw={180}>
@@ -669,12 +657,12 @@ export function CommentsPanel({
                     </Table.Td>
                     <Table.Td>
                       <Badge size="sm" variant="light" color={PRIORITY_COLOR[c.priority]}>
-                        {PRIORITY_OPTIONS.find((o) => o.value === c.priority)?.label}
+                        {PRIORITY_OPTIONS().find((o) => o.value === c.priority)?.label}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
                       <Badge size="sm" variant="light" color={STATUS_COLOR[c.status]}>
-                        {STATUS_OPTIONS.find((o) => o.value === c.status)?.label}
+                        {STATUS_OPTIONS().find((o) => o.value === c.status)?.label}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
@@ -694,7 +682,7 @@ export function CommentsPanel({
           </Table.ScrollContainer>
         </div>
       )}
-      <Drawer opened={detail !== null} onClose={() => setDetailId(null)} position="right" size="lg" title="Visszajelzés részletei">
+      <Drawer opened={detail !== null} onClose={() => setDetailId(null)} position="right" size="lg" title={t('Visszajelzés részletei')}>
         {detail && renderCard(detail)}
       </Drawer>
       {view === 'cards' && [...byPage.entries()].map(([url, items]) => (
@@ -711,8 +699,7 @@ export function CommentsPanel({
               {pagePath(url)}
             </Anchor>
             <Text size="xs" c="dimmed">
-              {items.length} komment
-            </Text>
+              {items.length} {t('komment')}</Text>
           </Group>
           {items.map((c) => (
             <div key={c.id}>{renderCard(c)}</div>
@@ -720,36 +707,33 @@ export function CommentsPanel({
         </Stack>
       ))}
 
-      <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title="Komment törlése" centered>
+      <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title={t('Komment törlése')} centered>
         <Stack>
           <Text size="sm">
-            Biztosan törlöd {deleting?.authorName} kommentjét? A képernyőképe is törlődik, ez nem vonható vissza.
-          </Text>
+            {t('Biztosan törlöd')}{' '}{deleting?.authorName} {t('kommentjét? A képernyőképe is törlődik, ez nem vonható vissza.')}</Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setDeleteOpen(false)}>
-              Mégse
-            </Button>
+              {t('Mégse')}</Button>
             <Button color="red" loading={busyId !== null && busyId === deleting?.id} onClick={confirmDelete}>
-              Törlés
-            </Button>
+              {t('Törlés')}</Button>
           </Group>
         </Stack>
       </Modal>
 
-      <Modal opened={gallery !== null} onClose={() => setGallery(null)} title="Mellékletek" size="xl" centered>
-        {gallery?.failed && <Alert color="red">A mellékletek betöltése nem sikerült.</Alert>}
+      <Modal opened={gallery !== null} onClose={() => setGallery(null)} title={t('Mellékletek')} size="xl" centered>
+        {gallery?.failed && <Alert color="red">{t('A mellékletek betöltése nem sikerült.')}</Alert>}
         {gallery && !gallery.failed && gallery.urls.length === 0 && <Loader size="sm" />}
         <Stack>
           {gallery?.urls.map((url, i) => (
-            <Image key={url} src={url} alt={`${i + 1}. melléklet: ${gallery.comment.body.slice(0, 60)}`} fit="contain" />
+            <Image key={url} src={url} alt={t('{n}. melléklet: {n2}', { n: i + 1, n2: gallery.comment.body.slice(0, 60) })} fit="contain" />
           ))}
         </Stack>
       </Modal>
 
-      <Modal opened={shot !== null} onClose={() => setShot(null)} title="Képernyőkép" size="xl" centered>
-        {shot?.failed && <Alert color="red">A képernyőkép betöltése nem sikerült.</Alert>}
+      <Modal opened={shot !== null} onClose={() => setShot(null)} title={t('Képernyőkép')} size="xl" centered>
+        {shot?.failed && <Alert color="red">{t('A képernyőkép betöltése nem sikerült.')}</Alert>}
         {shot && !shot.failed && !shot.url && <Loader size="sm" />}
-        {shot?.url && <Image src={shot.url} alt={`Képernyőkép: ${shot.comment.body.slice(0, 60)}`} fit="contain" />}
+        {shot?.url && <Image src={shot.url} alt={t('Képernyőkép: {n}', { n: shot.comment.body.slice(0, 60) })} fit="contain" />}
       </Modal>
     </Stack>
   );

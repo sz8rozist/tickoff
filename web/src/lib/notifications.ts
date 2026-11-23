@@ -101,6 +101,16 @@ export function commentDone(project: Project, comment: Comment): void {
 export function assigned(project: Project, comment: Comment, assignee: User, by: string): void {
   if (!isMailEnabled() || !assignee.notifyEmail) return;
   if (!allow('u' + assignee.id, LIMITS.notifyRecipient)) return;
+  if (assignee.lang === 'en') {
+    sendMail(
+      assignee.email,
+      `[Tickoff] You were assigned a task: ${project.name}`,
+      `${by} assigned this feedback to you in the "${project.name}" project (page: ${comment.pageUrl}):\n\n${excerpt(comment.body)}\n\n` +
+        `Open: ${dashboardOrigin()}/\n\n` +
+        'You received this email because you asked for notifications in Tickoff. You can turn it off in the Tickoff interface.\n',
+    );
+    return;
+  }
   sendMail(
     assignee.email,
     `[Tickoff] Feladatot kaptál: ${project.name}`,

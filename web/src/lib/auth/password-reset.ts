@@ -46,6 +46,16 @@ export async function requestPasswordReset(rawEmail: string): Promise<void> {
     expiresAt: new Date(now.getTime() + TTL_MS),
   });
 
+  if (user.lang === 'en') {
+    sendMail(
+      user.email,
+      'Tickoff: password reset',
+      `Hi ${user.name}!\n\nA password reset was requested for your Tickoff account. To set a new password, open this link ` +
+        `(valid for one hour, single use):\n\n${dashboardOrigin()}/?reset-token=${raw}\n\n` +
+        'If you did not request it, ignore this email: your password will not change.\n',
+    );
+    return;
+  }
   sendMail(
     user.email,
     'Tickoff: jelszó-visszaállítás',

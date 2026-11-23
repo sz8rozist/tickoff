@@ -3,15 +3,16 @@ import { Alert, Badge, Button, Checkbox, Group, Loader, Modal, Progress, Stack, 
 import { api, ApiError, type Member, type Round } from './api';
 import { CommentsPanel } from './CommentsPanel';
 import { saveBlob } from './download';
+import { locale, t } from './i18n';
 
 function describe(e: unknown): string {
   if (e instanceof ApiError && e.status === 409) {
-    return 'A körök állapota közben megváltozott, frissítettük a listát.';
+    return t('A körök állapota közben megváltozott, frissítettük a listát.');
   }
-  return 'Nem sikerült, próbáld újra később.';
+  return t('Nem sikerült, próbáld újra később.');
 }
 
-const fmt = (iso: string) => new Date(iso).toLocaleDateString('hu-HU');
+const fmt = (iso: string) => new Date(iso).toLocaleDateString(locale());
 
 export function RoundsPanel({
   projectId,
@@ -51,7 +52,7 @@ export function RoundsPanel({
         const open = list.find((r) => r.status === 'OPEN');
         if (open) setExpanded(new Set([open.id]));
       })
-      .catch(() => setError('A körök betöltése nem sikerült.'));
+      .catch(() => setError(t('A körök betöltése nem sikerült.')));
   }, [projectId]);
 
   function toggle(id: number) {
@@ -90,7 +91,7 @@ export function RoundsPanel({
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
       tab?.close();
-      setError('A riport elkészítése nem sikerült, próbáld újra később.');
+      setError(t('A riport elkészítése nem sikerült, próbáld újra később.'));
     }
   }
 
@@ -100,7 +101,7 @@ export function RoundsPanel({
       const { blob, filename } = await api.comments.exportCsv(projectId, roundId);
       saveBlob(blob, filename);
     } catch {
-      setError('Az export nem sikerült, próbáld újra később.');
+      setError(t('Az export nem sikerült, próbáld újra később.'));
     }
   }
 
@@ -125,47 +126,41 @@ export function RoundsPanel({
         <div key={r.id} className="round-row" data-open={r.status === 'OPEN'}>
           <Group justify="space-between" gap="sm">
             <Group gap="sm">
-              <Text fw={600}>{r.number}. kör</Text>
+              <Text fw={600}>{r.number}{t('. kör')}</Text>
               {r.status === 'OPEN' ? (
                 <Badge color="green" variant="light">
-                  nyitott
-                </Badge>
+                  {t('nyitott')}</Badge>
               ) : (
                 <Badge color="gray" variant="light">
-                  lezárva · {fmt(r.closedAt!)}
+                  {t('lezárva ·')}{' '}{fmt(r.closedAt!)}
                 </Badge>
               )}
               <Text size="xs" c="dimmed">
-                {r.commentCount} komment
-                {r.commentCount > 0 && ` · ${r.openCommentCount} nyitott`}
+                {r.commentCount} {t('komment')}{r.commentCount > 0 && t(' · {openCommentCount} nyitott', { openCommentCount: r.openCommentCount })}
               </Text>
               {r.approvedAt && (
-                <Badge color="green" variant="filled" title={`Jóváhagyta: ${r.approvedBy ?? ''}`}>
-                  ✓ az ügyfél jóváhagyta{r.approvedBy ? ` (${r.approvedBy})` : ''}
+                <Badge color="green" variant="filled" title={t('Jóváhagyta: {approvedBy}', { approvedBy: r.approvedBy ?? '' })}>
+                  {t('✓ az ügyfél jóváhagyta')}{r.approvedBy ? ` (${r.approvedBy})` : ''}
                 </Badge>
               )}
             </Group>
             <Group gap={4}>
               <Button size="compact-xs" variant="subtle" onClick={() => toggle(r.id)}>
-                {expanded.has(r.id) ? 'Kommentek elrejtése' : 'Kommentek'}
+                {expanded.has(r.id) ? t('Kommentek elrejtése') : 'Kommentek'}
               </Button>
               {r.commentCount > 0 && (
                 <>
                   <Button size="compact-xs" variant="subtle" color="gray" disabled={busy} onClick={() => exportCsv(r.id)}>
-                    Export (CSV)
-                  </Button>
+                    {t('Export (CSV)')}</Button>
                   <Button size="compact-xs" variant="subtle" onClick={() => void openReport(r.id, false)}>
-                    Riport
-                  </Button>
+                    {t('Riport')}</Button>
                   <Button size="compact-xs" variant="subtle" color="gray" onClick={() => void openReport(r.id, true)}>
-                    Belső riport
-                  </Button>
+                    {t('Belső riport')}</Button>
                 </>
               )}
               {r.status === 'OPEN' && (
                 <Button size="compact-xs" variant="default" disabled={busy} onClick={() => run(() => api.rounds.close(projectId, r.id))}>
-                  Kör lezárása
-                </Button>
+                  {t('Kör lezárása')}</Button>
               )}
             </Group>
           </Group>
@@ -174,7 +169,7 @@ export function RoundsPanel({
               <TextInput
                 type="date"
                 size="xs"
-                label="Határidő"
+                label={t('Határidő')}
                 value={r.dueDate ?? ''}
                 disabled={busy}
                 onChange={(e) => {
@@ -185,12 +180,10 @@ export function RoundsPanel({
               />
               {r.dueDate && new Date(r.dueDate + 'T23:59:59') < new Date() && (
                 <Badge color="red" variant="light" mt={18}>
-                  lejárt
-                </Badge>
+                  {t('lejárt')}</Badge>
               )}
               <Text size="xs" c="dimmed" mt={18}>
-                Az ügyfél a widgetben látja. Tájékoztató: a lejárta nem zárja le a kört.
-              </Text>
+                {t('Az ügyfél a widgetben látja. Tájékoztató: a lejárta nem zárja le a kört.')}</Text>
             </Group>
           )}
           {r.commentCount > 0 && (
@@ -199,7 +192,7 @@ export function RoundsPanel({
               size={5}
               color="green"
               value={((r.commentCount - r.openCommentCount) / r.commentCount) * 100}
-              aria-label="Lezárt kommentek aránya"
+              aria-label={t('Lezárt kommentek aránya')}
             />
           )}
           {expanded.has(r.id) && (
@@ -221,8 +214,7 @@ export function RoundsPanel({
             disabled={busy}
             onClick={() => (unresolved > 0 ? setNewRoundOpen(true) : run(() => api.rounds.open(projectId)))}
           >
-            Új kör nyitása
-          </Button>
+            {t('Új kör nyitása')}</Button>
         </div>
       )}
       {error && (
@@ -231,21 +223,18 @@ export function RoundsPanel({
         </Alert>
       )}
 
-      <Modal opened={newRoundOpen} onClose={() => setNewRoundOpen(false)} title="Új kör nyitása" centered>
+      <Modal opened={newRoundOpen} onClose={() => setNewRoundOpen(false)} title={t('Új kör nyitása')} centered>
         <Stack>
           <Text size="sm">
-            Az előző körben {unresolved} komment még nincs kész. A widget csak a nyitott kör kommentjeit mutatja, ezért ha
-            nem viszed át őket, az ügyfélnek újra be kell küldenie, ami még aktuális.
-          </Text>
+            {t('Az előző körben')}{' '}{unresolved} {t('komment még nincs kész. A widget csak a nyitott kör kommentjeit mutatja, ezért ha nem viszed át őket, az ügyfélnek újra be kell küldenie, ami még aktuális.')}</Text>
           <Checkbox
             checked={carryOver}
             onChange={(e) => setCarryOver(e.currentTarget.checked)}
-            label={`A nem kész kommentek átvitele az új körbe (${unresolved} db)`}
+            label={t('A nem kész kommentek átvitele az új körbe ({unresolved} db)', { unresolved: unresolved })}
           />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setNewRoundOpen(false)}>
-              Mégse
-            </Button>
+              {t('Mégse')}</Button>
             <Button
               disabled={busy}
               onClick={() => {
@@ -253,8 +242,7 @@ export function RoundsPanel({
                 void run(() => api.rounds.open(projectId, carryOver));
               }}
             >
-              Kör nyitása
-            </Button>
+              {t('Kör nyitása')}</Button>
           </Group>
         </Stack>
       </Modal>

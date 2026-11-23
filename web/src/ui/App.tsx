@@ -15,6 +15,7 @@ import { SettingsPage } from './SettingsPage';
 import { Landing } from './Landing';
 import { PATH_LOGIN, PATH_REGISTER, usePath } from './route';
 import { ResetPasswordPage } from './ResetPasswordPage';
+import { t, useLang } from './i18n';
 
 const RESET_PARAM = 'reset-token';
 const VERIFY_PARAM = 'verify-token';
@@ -35,6 +36,7 @@ export function App() {
   const [verifyResult, setVerifyResult] = useState<'ok' | 'fail' | null>(null);
   const [resent, setResent] = useState(false);
   const [path, navigate] = usePath();
+  const { lang, setLang } = useLang();
   // Ha van mentett token, először megnézzük, érvényes-e.
   const [loading, setLoading] = useState<boolean>(() => getToken() !== null);
 
@@ -63,6 +65,11 @@ export function App() {
         if (!getToken()) navigate(PATH_LOGIN, true);
       });
   }, [verifyToken, navigate]);
+
+  // A fiók nyelve a bejelentkezés után érvényesül (a felület ezen a nyelven nyílik meg minden eszközön)
+  useEffect(() => {
+    if (user && user.lang !== lang) setLang(user.lang);
+  }, [user, lang, setLang]);
 
   // Bejelentkezve a belépő és regisztrációs címeknek nincs értelme: a dashboardra irányítunk
   useEffect(() => {
@@ -130,13 +137,11 @@ export function App() {
       <AuthShell onHome={() => navigate('/')}>
         {verifyResult === 'ok' && (
           <Alert color="green" mb="md" role="status">
-            Az e-mail-címed megerősítve. Most már beléphetsz.
-          </Alert>
+            {t('Az e-mail-címed megerősítve. Most már beléphetsz.')}</Alert>
         )}
         {verifyResult === 'fail' && (
           <Alert color="red" mb="md" role="alert">
-            A megerősítő link érvénytelen vagy lejárt. Belépés után kérhetsz újat.
-          </Alert>
+            {t('A megerősítő link érvénytelen vagy lejárt. Belépés után kérhetsz újat.')}</Alert>
         )}
         <AuthForm key={path} initialMode={path === PATH_REGISTER ? 'register' : 'login'} onAuth={setUser} onNavigate={navigate} />
       </AuthShell>
@@ -166,23 +171,20 @@ export function App() {
         <Stack gap="md">
           {verifyResult === 'ok' && (
             <Alert color="green" role="status" withCloseButton onClose={() => setVerifyResult(null)}>
-              Az e-mail-címed megerősítve.
-            </Alert>
+              {t('Az e-mail-címed megerősítve.')}</Alert>
           )}
           {verifyResult === 'fail' && (
             <Alert color="red" role="alert" withCloseButton onClose={() => setVerifyResult(null)}>
-              A megerősítő link érvénytelen vagy lejárt. Kérj újat lent.
-            </Alert>
+              {t('A megerősítő link érvénytelen vagy lejárt. Kérj újat lent.')}</Alert>
           )}
           {!user.emailVerified && (
-            <Alert color="yellow" title="Erősítsd meg az e-mail-címed">
-              Küldtünk egy levelet a(z) {user.email} címre. A megerősítésig a hozzád érkező projektmeghívók nem lépnek életbe.{' '}
+            <Alert color="yellow" title={t('Erősítsd meg az e-mail-címed')}>
+              {t('Küldtünk egy levelet a(z)')}{' '}{user.email} {t('címre. A megerősítésig a hozzád érkező projektmeghívók nem lépnek életbe.')}{' '}
               {resent ? (
-                'Új levelet küldtünk.'
+                t('Új levelet küldtünk.')
               ) : (
                 <Button size="compact-xs" variant="light" onClick={() => void resendVerification()}>
-                  Küldd újra
-                </Button>
+                  {t('Küldd újra')}</Button>
               )}
             </Alert>
           )}

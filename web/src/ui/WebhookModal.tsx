@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Code, CopyButton, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { api, ApiError, type Project, type WebhookDelivery } from './api';
+import { locale, t } from './i18n';
 
-const EVENT_LABEL: Record<string, string> = {
-  'comment.created': 'új visszajelzés',
-  'reply.created': 'ügyfél-válasz',
-  'comment.reopened': 'újranyitás',
-  'round.approved': 'kör jóváhagyása',
-};
+const EVENT_LABEL = (): Record<string, string> => ({
+  'comment.created': t('új visszajelzés'),
+  'reply.created': t('ügyfél-válasz'),
+  'comment.reopened': t('újranyitás'),
+  'round.approved': t('kör jóváhagyása'),
+});
 
 function saveError(e: unknown): string {
   if (e instanceof ApiError) {
-    if (e.status === 400) return 'Érvénytelen cím: https:// kezdetű, nyilvánosan elérhető címet adj meg (belső hálózatra nem mutathat).';
-    if (e.status === 403 || e.status === 404) return 'Ehhez csak a projekt tulajdonosa jogosult.';
+    if (e.status === 400) return t('Érvénytelen cím: https:// kezdetű, nyilvánosan elérhető címet adj meg (belső hálózatra nem mutathat).');
+    if (e.status === 403 || e.status === 404) return t('Ehhez csak a projekt tulajdonosa jogosult.');
   }
-  return 'A mentés nem sikerült, próbáld újra később.';
+  return t('A mentés nem sikerült, próbáld újra később.');
 }
 
 /**
@@ -86,13 +87,13 @@ export function WebhookModal({
       if (project.webhookUrl) void loadDeliveries(project.id);
       setResult(
         r.ok
-          ? { ok: true, text: 'A teszt-üzenet megérkezett a fogadóhoz.' }
-          : { ok: false, text: r.error ?? 'A fogadó hibát jelzett.' },
+          ? { ok: true, text: t('A teszt-üzenet megérkezett a fogadóhoz.') }
+          : { ok: false, text: r.error ?? t('A fogadó hibát jelzett.') },
       );
     } catch (e) {
       setResult({
         ok: false,
-        text: e instanceof ApiError && e.status === 429 ? 'Túl sok teszt, várj egy percet.' : 'A teszt nem sikerült.',
+        text: e instanceof ApiError && e.status === 429 ? t('Túl sok teszt, várj egy percet.') : t('A teszt nem sikerült.'),
       });
     } finally {
       setTesting(false);
@@ -100,20 +101,18 @@ export function WebhookModal({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Webhook" size="lg" centered>
+    <Modal opened={opened} onClose={onClose} title={t('Webhook')} size="lg" centered>
       <Stack>
         <Text size="sm">
-          A csapat eseményeit (új visszajelzés, az ügyfél válasza, újranyitás, kör jóváhagyása) elküldjük erre a címre.
-          Slack vagy Discord <b>bejövő webhook</b> címét közvetlenül megadhatod, saját fogadó a JSON-t kapja.
-        </Text>
+          {t('A csapat eseményeit (új visszajelzés, az ügyfél válasza, újranyitás, kör jóváhagyása) elküldjük erre a címre. Slack vagy Discord')}{' '}<b>{t('bejövő webhook')}</b> {t('címét közvetlenül megadhatod, saját fogadó a JSON-t kapja.')}</Text>
 
         <TextInput
-          label="Webhook címe"
-          placeholder="https://hooks.slack.com/services/…"
+          label={t('Webhook címe')}
+          placeholder={t('https://hooks.slack.com/services/…')}
           value={url}
           maxLength={500}
           onChange={(e) => setUrl(e.currentTarget.value)}
-          description="Csak nyilvános https-cím lehet. A cím gyakran titkot tartalmaz, ezért csak te látod."
+          description={t('Csak nyilvános https-cím lehet. A cím gyakran titkot tartalmaz, ezért csak te látod.')}
         />
 
         {error && (
@@ -129,16 +128,13 @@ export function WebhookModal({
 
         <Group>
           <Button loading={busy} disabled={url.trim() === '' || url.trim() === project.webhookUrl} onClick={() => save(url.trim())}>
-            Mentés
-          </Button>
+            {t('Mentés')}</Button>
           {configured && (
             <>
               <Button variant="light" loading={testing} onClick={test}>
-                Teszt küldése
-              </Button>
+                {t('Teszt küldése')}</Button>
               <Button variant="subtle" color="red" loading={busy} onClick={() => save(null)}>
-                Kikapcsolás
-              </Button>
+                {t('Kikapcsolás')}</Button>
             </>
           )}
         </Group>
@@ -146,28 +142,26 @@ export function WebhookModal({
         {configured && deliveries && (
           <Stack gap={6}>
             <Text size="sm" fw={600}>
-              Legutóbbi kézbesítések
-            </Text>
+              {t('Legutóbbi kézbesítések')}</Text>
             {deliveries.length === 0 ? (
               <Text size="xs" c="dimmed">
-                Még nem volt kézbesítés. A sikertelen küldést a rendszer háromszor újrapróbálja (10 mp, 1 perc, 5 perc múlva).
-              </Text>
+                {t('Még nem volt kézbesítés. A sikertelen küldést a rendszer háromszor újrapróbálja (10 mp, 1 perc, 5 perc múlva).')}</Text>
             ) : (
               <Stack gap={4}>
                 {deliveries.map((d) => (
                   <Group key={d.id} gap="xs" wrap="nowrap" justify="space-between">
                     <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                       <Badge size="sm" variant="light" color={d.ok ? 'green' : 'red'}>
-                        {d.ok ? 'sikerült' : 'nem sikerült'}
+                        {d.ok ? t('sikerült') : t('nem sikerült')}
                       </Badge>
                       <Text size="xs" truncate>
-                        {EVENT_LABEL[d.event] ?? d.event}
-                        {d.attempts > 1 ? ` · ${d.attempts}. próbálkozásra` : ''}
+                        {EVENT_LABEL()[d.event] ?? d.event}
+                        {d.attempts > 1 ? t(' · {attempts}. próbálkozásra', { attempts: d.attempts }) : ''}
                         {!d.ok && d.error ? ` · ${d.error}` : ''}
                       </Text>
                     </Group>
                     <Text size="xs" c="dimmed" style={{ flex: 'none' }}>
-                      {new Date(d.createdAt).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' })}
+                      {new Date(d.createdAt).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' })}
                     </Text>
                   </Group>
                 ))}
@@ -179,22 +173,19 @@ export function WebhookModal({
         {configured && project.webhookSecret && (
           <Stack gap={4}>
             <Text size="sm" fw={600}>
-              Aláírási titok
-            </Text>
+              {t('Aláírási titok')}</Text>
             <Group gap="xs">
               <Code>{project.webhookSecret}</Code>
               <CopyButton value={project.webhookSecret}>
                 {({ copied, copy }) => (
                   <Button variant="light" size="compact-xs" onClick={copy}>
-                    {copied ? 'Másolva' : 'Másolás'}
+                    {copied ? t('Másolva') : t('Másolás')}
                   </Button>
                 )}
               </CopyButton>
             </Group>
             <Text size="xs" c="dimmed">
-              Saját fogadónál az <Code>X-Tickoff-Signature</Code> fejléc <Code>sha256=…</Code> értéke a kérés nyers
-              törzsének HMAC-SHA256 hash-e ezzel a titokkal. Slacknél és Discordnál nincs rá szükség.
-            </Text>
+              {t('Saját fogadónál az')}{' '}<Code>{t('X-Tickoff-Signature')}</Code> {t('fejléc')}{' '}<Code>{t('sha256=…')}</Code> {t('értéke a kérés nyers törzsének HMAC-SHA256 hash-e ezzel a titokkal. Slacknél és Discordnál nincs rá szükség.')}</Text>
           </Stack>
         )}
       </Stack>

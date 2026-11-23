@@ -38,12 +38,22 @@ export async function sendVerification(userId: number): Promise<void> {
     .update(schema.users)
     .set({ emailVerifyHash: sha256(raw), emailVerifyExpiresAt: new Date(now.getTime() + TTL_MS), emailVerifySentAt: now })
     .where(eq(schema.users.id, userId));
+  const link = `${dashboardOrigin()}/?verify-token=${raw}`;
+  if (user.lang === 'en') {
+    sendMail(
+      user.email,
+      'Tickoff: confirm your email address',
+      `Hi ${user.name}!\n\nThank you for registering. To confirm your email address, open this link (valid for 24 hours):\n\n${link}\n\n` +
+        'If you did not register, ignore this email.\n',
+    );
+    return;
+  }
   sendMail(
     user.email,
     'Tickoff: erősítsd meg az e-mail-címed',
     `Szia ${user.name}!\n\n` +
       'Köszönjük a regisztrációt. Az e-mail-címed megerősítéséhez nyisd meg ezt a linket (24 óráig érvényes):\n\n' +
-      `${dashboardOrigin()}/?verify-token=${raw}\n\n` +
+      `${link}\n\n` +
       'Ha nem te regisztráltál, hagyd figyelmen kívül ezt a levelet.\n',
   );
 }

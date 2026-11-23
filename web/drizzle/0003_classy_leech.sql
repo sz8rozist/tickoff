@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `lang` varchar(2) DEFAULT 'hu' NOT NULL;

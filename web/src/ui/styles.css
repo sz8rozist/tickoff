@@ -521,3 +521,36 @@ body {
     transform: none;
   }
 }
+
+/* Nyelvváltó a belépő oldalakon */
+.auth-lang {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 999px;
+}
+
+.auth-lang button {
+  border: 0;
+  background: transparent;
+  color: var(--mantine-color-dimmed);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.auth-lang button[data-active] {
+  background: var(--mantine-color-brand-6);
+  color: #fff;
+}
+
+.auth-main {
+  position: relative;
+}

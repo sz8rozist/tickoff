@@ -9,6 +9,7 @@ export function userDto(u: User) {
     notifyEmail: u.notifyEmail,
     emailVerified: u.emailVerifiedAt !== null,
     digestFrequency: u.digestFrequency,
+    lang: u.lang === 'en' ? 'en' : 'hu',
     twoFactorEnabled: u.totpEnabledAt !== null,
   };
 }

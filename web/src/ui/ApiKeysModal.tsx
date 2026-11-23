@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Code, CopyButton, Group, Loader, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { api, ApiError, type ApiKeyInfo } from './api';
+import { locale, t } from './i18n';
 
-const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' });
+const dateTime = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
 
 /** Az API-kulcsok kezelése: a nyilvános, csak olvasható API-hoz (más rendszerek integrálásához). */
 export function ApiKeysModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
@@ -17,7 +18,7 @@ export function ApiKeysModal({ opened, onClose }: { opened: boolean; onClose: ()
     if (!opened) return;
     setError(null);
     setCreated(null);
-    api.apiKeys.list().then(setKeys).catch(() => setError('A kulcsok betöltése nem sikerült.'));
+    api.apiKeys.list().then(setKeys).catch(() => setError(t('A kulcsok betöltése nem sikerült.')));
   }, [opened]);
 
   async function create() {
@@ -30,7 +31,7 @@ export function ApiKeysModal({ opened, onClose }: { opened: boolean; onClose: ()
       setKeys((prev) => [k, ...(prev ?? [])]);
       setName('');
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 409 ? 'Legfeljebb 10 kulcs lehet. Törölj egyet.' : 'A kulcs létrehozása nem sikerült.');
+      setError(e instanceof ApiError && e.status === 409 ? t('Legfeljebb 10 kulcs lehet. Törölj egyet.') : t('A kulcs létrehozása nem sikerült.'));
     } finally {
       setBusy(false);
     }
@@ -42,27 +43,24 @@ export function ApiKeysModal({ opened, onClose }: { opened: boolean; onClose: ()
       await api.apiKeys.remove(id);
       setKeys((prev) => prev?.filter((k) => k.id !== id) ?? null);
     } catch {
-      setError('A kulcs törlése nem sikerült.');
+      setError(t('A kulcs törlése nem sikerült.'));
     }
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="API-kulcsok" size="lg" centered>
+    <Modal opened={opened} onClose={onClose} title={t('API-kulcsok')} size="lg" centered>
       <Stack>
         <Text size="sm">
-          Az API-kulccsal más rendszerek <b>csak olvashatják</b> a projektjeid visszajelzéseit (
-          <Code>GET /api/v1/projects</Code>, <Code>GET /api/v1/projects/&#123;id&#125;/comments</Code>). A kulcs a te
-          jogaiddal dolgozik, ezért kezeld jelszóként.
-        </Text>
+          {t('Az API-kulccsal más rendszerek')}{' '}<b>{t('csak olvashatják')}</b> {t('a projektjeid visszajelzéseit (')}<Code>{t('GET /api/v1/projects')}</Code>, <Code>GET /api/v1/projects/&#123;id&#125;/comments</Code>{t('). A kulcs a te jogaiddal dolgozik, ezért kezeld jelszóként.')}</Text>
 
         {created && (
-          <Alert color="green" title="Másold ki most, később nem látható">
+          <Alert color="green" title={t('Másold ki most, később nem látható')}>
             <Group gap="xs" wrap="nowrap">
               <Code style={{ wordBreak: 'break-all' }}>{created}</Code>
               <CopyButton value={created}>
                 {({ copied, copy }) => (
                   <Button size="compact-xs" variant="light" onClick={copy}>
-                    {copied ? 'Másolva' : 'Másolás'}
+                    {copied ? t('Másolva') : t('Másolás')}
                   </Button>
                 )}
               </CopyButton>
@@ -72,16 +70,15 @@ export function ApiKeysModal({ opened, onClose }: { opened: boolean; onClose: ()
 
         <Group align="flex-end" wrap="nowrap">
           <TextInput
-            label="Új kulcs neve"
-            placeholder="pl. Jira-integráció"
+            label={t('Új kulcs neve')}
+            placeholder={t('pl. Jira-integráció')}
             maxLength={80}
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
             style={{ flex: 1 }}
           />
           <Button loading={busy} disabled={name.trim() === ''} onClick={create}>
-            Létrehozás
-          </Button>
+            {t('Létrehozás')}</Button>
         </Group>
 
         {error && (
@@ -94,8 +91,7 @@ export function ApiKeysModal({ opened, onClose }: { opened: boolean; onClose: ()
           <Loader size="xs" />
         ) : keys.length === 0 ? (
           <Text size="sm" c="dimmed">
-            Még nincs API-kulcsod.
-          </Text>
+            {t('Még nincs API-kulcsod.')}</Text>
         ) : (
           <Stack gap="xs">
             {keys.map((k) => (
@@ -105,13 +101,12 @@ export function ApiKeysModal({ opened, onClose }: { opened: boolean; onClose: ()
                     {k.name}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    <Code>{k.prefix}…</Code> · létrehozva: {dateTime(k.createdAt)} ·{' '}
-                    {k.lastUsedAt ? `utoljára: ${dateTime(k.lastUsedAt)}` : 'még nem használták'}
+                    <Code>{k.prefix}…</Code> {t('· létrehozva:')}{' '}{dateTime(k.createdAt)} ·{' '}
+                    {k.lastUsedAt ? t('utoljára: {lastUsedAt}', { lastUsedAt: dateTime(k.lastUsedAt) }) : t('még nem használták')}
                   </Text>
                 </div>
                 <Button size="compact-xs" variant="subtle" color="red" onClick={() => void remove(k.id)}>
-                  Törlés
-                </Button>
+                  {t('Törlés')}</Button>
               </Group>
             ))}
           </Stack>

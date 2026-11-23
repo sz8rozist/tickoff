@@ -1,13 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { Alert, Badge, Box, Button, Group, Stack, Text, Textarea } from '@mantine/core';
 import { ApiError, type Reply } from './api';
+import { locale, t } from './i18n';
 
-const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' });
+const dateTime = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
 
 function errorMessage(e: unknown): string {
-  if (e instanceof ApiError && e.status === 409) return 'Ehhez a kommenthez már nem fűzhető több válasz.';
-  if (e instanceof ApiError && e.status === 400) return 'A válasz nem lehet üres, és legfeljebb 4000 karakter lehet.';
-  return 'A válasz elküldése nem sikerült, próbáld újra később.';
+  if (e instanceof ApiError && e.status === 409) return t('Ehhez a kommenthez már nem fűzhető több válasz.');
+  if (e instanceof ApiError && e.status === 400) return t('A válasz nem lehet üres, és legfeljebb 4000 karakter lehet.');
+  return t('A válasz elküldése nem sikerült, próbáld újra később.');
 }
 
 /** A komment válaszai időrendben, alatta a válasz-űrlap. */
@@ -53,7 +54,7 @@ export function Thread({
     try {
       await onRemove(id);
     } catch {
-      setError('A válasz törlése nem sikerült.');
+      setError(t('A válasz törlése nem sikerült.'));
     }
   }
 
@@ -69,8 +70,7 @@ export function Thread({
                 </Text>
                 {r.authorType === 'DESIGNER' && (
                   <Badge size="xs" variant="light">
-                    csapat
-                  </Badge>
+                    {t('csapat')}</Badge>
                 )}
                 <Text size="xs" c="dimmed">
                   {dateTime(r.createdAt)}
@@ -80,9 +80,9 @@ export function Thread({
                   variant="subtle"
                   color="red"
                   onClick={() => remove(r.id)}
-                  aria-label={`Válasz törlése: ${r.authorName}`}
+                  aria-label={t('Válasz törlése: {authorName}', { authorName: r.authorName })}
                 >
-                  {confirmId === r.id ? 'Biztosan?' : 'Törlés'}
+                  {confirmId === r.id ? 'Biztosan?' : t('Törlés')}
                 </Button>
               </Group>
               <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
@@ -103,7 +103,7 @@ export function Thread({
         <form onSubmit={submit}>
           <Stack gap="xs">
             <Textarea
-              placeholder="Válasz írása…"
+              placeholder={t('Válasz írása…')}
               autosize
               minRows={2}
               maxRows={8}
@@ -123,8 +123,7 @@ export function Thread({
             )}
             <Group gap="xs">
               <Button type="submit" size="xs" loading={busy} disabled={body.trim() === ''}>
-                Válasz küldése
-              </Button>
+                {t('Válasz küldése')}</Button>
               <Button
                 size="xs"
                 variant="default"
@@ -134,16 +133,14 @@ export function Thread({
                   setError(null);
                 }}
               >
-                Mégse
-              </Button>
+                {t('Mégse')}</Button>
             </Group>
           </Stack>
         </form>
       ) : (
         <div>
           <Button size="compact-xs" variant="light" onClick={() => setWriting(true)}>
-            Válasz
-          </Button>
+            {t('Válasz')}</Button>
         </div>
       )}
     </Stack>

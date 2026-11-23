@@ -13,6 +13,7 @@ const Body = z.object({
   email: z.email().max(255),
   password: z.string().min(8).max(72),
   name: z.string().trim().min(1).max(120),
+  lang: z.enum(['hu', 'en']).optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +31,7 @@ export const POST = api(async (req) => {
 
   let userId: number;
   try {
-    const [result] = await db.insert(schema.users).values({ email, passwordHash: await hashPassword(body.password), name: body.name });
+    const [result] = await db.insert(schema.users).values({ email, passwordHash: await hashPassword(body.password), name: body.name, lang: body.lang ?? 'hu' });
     userId = result.insertId;
   } catch (e) {
     // Párhuzamos regisztráció ugyanarra az e-mailre: az egyedi index elkapja.

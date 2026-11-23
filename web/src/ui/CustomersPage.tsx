@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Avatar, Badge, Group, Loader, Stack, Table, Text, Title } from '@mantine/core';
 import { api, type Comment } from './api';
 import { fold, useDashboard } from './DashboardContext';
+import { locale, t } from './i18n';
 
 interface Customer {
   name: string;
@@ -12,7 +13,7 @@ interface Customer {
   notifies: boolean;
 }
 
-const dateTime = (iso: string) => new Date(iso).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' });
+const dateTime = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
 
 /** Az ügyfelek nem fiókok: a kommentek szerzőnevei alapján, a kiválasztott projekt összes körén át állítjuk össze őket. */
 function summarize(comments: Comment[]): Customer[] {
@@ -62,10 +63,9 @@ export function CustomersPage() {
   if (!selected) {
     return (
       <div className="empty">
-        <Text fw={600}>Nincs kiválasztott projekt</Text>
+        <Text fw={600}>{t('Nincs kiválasztott projekt')}</Text>
         <Text size="sm" c="dimmed">
-          Az ügyfelek a projekt visszajelzéseiből jönnek létre. Válassz projektet a felső sávban.
-        </Text>
+          {t('Az ügyfelek a projekt visszajelzéseiből jönnek létre. Válassz projektet a felső sávban.')}</Text>
       </div>
     );
   }
@@ -73,23 +73,20 @@ export function CustomersPage() {
   return (
     <Stack gap="lg">
       <div>
-        <Title order={2}>Ügyfelek</Title>
+        <Title order={2}>{t('Ügyfelek')}</Title>
         <Text size="sm" c="dimmed">
-          {selected.name}: azok, akik visszajelzést küldtek a widgeten át
-        </Text>
+          {selected.name}{t(': azok, akik visszajelzést küldtek a widgeten át')}</Text>
       </div>
       {error && (
         <Alert color="red" role="alert">
-          Az ügyfelek betöltése nem sikerült.
-        </Alert>
+          {t('Az ügyfelek betöltése nem sikerült.')}</Alert>
       )}
       {!comments && !error && <Loader size="sm" />}
       {comments && customers.length === 0 && (
         <div className="empty">
-          <Text fw={600}>Még nem érkezett visszajelzés</Text>
+          <Text fw={600}>{t('Még nem érkezett visszajelzés')}</Text>
           <Text size="sm" c="dimmed">
-            Amint az ügyfél küld egy kommentet a widgeten, itt megjelenik.
-          </Text>
+            {t('Amint az ügyfél küld egy kommentet a widgeten, itt megjelenik.')}</Text>
         </div>
       )}
       {comments && customers.length > 0 && (
@@ -98,11 +95,11 @@ export function CustomersPage() {
             <Table highlightOnHover className="data-table">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Ügyfél</Table.Th>
-                  <Table.Th>Visszajelzés</Table.Th>
-                  <Table.Th>Nyitott</Table.Th>
-                  <Table.Th>Oldalak</Table.Th>
-                  <Table.Th>Utolsó aktivitás</Table.Th>
+                  <Table.Th>{t('Ügyfél')}</Table.Th>
+                  <Table.Th>{t('Visszajelzés')}</Table.Th>
+                  <Table.Th>{t('Nyitott')}</Table.Th>
+                  <Table.Th>{t('Oldalak')}</Table.Th>
+                  <Table.Th>{t('Utolsó aktivitás')}</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -119,8 +116,7 @@ export function CustomersPage() {
                           </Text>
                           {c.notifies && (
                             <Text size="xs" c="dimmed">
-                              e-mail értesítést kér
-                            </Text>
+                              {t('e-mail értesítést kér')}</Text>
                           )}
                         </div>
                       </Group>
@@ -150,8 +146,7 @@ export function CustomersPage() {
           </Table.ScrollContainer>
           {visible.length === 0 && (
             <Text size="sm" c="dimmed" p="md">
-              Nincs a keresésnek megfelelő ügyfél.
-            </Text>
+              {t('Nincs a keresésnek megfelelő ügyfél.')}</Text>
           )}
         </div>
       )}

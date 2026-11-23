@@ -27,7 +27,7 @@
 - **Prioritás és címkék**: minden kommenthez belső prioritás (sürgős, magas, normál, alacsony) és legfeljebb 5 címke adható (a szerver kisbetűsre, egyedire normalizálja). A sürgős és magas kommentek jelvényt kapnak; szűrhető címkére, rendezhető prioritás szerint, és az exportban külön oszlop. Az ügyfél nem látja.
 - **Rendezés és tömeges művelet**: a kommentek rendezhetők (legrégebbi / legújabb elöl, státusz szerint, válaszok száma szerint). A kommentek kijelölhetők (egyenként vagy az összes látható egyszerre), és a kijelöltekre egy lépésben állítható a státusz vagy a felelős; a hibás elemek kijelölve maradnak az újrapróbáláshoz. A kész állapotra váltásról az e-mailt kérő ügyfelek értesítést kapnak, ahogy egyenként is.
 - **Felelős**: minden komment egy csapattagra (tulajdonos vagy tag) bízható. Aki másra bíz egy kommentet, annak az illető e-mail értesítést kap (ha nem kapcsolta ki). Ha valaki kilép vagy eltávolítják, a rá bízott kommentek felelős nélkül maradnak. A CSV-exportban külön oszlop.
-- **A widget nyelve**: projektenként választható magyar vagy angol. Az angol a widget teljes felületét (űrlap, jelölők, lista, jóváhagyás, hibaüzenetek, dátumok) és az ügyfélnek küldött leveleket (válasz, kész javítás, leiratkozó oldal) érinti; a csapat felülete (dashboard) és a csapatnak küldött értesítések magyarok maradnak. Hiányzó fordításnál a magyar szöveg jelenik meg.
+- **A widget nyelve**: projektenként választható magyar vagy angol. Az angol a widget teljes felületét (űrlap, jelölők, lista, jóváhagyás, hibaüzenetek, dátumok) és az ügyfélnek küldött leveleket (válasz, kész javítás, leiratkozó oldal) érinti; a csapat felülete és a csapatnak küldött levelek nyelve ettől független (lásd a Nyelv pontot). Hiányzó fordításnál a magyar szöveg jelenik meg.
 - **A widget megjelenése**: a tulajdonos a projekt menüjében beállíthatja a widget márkaszínét (a gomb és a kiemelések színe) és a gombok oldalát (jobb vagy bal alul), élő előnézettel. A túl világos színt a szerver elutasítja (a gombokon fehér szöveg van, legalább 3:1 kontraszt kell). A beállítás a widget indulásakor töltődik be, nincs szükség új beágyazásra.
 - **Archiválás**: a lezárt projekt archiválható (a tulajdonos a projekt menüjében): eltűnik a listából és az összesítőből (egy kapcsolóval megjeleníthető), a widgetje leáll (az ügyfél nem lát és nem küld semmit), az adatok megmaradnak, és bármikor visszaállítható.
 - **Összefoglaló e-mail**: a fiók menüből kérhető napi (minden reggel 8-kor) vagy heti (hétfőn) összefoglaló a projektekről: nyitott és folyamatban lévő visszajelzések, az új kommentek az előző levél óta, jóváhagyott körök, határidők. Csak akkor megy levél, ha van mit mondani; az archivált projektek kimaradnak; SMTP nélkül nem működik. Az időzóna a `tickoff.export-zone` (alapból Europe/Budapest).
@@ -40,7 +40,8 @@
 - **Komment törlése** (a képernyőképével és a válaszaival együtt) megerősítéssel.
 - **Csapatmunka**: a tulajdonos meghívhatja a kollégáit e-mail-cím alapján. Ha a címhez van **megerősített** fiók, azonnal tag lesz; ha még nincs (vagy nincs megerősítve), **függő meghívó** és levél megy, és a regisztráció + e-mail-megerősítés után a kolléga automatikusan csatlakozik (a függő meghívók a Tagok fülön látszanak és visszavonhatók, projektenként legfeljebb 20). A tagok a visszajelzéseket kezelhetik (körök, kommentek, válaszok, export), de a projekt beállításait, a tokent és a tagokat nem; kiléphetnek a projektből. A tulajdonos a projektet **átadhatja** egy tagnak (a régi tulajdonos tag marad). A projektlistán megjelölve látszik, melyik projektben vagy tag, és ki a tulajdonosa.
 - **Export CSV-be**: egy kör vagy a teljes projekt kommentjei, magyar Excelben helyesen megnyíló formátumban (ékezetek, pontosvessző).
-- Magyar felület, világos és sötét téma.
+- **Nyelv**: a felület magyarul és angolul is használható (Beállítások, vagy a belépő oldal jobb felső sarkában). A választás a fiókhoz mentődik, így minden eszközön ugyanaz; a fiók **e-mailjei** is ezen a nyelven mennek (új visszajelzés, válasz, újranyitás, jóváhagyás, felelős kijelölése, összefoglaló, megerősítő és jelszó-visszaállító levél). Regisztrációkor a belépő oldalon éppen kiválasztott nyelv lesz a fiók nyelve. A szövegek magyar forrásszöveggel vannak a kódban (`t('…')`), az angol szótár a `web/src/ui/i18n-en.ts`; ami nincs lefordítva, magyarul marad. A bemutató oldal (landing) egyelőre csak magyar.
+- Világos és sötét téma.
 
 ### Ügyfél (widget)
 
@@ -73,7 +74,7 @@
 ### Még nincs meg
 
 - Éles levélküldés (Brevo): az SMTP-beállítás és a feladó igazolása még hátra van, addig a levelek csak a fejlesztői Mailpitbe mennek.
-- A csapat felülete (dashboard) és a csapatnak küldött értesítések csak magyarul érhetők el (az ügyfél felé a widget és a levelek magyarul és angolul is mennek).
+- A bemutató oldal (landing) csak magyarul érhető el; a szerver néhány hibaüzenete (pl. az API `detail` mezője) magyar.
 
 ## Felépítés
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Code, CopyButton, Group, Image, Modal, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
 import QRCode from 'qrcode';
 import { api, ApiError, type User } from './api';
+import { t } from './i18n';
 
 /**
  * A kétlépcsős belépés (hitelesítő alkalmazás, TOTP) kezelése: bekapcsolás QR-kóddal és megerősítő kóddal, egyszeri
@@ -43,7 +44,7 @@ export function TwoFactorModal({
       const s = await api.twoFactor.setup();
       setSetup({ secret: s.secret, qr: await QRCode.toDataURL(s.otpauthUri, { margin: 1, width: 220 }) });
     } catch {
-      setError('A beállítás indítása nem sikerült.');
+      setError(t('A beállítás indítása nem sikerült.'));
     } finally {
       setBusy(false);
     }
@@ -61,10 +62,10 @@ export function TwoFactorModal({
     } catch (e) {
       setError(
         e instanceof ApiError && e.status === 400
-          ? 'Hibás kód. Ellenőrizd, hogy az alkalmazás aktuális, 6 jegyű kódját írtad be.'
+          ? t('Hibás kód. Ellenőrizd, hogy az alkalmazás aktuális, 6 jegyű kódját írtad be.')
           : e instanceof ApiError && e.status === 429
-            ? 'Túl sok próbálkozás. Várj egy percet.'
-            : 'A bekapcsolás nem sikerült.',
+            ? t('Túl sok próbálkozás. Várj egy percet.')
+            : t('A bekapcsolás nem sikerült.'),
       );
     } finally {
       setBusy(false);
@@ -82,12 +83,12 @@ export function TwoFactorModal({
     } catch (e) {
       setError(
         e instanceof ApiError && e.status === 403
-          ? 'Hibás jelszó.'
+          ? t('Hibás jelszó.')
           : e instanceof ApiError && e.status === 400
-            ? 'Hibás kód.'
+            ? t('Hibás kód.')
             : e instanceof ApiError && e.status === 429
-              ? 'Túl sok próbálkozás. Várj egy percet.'
-              : 'A kikapcsolás nem sikerült.',
+              ? t('Túl sok próbálkozás. Várj egy percet.')
+              : t('A kikapcsolás nem sikerült.'),
       );
     } finally {
       setBusy(false);
@@ -95,17 +96,14 @@ export function TwoFactorModal({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Kétlépcsős belépés" centered>
+    <Modal opened={opened} onClose={onClose} title={t('Kétlépcsős belépés')} centered>
       <Stack>
         {recovery ? (
           <>
-            <Alert color="green" title="Bekapcsolva">
-              Mostantól belépéskor a jelszó mellett a hitelesítő alkalmazás kódját is meg kell adni.
-            </Alert>
+            <Alert color="green" title={t('Bekapcsolva')}>
+              {t('Mostantól belépéskor a jelszó mellett a hitelesítő alkalmazás kódját is meg kell adni.')}</Alert>
             <Text size="sm">
-              <b>Mentsd el a helyreállító kódokat</b> biztonságos helyre. Ha elveszted a telefonod, ezekkel léphetsz be.
-              Mindegyik csak egyszer használható, és később nem jeleníthetők meg újra.
-            </Text>
+              <b>{t('Mentsd el a helyreállító kódokat')}</b> {t('biztonságos helyre. Ha elveszted a telefonod, ezekkel léphetsz be. Mindegyik csak egyszer használható, és később nem jeleníthetők meg újra.')}</Text>
             <Group gap="xs">
               {recovery.map((c) => (
                 <Code key={c}>{c}</Code>
@@ -114,39 +112,37 @@ export function TwoFactorModal({
             <CopyButton value={recovery.join('\n')}>
               {({ copied, copy }) => (
                 <Button variant="light" onClick={copy}>
-                  {copied ? 'Másolva' : 'Kódok másolása'}
+                  {copied ? t('Másolva') : t('Kódok másolása')}
                 </Button>
               )}
             </CopyButton>
-            <Button onClick={onClose}>Kész, elmentettem</Button>
+            <Button onClick={onClose}>{t('Kész, elmentettem')}</Button>
           </>
         ) : user.twoFactorEnabled ? (
           <>
-            <Alert color="green">A kétlépcsős belépés be van kapcsolva.</Alert>
-            <Text size="sm">A kikapcsoláshoz add meg a jelszavad és egy kódot (hitelesítő alkalmazásé vagy helyreállító).</Text>
-            <PasswordInput label="Jelszó" value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoComplete="current-password" />
-            <TextInput label="Kód" value={code} onChange={(e) => setCode(e.currentTarget.value)} autoComplete="one-time-code" />
+            <Alert color="green">{t('A kétlépcsős belépés be van kapcsolva.')}</Alert>
+            <Text size="sm">{t('A kikapcsoláshoz add meg a jelszavad és egy kódot (hitelesítő alkalmazásé vagy helyreállító).')}</Text>
+            <PasswordInput label={t('Jelszó')} value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoComplete="current-password" />
+            <TextInput label={t('Kód')} value={code} onChange={(e) => setCode(e.currentTarget.value)} autoComplete="one-time-code" />
             {error && (
               <Alert color="red" role="alert">
                 {error}
               </Alert>
             )}
             <Button color="red" variant="light" loading={busy} disabled={password === '' || code.trim() === ''} onClick={disable}>
-              Kikapcsolás
-            </Button>
+              {t('Kikapcsolás')}</Button>
           </>
         ) : setup ? (
           <>
             <Text size="sm">
-              1. Olvasd be a QR-kódot egy hitelesítő alkalmazással (pl. Google Authenticator, Authy, 1Password).
-            </Text>
-            <Image src={setup.qr} alt="QR-kód a hitelesítő alkalmazáshoz" w={220} h={220} style={{ alignSelf: 'center' }} />
+              {t('1. Olvasd be a QR-kódot egy hitelesítő alkalmazással (pl. Google Authenticator, Authy, 1Password).')}</Text>
+            <Image src={setup.qr} alt={t('QR-kód a hitelesítő alkalmazáshoz')} w={220} h={220} style={{ alignSelf: 'center' }} />
             <Text size="xs" c="dimmed" ta="center">
-              Ha nem tudod beolvasni, írd be a kulcsot kézzel: <Code>{setup.secret}</Code>
+              {t('Ha nem tudod beolvasni, írd be a kulcsot kézzel:')}{' '}<Code>{setup.secret}</Code>
             </Text>
-            <Text size="sm">2. Írd be az alkalmazás által mutatott 6 jegyű kódot a megerősítéshez.</Text>
+            <Text size="sm">{t('2. Írd be az alkalmazás által mutatott 6 jegyű kódot a megerősítéshez.')}</Text>
             <TextInput
-              label="Kód"
+              label={t('Kód')}
               placeholder="123456"
               inputMode="numeric"
               maxLength={6}
@@ -162,27 +158,22 @@ export function TwoFactorModal({
             )}
             <Group justify="flex-end">
               <Button variant="default" onClick={() => setSetup(null)}>
-                Mégse
-              </Button>
+                {t('Mégse')}</Button>
               <Button loading={busy} disabled={!/^\d{6}$/.test(code.trim())} onClick={enable}>
-                Bekapcsolás
-              </Button>
+                {t('Bekapcsolás')}</Button>
             </Group>
           </>
         ) : (
           <>
             <Text size="sm">
-              A kétlépcsős belépés extra védelmet ad: a jelszón kívül egy, a telefonod hitelesítő alkalmazásában
-              megjelenő 6 jegyű kódot is meg kell adni belépéskor. Így a jelszó ellopása önmagában nem elég.
-            </Text>
+              {t('A kétlépcsős belépés extra védelmet ad: a jelszón kívül egy, a telefonod hitelesítő alkalmazásában megjelenő 6 jegyű kódot is meg kell adni belépéskor. Így a jelszó ellopása önmagában nem elég.')}</Text>
             {error && (
               <Alert color="red" role="alert">
                 {error}
               </Alert>
             )}
             <Button loading={busy} onClick={start}>
-              Bekapcsolás
-            </Button>
+              {t('Bekapcsolás')}</Button>
           </>
         )}
       </Stack>

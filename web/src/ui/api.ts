@@ -1,9 +1,11 @@
+import { currentLang } from './i18n';
 export interface User {
   id: number;
   email: string;
   name: string;
   /** E-mail értesítés új visszajelzésről */
   notifyEmail: boolean;
+  lang: 'hu' | 'en';
   /** Az e-mail-cím megerősítve (regisztrációkor levélben kapott linkkel). */
   emailVerified: boolean;
   /** Összefoglaló e-mail gyakorisága. */
@@ -227,7 +229,7 @@ export const api = {
   async register(email: string, password: string, name: string): Promise<User> {
     const r = await request<AuthResponse>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, name, lang: currentLang() }),
     });
     setToken(r.token);
     return r.user;
@@ -404,6 +406,7 @@ export const api = {
     setDigest: (frequency: 'OFF' | 'DAILY' | 'WEEKLY') =>
       request<User>('/api/me/digest', { method: 'PATCH', body: JSON.stringify({ frequency }) }),
     /** Az e-mail értesítések be- és kikapcsolása. */
+    setLang: (lang: 'hu' | 'en') => request<User>('/api/me', { method: 'PATCH', body: JSON.stringify({ lang }) }),
     setNotifyEmail: (notifyEmail: boolean) =>
       request<User>('/api/me', { method: 'PATCH', body: JSON.stringify({ notifyEmail }) }),
     /** Fiók törlése a jelszóval megerősítve: a saját projektek is törlődnek. Nem visszavonható. */

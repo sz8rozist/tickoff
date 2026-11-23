@@ -36,6 +36,8 @@ export const users = mysqlTable('users', {
   emailVerifySentAt: ts('email_verify_sent_at'),
   /** OFF, DAILY vagy WEEKLY. */
   digestFrequency: varchar('digest_frequency', { length: 10 }).notNull().default('OFF'),
+  /** A felület és a csapatnak küldött levelek nyelve: hu vagy en. */
+  lang: varchar('lang', { length: 2 }).notNull().default('hu'),
   digestLastSentAt: ts('digest_last_sent_at'),
   totpSecret: varchar('totp_secret', { length: 64 }),
   totpEnabledAt: ts('totp_enabled_at'),

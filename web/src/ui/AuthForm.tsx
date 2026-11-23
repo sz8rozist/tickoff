@@ -3,36 +3,37 @@ import { Alert, Anchor, Button, PasswordInput, Stack, Text, TextInput, Title } f
 import { useForm } from '@mantine/form';
 import { api, ApiError, type User } from './api';
 import { PATH_LOGIN, PATH_REGISTER } from './route';
+import { t } from './i18n';
 
 type Mode = 'login' | 'register' | 'forgot';
 
 function errorMessage(e: unknown, mode: Mode): string {
   if (e instanceof ApiError) {
-    if (e.status === 401) return 'Hibás e-mail vagy jelszó.';
-    if (e.status === 409) return 'Ezzel az e-mail címmel már van fiók.';
-    if (e.status === 403 && mode === 'register') return 'A regisztráció jelenleg le van tiltva.';
-    if (e.status === 429) return 'Túl sok próbálkozás. Várj egy percet, és próbáld újra.';
+    if (e.status === 401) return t('Hibás e-mail vagy jelszó.');
+    if (e.status === 409) return t('Ezzel az e-mail címmel már van fiók.');
+    if (e.status === 403 && mode === 'register') return t('A regisztráció jelenleg le van tiltva.');
+    if (e.status === 429) return t('Túl sok próbálkozás. Várj egy percet, és próbáld újra.');
     if (e.status === 400)
       return mode === 'register'
-        ? 'Ellenőrizd az adatokat: érvényes e-mail és legalább 8 karakteres jelszó kell.'
+        ? t('Ellenőrizd az adatokat: érvényes e-mail és legalább 8 karakteres jelszó kell.')
         : mode === 'forgot'
-          ? 'Adj meg egy érvényes e-mail címet.'
-          : 'Add meg az e-mail címet és a jelszót.';
+          ? t('Adj meg egy érvényes e-mail címet.')
+          : t('Add meg az e-mail címet és a jelszót.');
   }
-  return 'A szerver nem elérhető, próbáld újra később.';
+  return t('A szerver nem elérhető, próbáld újra később.');
 }
 
-const TITLES: Record<Mode, string> = {
-  login: 'Üdv újra!',
-  register: 'Fiók létrehozása',
-  forgot: 'Elfelejtett jelszó',
-};
+const TITLES = (): Record<Mode, string> => ({
+  login: t('Üdv újra!'),
+  register: t('Fiók létrehozása'),
+  forgot: t('Elfelejtett jelszó'),
+});
 
-const SUBTITLES: Record<Mode, string> = {
-  login: 'Lépj be, és nézd meg, mi érkezett az ügyfeleidtől.',
-  register: 'Pár perc, és az első ügyfeled már küldheti a visszajelzéseit.',
-  forgot: 'Küldünk egy linket, amivel új jelszót adhatsz meg.',
-};
+const SUBTITLES = (): Record<Mode, string> => ({
+  login: t('Lépj be, és nézd meg, mi érkezett az ügyfeleidtől.'),
+  register: t('Pár perc, és az első ügyfeled már küldheti a visszajelzéseit.'),
+  forgot: t('Küldünk egy linket, amivel új jelszót adhatsz meg.'),
+});
 
 export function AuthForm({
   onAuth,
@@ -56,15 +57,15 @@ export function AuthForm({
   const form = useForm({
     initialValues: { name: '', email: '', password: '' },
     validate: {
-      name: (v) => (mode === 'register' && v.trim() === '' ? 'A név kötelező' : null),
-      email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : 'Érvényes e-mail címet adj meg'),
+      name: (v) => (mode === 'register' && v.trim() === '' ? t('A név kötelező') : null),
+      email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : t('Érvényes e-mail címet adj meg')),
       password: (v) =>
         mode === 'forgot'
           ? null
           : mode === 'register' && v.length < 8
-            ? 'Legalább 8 karakter kell'
+            ? t('Legalább 8 karakter kell')
             : v === ''
-              ? 'A jelszó kötelező'
+              ? t('A jelszó kötelező')
               : null,
     },
   });
@@ -105,11 +106,11 @@ export function AuthForm({
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         // A kihívás 5 percig érvényes: ha lejárt, újra kell kezdeni a jelszóval
-        setError('Hibás kód, vagy lejárt a belépési kísérlet. Próbáld újra, szükség esetén a jelszóval elölről.');
+        setError(t('Hibás kód, vagy lejárt a belépési kísérlet. Próbáld újra, szükség esetén a jelszóval elölről.'));
       } else if (err instanceof ApiError && err.status === 429) {
-        setError('Túl sok próbálkozás. Várj egy percet, és próbáld újra.');
+        setError(t('Túl sok próbálkozás. Várj egy percet, és próbáld újra.'));
       } else {
-        setError('A szerver nem elérhető, próbáld újra később.');
+        setError(t('A szerver nem elérhető, próbáld újra később.'));
       }
     } finally {
       setBusy(false);
@@ -129,16 +130,14 @@ export function AuthForm({
     return (
       <div>
         <Title order={1} className="auth-title">
-          Második lépés
-        </Title>
+          {t('Második lépés')}</Title>
         <Text c="dimmed" mt={6} mb="xl">
-          Add meg a hitelesítő alkalmazásod 6 jegyű kódját. Ha nincs nálad a telefon, használhatsz helyreállító kódot.
-        </Text>
+          {t('Add meg a hitelesítő alkalmazásod 6 jegyű kódját. Ha nincs nálad a telefon, használhatsz helyreállító kódot.')}</Text>
         <form onSubmit={submitCode}>
           <Stack gap="md">
             <TextInput
               size="md"
-              label="Kód"
+              label={t('Kód')}
               placeholder="123456"
               value={code}
               onChange={(e) => setCode(e.currentTarget.value)}
@@ -154,8 +153,7 @@ export function AuthForm({
               </Alert>
             )}
             <Button type="submit" size="md" fullWidth loading={busy} disabled={code.trim() === ''}>
-              Belépés
-            </Button>
+              {t('Belépés')}</Button>
             <Text size="sm" ta="center">
               <Anchor
                 component="button"
@@ -166,8 +164,7 @@ export function AuthForm({
                   setError(null);
                 }}
               >
-                Vissza
-              </Anchor>
+                {t('Vissza')}</Anchor>
             </Text>
           </Stack>
         </form>
@@ -178,24 +175,21 @@ export function AuthForm({
   return (
     <div>
       <Title order={1} className="auth-title">
-        {TITLES[mode]}
+        {TITLES()[mode]}
       </Title>
       <Text c="dimmed" mt={6} mb="xl">
-        {SUBTITLES[mode]}
+        {SUBTITLES()[mode]}
       </Text>
 
       <form onSubmit={form.onSubmit(submit)}>
         <Stack gap="md">
           {mode === 'forgot' && reminderSent ? (
             <>
-              <Alert color="green" role="status" title="Elküldtük">
-                Ha van ilyen fiók, elküldtük a jelszó-visszaállító linket. A levél pár percen belül megérkezik, a link
-                egy óráig érvényes.
-              </Alert>
+              <Alert color="green" role="status" title={t('Elküldtük')}>
+                {t('Ha van ilyen fiók, elküldtük a jelszó-visszaállító linket. A levél pár percen belül megérkezik, a link egy óráig érvényes.')}</Alert>
               <Text size="sm" ta="center">
                 <Anchor component="button" type="button" onClick={() => switchTo('login')}>
-                  Vissza a belépéshez
-                </Anchor>
+                  {t('Vissza a belépéshez')}</Anchor>
               </Text>
             </>
           ) : (
@@ -203,8 +197,8 @@ export function AuthForm({
               {mode === 'register' && (
                 <TextInput
                   size="md"
-                  label="Név"
-                  placeholder="Kovács Anna"
+                  label={t('Név')}
+                  placeholder={t('Kovács Anna')}
                   maxLength={120}
                   autoComplete="name"
                   {...form.getInputProps('name')}
@@ -212,16 +206,16 @@ export function AuthForm({
               )}
               <TextInput
                 size="md"
-                label="E-mail"
-                placeholder="te@ceged.hu"
+                label={t('E-mail')}
+                placeholder={t('te@ceged.hu')}
                 autoComplete="email"
                 {...form.getInputProps('email')}
               />
               {mode !== 'forgot' && (
                 <PasswordInput
                   size="md"
-                  label="Jelszó"
-                  description={mode === 'register' ? 'Legalább 8 karakter' : undefined}
+                  label={t('Jelszó')}
+                  description={mode === 'register' ? t('Legalább 8 karakter') : undefined}
                   maxLength={72}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   {...form.getInputProps('password')}
@@ -230,8 +224,7 @@ export function AuthForm({
               {mode === 'login' && (
                 <Text size="sm" ta="right" mt={-8}>
                   <Anchor component="button" type="button" onClick={() => switchTo('forgot')}>
-                    Elfelejtett jelszó
-                  </Anchor>
+                    {t('Elfelejtett jelszó')}</Anchor>
                 </Text>
               )}
               {error && (
@@ -240,21 +233,20 @@ export function AuthForm({
                 </Alert>
               )}
               <Button type="submit" size="md" fullWidth loading={busy}>
-                {mode === 'login' ? 'Belépés' : mode === 'register' ? 'Fiók létrehozása' : 'Link küldése'}
+                {mode === 'login' ? t('Belépés') : mode === 'register' ? t('Fiók létrehozása') : t('Link küldése')}
               </Button>
               {mode === 'register' && (
                 <Text size="xs" c="dimmed" ta="center">
-                  A regisztráció után e-mailben megerősítő linket küldünk a címedre.
-                </Text>
+                  {t('A regisztráció után e-mailben megerősítő linket küldünk a címedre.')}</Text>
               )}
               <Text size="sm" ta="center" c="dimmed">
-                {mode === 'login' ? 'Még nincs fiókod? ' : mode === 'register' ? 'Már van fiókod? ' : ''}
+                {mode === 'login' ? t('Még nincs fiókod? ') : mode === 'register' ? t('Már van fiókod? ') : ''}
                 <Anchor
                   component="button"
                   type="button"
                   onClick={() => switchTo(mode === 'register' ? 'login' : mode === 'forgot' ? 'login' : 'register')}
                 >
-                  {mode === 'login' ? 'Regisztrálj' : mode === 'register' ? 'Lépj be' : 'Vissza a belépéshez'}
+                  {mode === 'login' ? t('Regisztrálj') : mode === 'register' ? t('Lépj be') : t('Vissza a belépéshez')}
                 </Anchor>
               </Text>
             </>

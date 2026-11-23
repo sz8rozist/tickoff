@@ -22,13 +22,14 @@ import { fold, useDashboard } from './DashboardContext';
 import { saveBlob } from './download';
 import { WebhookModal } from './WebhookModal';
 import { WidgetAppearanceModal } from './WidgetAppearanceModal';
+import { t } from './i18n';
 
 function describe(e: unknown): string {
   if (e instanceof ApiError) {
-    if (e.status === 400) return 'Ellenőrizd az adatokat: a név kötelező, a címnek http:// vagy https://-sel kell kezdődnie.';
-    if (e.status === 404) return 'A projekt nem található (lehet, hogy közben törölték).';
+    if (e.status === 400) return t('Ellenőrizd az adatokat: a név kötelező, a címnek http:// vagy https://-sel kell kezdődnie.');
+    if (e.status === 404) return t('A projekt nem található (lehet, hogy közben törölték).');
   }
-  return 'Nem sikerült, próbáld újra később.';
+  return t('Nem sikerült, próbáld újra később.');
 }
 
 function ProjectForm({
@@ -48,8 +49,8 @@ function ProjectForm({
   const form = useForm({
     initialValues: { name: initial?.name ?? '', siteUrl: initial?.siteUrl ?? '' },
     validate: {
-      name: (v) => (v.trim() === '' ? 'A név kötelező' : null),
-      siteUrl: (v) => (/^https?:\/\/\S+$/.test(v.trim()) ? null : 'http:// vagy https:// kezdetű cím kell'),
+      name: (v) => (v.trim() === '' ? t('A név kötelező') : null),
+      siteUrl: (v) => (/^https?:\/\/\S+$/.test(v.trim()) ? null : t('http:// vagy https:// kezdetű cím kell')),
     },
   });
 
@@ -68,8 +69,8 @@ function ProjectForm({
   return (
     <form onSubmit={form.onSubmit(submit)}>
       <Stack gap="sm">
-        <TextInput label="Projekt neve" placeholder="Kávézó weboldal" maxLength={160} data-autofocus {...form.getInputProps('name')} />
-        <TextInput label="Az oldal címe" placeholder="https://staging.ugyfel.hu" maxLength={500} {...form.getInputProps('siteUrl')} />
+        <TextInput label={t('Projekt neve')} placeholder={t('Kávézó weboldal')} maxLength={160} data-autofocus {...form.getInputProps('name')} />
+        <TextInput label={t('Az oldal címe')} placeholder={t('https://staging.ugyfel.hu')} maxLength={500} {...form.getInputProps('siteUrl')} />
         {error && (
           <Alert color="red" role="alert">
             {error}
@@ -77,8 +78,7 @@ function ProjectForm({
         )}
         <Group justify="flex-end" mt="xs">
           <Button variant="default" onClick={onCancel}>
-            Mégse
-          </Button>
+            {t('Mégse')}</Button>
           <Button type="submit" loading={busy}>
             {submitLabel}
           </Button>
@@ -114,65 +114,58 @@ function Overview({ projects, onOpen }: { projects: Project[]; onOpen: (p: Proje
   return (
     <div className="bento">
       <div className="tile tile-wide">
-        <Text className="tile-label">Beérkezett visszajelzés</Text>
+        <Text className="tile-label">{t('Beérkezett visszajelzés')}</Text>
         <div className="tile-value">{total}</div>
-        <div className="stack-bar" role="img" aria-label={`${open} nyitott, ${inProgress} folyamatban, ${done} megoldott`}>
+        <div className="stack-bar" role="img" aria-label={t('{open} nyitott, {inProgress} folyamatban, {done} megoldott', { open: open, inProgress: inProgress, done: done })}>
           <span style={{ width: `${pct(open)}%`, background: 'var(--mantine-color-orange-5)' }} />
           <span style={{ width: `${pct(inProgress)}%`, background: 'var(--mantine-color-brand-6)' }} />
           <span style={{ width: `${pct(done)}%`, background: 'var(--mantine-color-green-6)' }} />
         </div>
         <Text size="xs" c="dimmed" mt={8}>
-          {projects.length} aktív projektben
-        </Text>
+          {projects.length} {t('aktív projektben')}</Text>
       </div>
       <div className="tile">
-        <Text className="tile-label">Nyitott</Text>
+        <Text className="tile-label">{t('Nyitott')}</Text>
         <div className="tile-value" style={{ color: open > 0 ? 'var(--mantine-color-orange-6)' : undefined }}>
           {open}
         </div>
         <Text size="xs" c="dimmed">
-          {projects.filter((p) => p.stats.open > 0).length} projektben
-        </Text>
+          {projects.filter((p) => p.stats.open > 0).length} {t('projektben')}</Text>
       </div>
       <div className="tile">
-        <Text className="tile-label">Folyamatban</Text>
+        <Text className="tile-label">{t('Folyamatban')}</Text>
         <div className="tile-value" style={{ color: 'var(--mantine-color-brand-6)' }}>
           {inProgress}
         </div>
         <Text size="xs" c="dimmed">
-          dolgozunk rajta
-        </Text>
+          {t('dolgozunk rajta')}</Text>
       </div>
       <div className="tile">
-        <Text className="tile-label">Megoldott</Text>
+        <Text className="tile-label">{t('Megoldott')}</Text>
         <div className="tile-value" style={{ color: 'var(--mantine-color-green-6)' }}>
           {done}
         </div>
         <Text size="xs" c="dimmed">
-          a nyitott körökben
-        </Text>
+          {t('a nyitott körökben')}</Text>
       </div>
       <div className="tile">
-        <Text className="tile-label">Jóváhagyott kör</Text>
+        <Text className="tile-label">{t('Jóváhagyott kör')}</Text>
         <div className="tile-value">{awaiting}</div>
         <Text size="xs" c="dimmed">
-          lezárásra vár
-        </Text>
+          {t('lezárásra vár')}</Text>
       </div>
       <div className="tile tile-wide">
-        <Text className="tile-label">Figyelmet igényel</Text>
+        <Text className="tile-label">{t('Figyelmet igényel')}</Text>
         {attention.length === 0 ? (
           <Text size="sm" c="dimmed" mt={8}>
-            Nincs nyitott visszajelzés. Minden rendben.
-          </Text>
+            {t('Nincs nyitott visszajelzés. Minden rendben.')}</Text>
         ) : (
           <Stack gap={4} mt={6}>
             {attention.map((p) => (
               <button key={p.id} type="button" className="attention-row" onClick={() => onOpen(p)}>
                 <span className="attention-name">{p.name}</span>
                 <Badge size="sm" variant="light" color="orange">
-                  {p.stats.open} nyitott
-                </Badge>
+                  {p.stats.open} {t('nyitott')}</Badge>
               </button>
             ))}
           </Stack>
@@ -186,8 +179,7 @@ function StatChips({ stats }: { stats: Project['stats'] }) {
   if (stats.roundNumber === null) {
     return (
       <Text size="xs" c="dimmed">
-        Nincs nyitott kör.
-      </Text>
+        {t('Nincs nyitott kör.')}</Text>
     );
   }
   const total = stats.open + stats.inProgress + stats.done;
@@ -195,29 +187,23 @@ function StatChips({ stats }: { stats: Project['stats'] }) {
     <Stack gap={8}>
       <Group gap={6}>
         <Badge variant="outline" color="gray" size="sm">
-          {stats.roundNumber}. kör
-        </Badge>
+          {stats.roundNumber}{t('. kör')}</Badge>
         {total === 0 ? (
           <Text size="xs" c="dimmed">
-            még nincs komment
-          </Text>
+            {t('még nincs komment')}</Text>
         ) : (
           <>
             <Badge variant="light" color="orange" size="sm">
-              {stats.open} nyitott
-            </Badge>
+              {stats.open} {t('nyitott')}</Badge>
             <Badge variant="light" color="brand" size="sm">
-              {stats.inProgress} folyamatban
-            </Badge>
+              {stats.inProgress} {t('folyamatban')}</Badge>
             <Badge variant="light" color="green" size="sm">
-              {stats.done} kész
-            </Badge>
+              {stats.done} {t('kész')}</Badge>
           </>
         )}
         {stats.approved && (
           <Badge color="green" variant="filled" size="sm">
-            ✓ jóváhagyva
-          </Badge>
+            {t('✓ jóváhagyva')}</Badge>
         )}
       </Group>
       {total > 0 && (
@@ -306,7 +292,7 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
       const { blob, filename } = await api.comments.exportCsv(p.id);
       saveBlob(blob, filename);
     } catch {
-      setActionError('Az export nem sikerült, próbáld újra később.');
+      setActionError(t('Az export nem sikerült, próbáld újra később.'));
     }
   }
 
@@ -334,12 +320,12 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
     <Stack gap="lg">
       <Group justify="space-between" align="center">
         <div>
-          <Title order={2}>Projektek</Title>
+          <Title order={2}>{t('Projektek')}</Title>
           <Text size="sm" c="dimmed">
-            {projects ? `${projects.filter((p) => p.archivedAt === null).length} aktív projekt` : 'Betöltés…'}
+            {projects ? t('{length} aktív projekt', { length: projects.filter((p) => p.archivedAt === null).length }) : t('Betöltés…')}
           </Text>
         </div>
-        <Button onClick={() => openForm('new')}>Új projekt</Button>
+        <Button onClick={() => openForm('new')}>{t('Új projekt')}</Button>
       </Group>
 
       {actionError && (
@@ -349,8 +335,7 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
       )}
       {loadError && (
         <Alert color="red" role="alert">
-          A projektek betöltése nem sikerült.
-        </Alert>
+          {t('A projektek betöltése nem sikerült.')}</Alert>
       )}
 
       {projects && projects.some((p) => p.archivedAt === null) && (
@@ -361,23 +346,21 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
         <Switch
           checked={showArchived}
           onChange={(e) => setShowArchived(e.currentTarget.checked)}
-          label={`Archivált projektek mutatása (${archivedCount})`}
+          label={t('Archivált projektek mutatása ({archivedCount})', { archivedCount: archivedCount })}
         />
       )}
 
       {projects && projects.length === 0 && (
         <div className="empty">
-          <Text fw={600}>Még nincs projekted</Text>
+          <Text fw={600}>{t('Még nincs projekted')}</Text>
           <Text size="sm" c="dimmed" mb="sm">
-            Hozd létre az elsőt, és add át az ügyfélnek a megosztó tokent.
-          </Text>
-          <Button onClick={() => openForm('new')}>Első projekt létrehozása</Button>
+            {t('Hozd létre az elsőt, és add át az ügyfélnek a megosztó tokent.')}</Text>
+          <Button onClick={() => openForm('new')}>{t('Első projekt létrehozása')}</Button>
         </div>
       )}
       {projects && projects.length > 0 && visible.length === 0 && (
         <Text size="sm" c="dimmed">
-          Nincs a keresésnek megfelelő projekt.
-        </Text>
+          {t('Nincs a keresésnek megfelelő projekt.')}</Text>
       )}
 
       <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="md">
@@ -397,8 +380,7 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
                         </Title>
                         {p.archivedAt && (
                           <Badge color="gray" variant="light" size="sm">
-                            archivált
-                          </Badge>
+                            {t('archivált')}</Badge>
                         )}
                       </Group>
                       <Anchor href={p.siteUrl} target="_blank" rel="noopener noreferrer" size="xs" c="dimmed" lineClamp={1}>
@@ -409,23 +391,22 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
                   {p.role === 'OWNER' ? (
                     <Menu position="bottom-end" withinPortal>
                       <Menu.Target>
-                        <ActionIcon variant="subtle" color="gray" size="md" aria-label={`${p.name} műveletei`}>
+                        <ActionIcon variant="subtle" color="gray" size="md" aria-label={t('{name} műveletei', { name: p.name })}>
                           <DotsIcon />
                         </ActionIcon>
                       </Menu.Target>
                       <Menu.Dropdown>
-                        <Menu.Item onClick={() => openForm(p)}>Szerkesztés</Menu.Item>
-                        <Menu.Item onClick={() => void exportAll(p)}>Összes komment (CSV)</Menu.Item>
+                        <Menu.Item onClick={() => openForm(p)}>{t('Szerkesztés')}</Menu.Item>
+                        <Menu.Item onClick={() => void exportAll(p)}>{t('Összes komment (CSV)')}</Menu.Item>
                         <Menu.Item
                           onClick={() => {
                             setRegenerating(p);
                             setRegenerateOpen(true);
                           }}
                         >
-                          Új token generálása
-                        </Menu.Item>
+                          {t('Új token generálása')}</Menu.Item>
                         <Menu.Item onClick={() => void toggleArchive(p)}>
-                          {p.archivedAt ? 'Visszaállítás az aktívak közé' : 'Archiválás'}
+                          {p.archivedAt ? t('Visszaállítás az aktívak közé') : t('Archiválás')}
                         </Menu.Item>
                         <Menu.Item
                           onClick={() => {
@@ -433,15 +414,14 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
                             setAppearanceOpen(true);
                           }}
                         >
-                          A widget megjelenése és nyelve
-                        </Menu.Item>
+                          {t('A widget megjelenése és nyelve')}</Menu.Item>
                         <Menu.Item
                           onClick={() => {
                             setWebhookFor(p);
                             setWebhookOpen(true);
                           }}
                         >
-                          Webhook (Slack, Discord){p.webhookUrl ? ' ✓' : ''}
+                          {t('Webhook (Slack, Discord)')}{p.webhookUrl ? ' ✓' : ''}
                         </Menu.Item>
                         <Menu.Divider />
                         <Menu.Item
@@ -451,14 +431,12 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
                             setDeleteOpen(true);
                           }}
                         >
-                          Projekt törlése
-                        </Menu.Item>
+                          {t('Projekt törlése')}</Menu.Item>
                       </Menu.Dropdown>
                     </Menu>
                   ) : (
-                    <Badge variant="light" color="gray" size="sm" title={`Tulajdonos: ${p.ownerName}`}>
-                      meghívott tag
-                    </Badge>
+                    <Badge variant="light" color="gray" size="sm" title={t('Tulajdonos: {ownerName}', { ownerName: p.ownerName })}>
+                      {t('meghívott tag')}</Badge>
                   )}
                 </Group>
                 <StatChips stats={p.stats} />
@@ -466,14 +444,13 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
               <Group justify="space-between" align="center">
                 {p.role === 'MEMBER' ? (
                   <Text size="xs" c="dimmed">
-                    Tulajdonos: {p.ownerName}
+                    {t('Tulajdonos:')}{' '}{p.ownerName}
                   </Text>
                 ) : (
                   <span />
                 )}
                 <Button size="compact-sm" variant="light" onClick={() => open(p)}>
-                  Megnyitás
-                </Button>
+                  {t('Megnyitás')}</Button>
               </Group>
             </Stack>
           </Card>
@@ -483,13 +460,13 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
       <Modal
         opened={formOpen}
         onClose={() => setFormOpen(false)}
-        title={formFor === 'new' || formFor === null ? 'Új projekt' : 'Projekt szerkesztése'}
+        title={formFor === 'new' || formFor === null ? t('Új projekt') : t('Projekt szerkesztése')}
         centered
       >
         {formOpen && (
           <ProjectForm
             initial={formFor === 'new' || formFor === null ? undefined : formFor}
-            submitLabel={formFor === 'new' || formFor === null ? 'Projekt létrehozása' : 'Mentés'}
+            submitLabel={formFor === 'new' || formFor === null ? t('Projekt létrehozása') : t('Mentés')}
             onSubmit={saveForm}
             onCancel={() => setFormOpen(false)}
           />
@@ -510,37 +487,28 @@ export function ProjectsPage({ onOpenProject }: { onOpenProject: () => void }) {
         onChanged={(updated) => setProjects((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null)}
       />
 
-      <Modal opened={regenerateOpen} onClose={() => setRegenerateOpen(false)} title="Új megosztó token" centered>
+      <Modal opened={regenerateOpen} onClose={() => setRegenerateOpen(false)} title={t('Új megosztó token')} centered>
         <Stack>
           <Text size="sm">
-            Új tokent generálsz a(z) „{regenerating?.name}” projekthez. A <b>régi token azonnal érvénytelen</b>, ezért a
-            vele beágyazott widgetek leállnak, amíg az ügyfél oldalába be nem írod az újat. A már beküldött kommentek
-            megmaradnak.
-          </Text>
+            {t('Új tokent generálsz a(z) „')}{regenerating?.name}{t('” projekthez. A')}{' '}<b>{t('régi token azonnal érvénytelen')}</b>{t(', ezért a vele beágyazott widgetek leállnak, amíg az ügyfél oldalába be nem írod az újat. A már beküldött kommentek megmaradnak.')}</Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setRegenerateOpen(false)}>
-              Mégse
-            </Button>
+              {t('Mégse')}</Button>
             <Button color="orange" loading={regenerateBusy} onClick={confirmRegenerate}>
-              Új token generálása
-            </Button>
+              {t('Új token generálása')}</Button>
           </Group>
         </Stack>
       </Modal>
 
-      <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title="Projekt törlése" centered>
+      <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title={t('Projekt törlése')} centered>
         <Stack>
           <Text size="sm">
-            Biztosan törlöd a(z) „{deleting?.name}” projektet? A körei és kommentjei is törlődnek, és a meghívott
-            tagok számára is megszűnik. Ez nem vonható vissza.
-          </Text>
+            {t('Biztosan törlöd a(z) „')}{deleting?.name}{t('” projektet? A körei és kommentjei is törlődnek, és a meghívott tagok számára is megszűnik. Ez nem vonható vissza.')}</Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setDeleteOpen(false)}>
-              Mégse
-            </Button>
+              {t('Mégse')}</Button>
             <Button color="red" loading={deleteBusy} onClick={confirmDelete}>
-              Törlés
-            </Button>
+              {t('Törlés')}</Button>
           </Group>
         </Stack>
       </Modal>
